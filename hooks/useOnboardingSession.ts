@@ -32,7 +32,15 @@ export interface OnboardingDraft {
   radiusKm?: number;
 }
 
+export interface EmailVerificationState {
+  code?: string;
+  otpStatus?: 'idle' | 'sending' | 'sent' | 'verifying' | 'verified' | 'error';
+  otpError?: string | null;
+  cooldownExpireAt?: number | null;
+}
+
 const STORAGE_KEY = 'bf_restaurant_onboarding_draft';
+const OTP_STORAGE_KEY = 'bf_restaurant_otp_state';
 
 function readDraft(): OnboardingDraft {
   if (typeof window === 'undefined') return {};
@@ -44,17 +52,32 @@ function readDraft(): OnboardingDraft {
   }
 }
 
+function readOtpState(): EmailVerificationState {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(OTP_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
 /**
  * Tracks in-progress onboarding step + form draft.
  * This is local-only scratch state for a form the user hasn't submitted yet —
  * the actual restaurant record is created server-side once payment (final step) completes.
+ * 
+ * FIX 5: Extended to also track OTP verification state (code, status, cooldown)
+ * so it persists across tab switches and component remounts.
  */
 export default function useOnboardingSession() {
   const [draft, setDraft] = useState<OnboardingDraft>({});
+  const [otpState, setOtpState] = useState<EmailVerificationState>({});
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     setDraft(readDraft());
+    setOtpState(readOtpState());
     setHydrated(true);
   }, []);
 
@@ -70,14 +93,37 @@ export default function useOnboardingSession() {
     });
   }, []);
 
+  const updateOtpState = useCallback((patch: Partial<EmailVerificationState>) => {
+    setOtpState((prev) => {
+      const next = { ...prev, ...patch };
+      try {
+        window.localStorage.setItem(OTP_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // storage unavailable — state still works for this session via state
+      }
+      return next;
+    });
+  }, []);
+
   const clearDraft = useCallback(() => {
     try {
       window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(OTP_STORAGE_KEY);
     } catch {
       // ignore
     }
     setDraft({});
+    setOtpState({});
   }, []);
 
-  return { draft, updateDraft, clearDraft, hydrated };
+  const clearOtpState = useCallback(() => {
+    try {
+      window.localStorage.removeItem(OTP_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+    setOtpState({});
+  }, []);
+
+  return { draft, updateDraft, clearDraft, otpState, updateOtpState, clearOtpState, hydrated };
 }
