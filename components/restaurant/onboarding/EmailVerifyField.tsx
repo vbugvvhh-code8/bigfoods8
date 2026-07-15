@@ -9,10 +9,11 @@ interface EmailVerifyFieldProps {
   phone?: string;
   verified: boolean;
   onVerified: () => void;
+  purpose?: 'customer_signup' | 'restaurant_signup' | 'rider_signup';
 }
 
-export default function EmailVerifyField({ email, fullName, phone, verified, onVerified }: EmailVerifyFieldProps) {
-  const { status, error, cooldown, sendCode, verifyCode } = useEmailVerification(email, fullName, phone);
+export default function EmailVerifyField({ email, fullName, phone, verified, onVerified, purpose }: EmailVerifyFieldProps) {
+  const { status, error, cooldown, sendCode, verifyCode } = useEmailVerification(email, fullName, phone, purpose);
   const [code, setCode] = useState('');
 
   const codeVisible = status === 'sent' || status === 'verifying' || (status === 'error' && code.length > 0);

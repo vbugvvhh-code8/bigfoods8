@@ -3,11 +3,25 @@
 // (audit_log, disputes, announcements, etc.) are intentionally omitted —
 // that's the admin session's schema to maintain.
 //
-// Updated: orders gained customer_id/delivery_address/delivery_lat/delivery_lng/
-// delivery_code/tip_amount (customer-order backend work). email_otp_codes was
-// dropped entirely and replaced by email_verification_codes — the OTP system
-// was unified across all three portals (customer/restaurant/rider all share
-// send-email-otp / verify-email-otp now, purpose field distinguishes them).
+// RECONCILED VERSION — merged from two parallel updates:
+//  1) Customer-order backend work: orders gained customer_id/delivery_address/
+//     delivery_lat/delivery_lng/delivery_code/tip_amount. email_otp_codes was
+//     dropped entirely and replaced by email_verification_codes (shared across
+//     customer/restaurant/rider portals via send-email-otp / verify-email-otp,
+//     `purpose` field distinguishes them).
+//  2) Rider portal work: riders gained plate_number/strikes/profile_id,
+//     transactions gained rider_id, orders gained cancelled_by, and a new
+//     `payouts` table (rider payouts, parallel to restaurant_payouts) was added.
+//
+// ⚠️ UNVERIFIED — CONFIRM WITH RIDER-PORTAL DEV BEFORE TRUSTING:
+// riders.profile_id — the customer-order-work version of this file explicitly
+// flagged riders as having NO auth/profile link yet ("known flagged gap, not
+// something to build against until it actually exists"). The rider-portal
+// version has profile_id live as a real column. One of these is wrong — either
+// the migration shipped and the old note is stale, or someone is building
+// against a column that isn't there. I could not verify against live Supabase
+// (the connected project in this session is a different app entirely, not
+// bigfoods) — check the actual DB or ask directly before relying on this field.
 
 export interface Database {
   public: {
@@ -52,6 +66,7 @@ export interface Database {
           id: string;
           name: string;
           vehicle_type: string | null;
+          plate_number: string | null;
           zone: string | null;
           status: string | null;
           is_seed_data: boolean;
@@ -60,10 +75,10 @@ export interface Database {
           lat: number | null;
           lng: number | null;
           last_location_update: string | null;
-          // NOT a real column yet — riders have no auth/profile link at all
-          // currently. This is a known, flagged gap (see rider portal handoff),
-          // not something to build against until it actually exists.
-          // profile_id?: string;
+          strikes: number;
+          // ⚠️ UNVERIFIED — see file-level note at top. Confirm this column
+          // actually exists on the live table before shipping code against it.
+          profile_id: string | null;
         };
         Insert: Partial<Database['public']['Tables']['riders']['Row']> & { name: string };
         Update: Partial<Database['public']['Tables']['riders']['Row']>;
@@ -101,6 +116,7 @@ export interface Database {
           created_at: string | null;
           is_seed_data: boolean;
           restaurant_id: string | null;
+          rider_id: string | null;
           reference: string | null;
           status: string | null;
         };
@@ -161,6 +177,23 @@ export interface Database {
         Insert: Partial<Database['public']['Tables']['restaurant_payouts']['Row']> & { amount: number };
         Update: Partial<Database['public']['Tables']['restaurant_payouts']['Row']>;
       };
+      // Rider-side counterpart to restaurant_payouts. Naming is asymmetric
+      // (restaurant_payouts vs payouts, not rider_payouts) — worth confirming
+      // with the rider-portal dev whether that's intentional or worth renaming
+      // for consistency before too much code references it.
+      payouts: {
+        Row: {
+          id: string;
+          rider_id: string | null;
+          amount: number;
+          status: string;
+          requested_at: string | null;
+          processed_at: string | null;
+          is_seed_data: boolean;
+        };
+        Insert: Partial<Database['public']['Tables']['payouts']['Row']> & { amount: number };
+        Update: Partial<Database['public']['Tables']['payouts']['Row']>;
+      };
       orders: {
         Row: {
           id: string;
@@ -180,6 +213,7 @@ export interface Database {
           placed_at: string;
           delivered_at: string | null;
           cancelled_at: string | null;
+          cancelled_by: string | null;
           delivery_minutes: number | null;
           is_seed_data: boolean;
         };
@@ -200,6 +234,10 @@ export interface Database {
       // Replaces the old email_otp_codes table (dropped — 0 rows existed,
       // no migration needed). Shared across all three portals now; `purpose`
       // is what distinguishes a customer signup code from a restaurant one.
+      // NOTE: the rider-portal file this was merged with still referenced the
+      // old email_otp_codes table — that was stale and has been removed here.
+      // rider_signup is not yet a valid `purpose` value; add it when the rider
+      // portal actually wires up its OTP flow.
       email_verification_codes: {
         Row: {
           id: string;
@@ -237,5 +275,6 @@ export type MenuItem = Database['public']['Tables']['menu_items']['Row'];
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type Promotion = Database['public']['Tables']['promotions']['Row'];
 export type RestaurantPayout = Database['public']['Tables']['restaurant_payouts']['Row'];
+export type Payout = Database['public']['Tables']['payouts']['Row'];
 export type Order = Database['public']['Tables']['orders']['Row'];
 export type EmailVerificationCode = Database['public']['Tables']['email_verification_codes']['Row'];

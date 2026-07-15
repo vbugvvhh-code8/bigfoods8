@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import getBrowserSupabase from '@/lib/supabase/client';
 
-type PaymentType = 'verification_fee' | 'promotion';
+type PaymentType = 'verification_fee' | 'promotion' | 'rider_verification_fee';
 type Status = 'idle' | 'starting' | 'redirecting' | 'verifying' | 'success' | 'error';
 
 export default function usePaystackPayment() {
