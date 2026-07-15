@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect } from 'react';
 import useEmailVerification from '@/hooks/useEmailVerification';
+import useOnboardingSession from '@/hooks/useOnboardingSession';
 
 interface EmailVerifyFieldProps {
   email: string;
@@ -14,14 +15,40 @@ interface EmailVerifyFieldProps {
 
 export default function EmailVerifyField({ email, fullName, phone, verified, onVerified, purpose }: EmailVerifyFieldProps) {
   const { status, error, cooldown, sendCode, verifyCode } = useEmailVerification(email, fullName, phone, purpose);
-  const [code, setCode] = useState('');
+  const { otpState, updateOtpState } = useOnboardingSession();
+  
+  // FIX 5: Use persisted code from onboarding session instead of local state
+  const code = otpState.code ?? '';
 
   const codeVisible = status === 'sent' || status === 'verifying' || (status === 'error' && code.length > 0);
   const emailValid = /\S+@\S+\.\S+/.test(email);
 
+  // FIX 6: Clear stale code and error when email changes
+  useEffect(() => {
+    // Store the email that was used for the current OTP request
+    const lastEmailForOtp = otpState.lastEmailForOtp;
+    
+    if (email && lastEmailForOtp && email !== lastEmailForOtp) {
+      // Email changed — clear code, error, and status
+      updateOtpState({ 
+        code: '', 
+        otpError: null, 
+        otpStatus: 'idle',
+        lastEmailForOtp: email 
+      });
+    } else if (email && !lastEmailForOtp) {
+      // First time setting the email
+      updateOtpState({ lastEmailForOtp: email });
+    }
+  }, [email, otpState, updateOtpState]);
+
   async function handleVerify() {
     const ok = await verifyCode(code);
-    if (ok) onVerified();
+    if (ok) {
+      onVerified();
+      // Clear OTP state on successful verification
+      updateOtpState({ code: '', otpStatus: 'verified', otpError: null });
+    }
   }
 
   if (verified) {
@@ -54,7 +81,7 @@ export default function EmailVerifyField({ email, fullName, phone, verified, onV
           <div className="flex gap-2">
             <input
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              onChange={(e) => updateOtpState({ code: e.target.value.replace(/\D/g, '').slice(0, 6) })}
               placeholder="6-digit code"
               inputMode="numeric"
               className="flex-1 px-3 py-2.5 rounded-[9px] text-[13px] outline-none tracking-widest"
