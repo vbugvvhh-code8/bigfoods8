@@ -1,0 +1,1 @@
+self.__NEXT_FONT_MANIFEST="{\"pages\":{},\"app\":{\"/home/vbugvvhh-code8/bigfoods8/app/layout\":[\"static/media/6c596dfcddeca1e9-s.p.woff2\",\"static/media/5a0c43ffa288c21a-s.p.woff2\"]},\"appUsingSizeAdjust\":true,\"pagesUsingSizeAdjust\":false}"
