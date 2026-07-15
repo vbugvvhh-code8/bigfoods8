@@ -21,12 +21,30 @@ export interface RiderOnboardingDraft {
   locationEnabled?: boolean;
 }
 
+export interface EmailVerificationState {
+  code?: string;
+  otpStatus?: 'idle' | 'sending' | 'sent' | 'verifying' | 'verified' | 'error';
+  otpError?: string | null;
+  cooldownExpireAt?: number | null;
+}
+
 const STORAGE_KEY = 'bf_rider_onboarding_draft';
+const OTP_STORAGE_KEY = 'bf_rider_otp_state';
 
 function readDraft(): RiderOnboardingDraft {
   if (typeof window === 'undefined') return {};
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function readOtpState(): EmailVerificationState {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(OTP_STORAGE_KEY);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -40,13 +58,18 @@ function readDraft(): RiderOnboardingDraft {
  * tied to an auth user can't be created server-side at the end of this flow
  * the way the restaurant flow does. This just keeps steps 1-2 from losing data
  * on refresh until that backend work lands.
+ * 
+ * FIX 5: Extended to also track OTP verification state (code, status, cooldown)
+ * so it persists across tab switches and component remounts.
  */
 export default function useRiderOnboardingSession() {
   const [draft, setDraft] = useState<RiderOnboardingDraft>({});
+  const [otpState, setOtpState] = useState<EmailVerificationState>({});
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     setDraft(readDraft());
+    setOtpState(readOtpState());
     setHydrated(true);
   }, []);
 
@@ -62,14 +85,37 @@ export default function useRiderOnboardingSession() {
     });
   }, []);
 
+  const updateOtpState = useCallback((patch: Partial<EmailVerificationState>) => {
+    setOtpState((prev) => {
+      const next = { ...prev, ...patch };
+      try {
+        window.localStorage.setItem(OTP_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // storage unavailable — state still works for this session via state
+      }
+      return next;
+    });
+  }, []);
+
   const clearDraft = useCallback(() => {
     try {
       window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(OTP_STORAGE_KEY);
     } catch {
       // ignore
     }
     setDraft({});
+    setOtpState({});
   }, []);
 
-  return { draft, updateDraft, clearDraft, hydrated };
+  const clearOtpState = useCallback(() => {
+    try {
+      window.localStorage.removeItem(OTP_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+    setOtpState({});
+  }, []);
+
+  return { draft, updateDraft, clearDraft, otpState, updateOtpState, clearOtpState, hydrated };
 }
