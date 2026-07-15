@@ -37,6 +37,7 @@ export interface EmailVerificationState {
   otpStatus?: 'idle' | 'sending' | 'sent' | 'verifying' | 'verified' | 'error';
   otpError?: string | null;
   cooldownExpireAt?: number | null;
+  lastEmailForOtp?: string;
 }
 
 const STORAGE_KEY = 'bf_restaurant_onboarding_draft';
