@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import getBrowserSupabase from '@/lib/supabase/client';
 
 type Status = 'idle' | 'sending' | 'sent' | 'verifying' | 'verified' | 'error';
@@ -28,20 +28,46 @@ export default function useEmailVerification(
   const supabase = getBrowserSupabase();
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [cooldown, setCooldown] = useState(0);
+  const [cooldownExpireAt, setCooldownExpireAt] = useState<number | null>(null);
+  const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
+
+  // Compute cooldown in seconds from expiry timestamp
+  const cooldown = cooldownExpireAt
+    ? Math.max(0, Math.ceil((cooldownExpireAt - Date.now()) / 1000))
+    : 0;
 
   const startCooldown = useCallback(() => {
-    setCooldown(RESEND_COOLDOWN_SECONDS);
-    const interval = setInterval(() => {
-      setCooldown((c) => {
-        if (c <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
-        return c - 1;
-      });
-    }, 1000);
+    setCooldownExpireAt(Date.now() + RESEND_COOLDOWN_SECONDS * 1000);
   }, []);
+
+  // Set up a ticker to force re-renders while cooldown is active
+  useEffect(() => {
+    if (cooldownExpireAt === null) {
+      if (intervalId) {
+        clearInterval(intervalId);
+        setIntervalId(null);
+      }
+      return;
+    }
+
+    const id = setInterval(() => {
+      // Force re-render by checking remaining time
+      const remaining = cooldownExpireAt ? Math.max(0, Math.ceil((cooldownExpireAt - Date.now()) / 1000)) : 0;
+      if (remaining <= 0) {
+        clearInterval(id);
+        setCooldownExpireAt(null);
+        setIntervalId(null);
+      }
+    }, 1000);
+
+    setIntervalId(id);
+
+    // Cleanup on unmount
+    return () => {
+      clearInterval(id);
+      setIntervalId(null);
+    };
+  }, [cooldownExpireAt, intervalId]);
 
   const sendCode = useCallback(async () => {
     if (!email || cooldown > 0) return;
@@ -72,13 +98,22 @@ export default function useEmailVerification(
         if (fnError) throw fnError;
         if (data?.error) throw new Error(data.error);
 
-        if (data?.token_hash) {
-          const { error: sessionError } = await supabase.auth.verifyOtp({
-            email,
-            token: data.token_hash,
-            type: 'email',
-          });
-          if (sessionError) throw sessionError;
+        // FIX 1: Validate token_hash exists before attempting session creation
+        if (!data?.token_hash) {
+          throw new Error('Verification failed: no token received from server.');
+        }
+
+        // FIX 2: Use correct verifyOtp signature - token_hash only (not email + token)
+        const { error: sessionError } = await supabase.auth.verifyOtp({
+          token_hash: data.token_hash,
+          type: 'email',
+        });
+        if (sessionError) throw sessionError;
+
+        // FIX 3: Validate session was actually established
+        const { data: sessionData, error: sessionCheckError } = await supabase.auth.getSession();
+        if (sessionCheckError || !sessionData.session) {
+          throw new Error('Session was not established. Please try again.');
         }
 
         setStatus('verified');
