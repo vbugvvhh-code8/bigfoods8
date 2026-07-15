@@ -68,15 +68,16 @@ const FOOD_ITEMS = FOOD_ICONS.map((Icon, i) => {
     x: Math.round(x),
     y: Math.round(y),
     rot,
-    outDelay: i * 0.035,
-    inDelay: (count - i) * 0.02,
+    outDelay: i * 0.03,
+    inDelay: (count - i) * 0.018,
   };
 });
 
-type Stage = 'place' | 'bike' | 'explode' | 'implode' | 'logo' | 'shrink' | 'hide' | 'done';
+// Shortened splash: explode -> implode -> logo pop (+ tagline) -> shrink -> hide -> done
+type Stage = 'explode' | 'implode' | 'logo' | 'shrink' | 'hide' | 'done';
 
 export default function PortalHome() {
-  const [stage, setStage] = useState<Stage>('place');
+  const [stage, setStage] = useState<Stage>('explode');
   const realLogoRef = useRef<HTMLDivElement>(null);
   const splashLogoRef = useRef<HTMLDivElement>(null);
   const [logoTransform, setLogoTransform] = useState({tx: 0, ty: 0, ts: 0.3});
@@ -84,10 +85,8 @@ export default function PortalHome() {
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
 
-    timers.push(setTimeout(() => setStage('bike'), 1500));
-    timers.push(setTimeout(() => setStage('explode'), 3400));
-    timers.push(setTimeout(() => setStage('implode'), 4300));
-    timers.push(setTimeout(() => setStage('logo'), 4950));
+    timers.push(setTimeout(() => setStage('implode'), 800));
+    timers.push(setTimeout(() => setStage('logo'), 1400));
     timers.push(
       setTimeout(() => {
         const target = realLogoRef.current?.getBoundingClientRect();
@@ -104,10 +103,10 @@ export default function PortalHome() {
           });
         }
         setStage('shrink');
-      }, 5700)
+      }, 2500)
     );
-    timers.push(setTimeout(() => setStage('hide'), 6450));
-    timers.push(setTimeout(() => setStage('done'), 7100));
+    timers.push(setTimeout(() => setStage('hide'), 3200));
+    timers.push(setTimeout(() => setStage('done'), 3850));
 
     return () => timers.forEach(clearTimeout);
   }, []);
@@ -198,18 +197,7 @@ export default function PortalHome() {
           style={overlayStyle}
           className={stage === 'hide' ? 'bf-splash bf-splash-out' : 'bf-splash'}
         >
-          <div className="bf-stage bf-s-place">
-            <span className="bf-eyebrow">For the people of</span>
-            <h2 className="bf-title">Anambra</h2>
-          </div>
-
-          <div className="bf-stage bf-s-bike">
-            <div className="bf-road-text">Your order&apos;s on the way</div>
-            <div className="bf-dust" />
-            <div className="bf-bike">
-              <Bike size={48} color="#fff" strokeWidth={2} />
-            </div>
-          </div>
+          <div className="bf-burst-ring" />
 
           <div className="bf-stage bf-s-food">
             <div className="bf-food-center">
@@ -234,9 +222,12 @@ export default function PortalHome() {
           </div>
 
           <div className="bf-stage bf-s-logo">
-            <div ref={splashLogoRef} className="bf-splash-logo">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={LOGO_URL} alt="" />
+            <div className="bf-logo-wrap">
+              <div ref={splashLogoRef} className="bf-splash-logo">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={LOGO_URL} alt="" />
+              </div>
+              <div className="bf-tagline">Made to serve Anambra</div>
             </div>
           </div>
         </div>
@@ -249,49 +240,25 @@ export default function PortalHome() {
           display:flex;align-items:center;justify-content:center;
           overflow:hidden;
         }
-        .bf-splash-out{ animation:bfSplashOut .6s ease forwards; pointer-events:none; }
+        .bf-splash-out{ animation:bfSplashOut .55s ease forwards; pointer-events:none; }
         @keyframes bfSplashOut{ to{opacity:0;} }
 
         .bf-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
           opacity:0;pointer-events:none;}
 
-        .bf-s-place{flex-direction:column;}
-        .bf-eyebrow{
-          color:rgba(255,255,255,.75);font-size:12px;letter-spacing:.28em;
-          text-transform:uppercase;font-weight:600;margin-bottom:10px;
-          opacity:0;transform:translateY(8px);
-        }
-        .bf-title{
-          font-family:'Space Grotesk',sans-serif;color:#fff;font-size:34px;font-weight:700;
-          margin:0;text-align:center;letter-spacing:-0.01em;
-          opacity:0;transform:translateY(14px);
-        }
-        #bf-splash[data-stage="place"] .bf-s-place{opacity:1;pointer-events:auto;}
-        #bf-splash[data-stage="place"] .bf-eyebrow{animation:bfRiseIn .5s .1s ease forwards;}
-        #bf-splash[data-stage="place"] .bf-title{animation:bfRiseIn .6s .28s ease forwards;}
-        @keyframes bfRiseIn{to{opacity:1;transform:translateY(0);}}
-
-        .bf-s-bike{overflow:hidden;}
-        .bf-road-text{
-          position:absolute;top:38%;left:0;right:0;text-align:center;
-          font-family:'Space Grotesk',sans-serif;color:#fff;font-size:22px;font-weight:600;
+        /* burst ring flash right as the food explodes out */
+        .bf-burst-ring{
+          position:absolute;width:20px;height:20px;border-radius:50%;
+          border:3px solid rgba(255,255,255,.9);
           opacity:0;
         }
-        .bf-bike{
-          position:absolute;top:52%;left:-15%;transform:translateY(-50%) scaleX(-1);
-          filter:drop-shadow(0 8px 14px rgba(0,0,0,.25));
+        #bf-splash[data-stage="explode"] .bf-burst-ring{
+          animation:bfRingPulse .6s cubic-bezier(.2,.7,.3,1) forwards;
         }
-        .bf-dust{
-          position:absolute;top:63%;left:-20%;width:120px;height:3px;
-          border-radius:99px;background:rgba(255,255,255,.5);opacity:0;
+        @keyframes bfRingPulse{
+          0%{width:20px;height:20px;opacity:.9;border-width:4px;}
+          100%{width:340px;height:340px;opacity:0;border-width:1px;}
         }
-        #bf-splash[data-stage="bike"] .bf-s-bike{opacity:1;pointer-events:auto;}
-        #bf-splash[data-stage="bike"] .bf-road-text{animation:bfFadeHold 2.2s ease forwards;}
-        #bf-splash[data-stage="bike"] .bf-bike{animation:bfRideAcross 1.7s .15s cubic-bezier(.35,.02,.4,1) forwards;}
-        #bf-splash[data-stage="bike"] .bf-dust{animation:bfRideAcross 1.7s .15s cubic-bezier(.35,.02,.4,1) forwards, bfDustFade 1.7s .15s ease forwards;}
-        @keyframes bfRideAcross{0%{left:-15%;}100%{left:108%;}}
-        @keyframes bfDustFade{0%,80%{opacity:.6;}100%{opacity:0;}}
-        @keyframes bfFadeHold{0%{opacity:0;transform:translateY(10px);}20%{opacity:1;transform:translateY(0);}85%{opacity:1;}100%{opacity:0;}}
 
         .bf-food-center{position:relative;width:10px;height:10px;}
         .bf-food-item{
@@ -302,24 +269,28 @@ export default function PortalHome() {
         }
         #bf-splash[data-stage="explode"] .bf-s-food{opacity:1;pointer-events:auto;}
         #bf-splash[data-stage="explode"] .bf-food-item{
-          animation:bfFoodOut .65s cubic-bezier(.2,.75,.3,1.15) forwards;
+          animation:bfFoodOut .6s cubic-bezier(.2,.75,.3,1.2) forwards;
           animation-delay:var(--d,0s);
         }
         #bf-splash[data-stage="implode"] .bf-s-food{opacity:1;pointer-events:auto;}
         #bf-splash[data-stage="implode"] .bf-food-item{
           transform:translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(1) rotate(var(--r));
           opacity:1;
-          animation:bfFoodIn .55s cubic-bezier(.5,0,.75,0) forwards;
+          animation:bfFoodIn .5s cubic-bezier(.5,0,.75,0) forwards;
           animation-delay:var(--di,0s);
         }
         @keyframes bfFoodOut{
           0%{transform:translate(-50%,-50%) scale(0) rotate(0deg);opacity:0;}
-          60%{opacity:1;}
+          55%{opacity:1;}
           100%{transform:translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(1) rotate(var(--r));opacity:1;}
         }
         @keyframes bfFoodIn{
           0%{transform:translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(1) rotate(var(--r));opacity:1;}
           100%{transform:translate(-50%,-50%) scale(0) rotate(0deg);opacity:0;}
+        }
+
+        .bf-logo-wrap{
+          display:flex;flex-direction:column;align-items:center;
         }
 
         .bf-splash-logo{
@@ -330,12 +301,35 @@ export default function PortalHome() {
         }
         .bf-splash-logo img{width:100%;height:100%;object-fit:cover;display:block;}
         #bf-splash[data-stage="logo"] .bf-s-logo{opacity:1;pointer-events:auto;}
-        #bf-splash[data-stage="logo"] .bf-splash-logo{animation:bfLogoPop .5s cubic-bezier(.2,.8,.3,1.3) forwards;}
+        #bf-splash[data-stage="logo"] .bf-splash-logo{animation:bfLogoPop .45s cubic-bezier(.2,.8,.3,1.3) forwards;}
         @keyframes bfLogoPop{
-          0%{transform:scale(0);opacity:0;}
-          70%{transform:scale(1.08);opacity:1;}
-          100%{transform:scale(1);opacity:1;}
+          0%{transform:scale(0) rotate(-8deg);opacity:0;}
+          70%{transform:scale(1.1) rotate(2deg);opacity:1;}
+          100%{transform:scale(1) rotate(0deg);opacity:1;}
         }
+
+        .bf-tagline{
+          margin-top:14px;
+          color:rgba(255,255,255,.92);
+          font-size:13px;
+          font-weight:600;
+          letter-spacing:.14em;
+          text-transform:uppercase;
+          opacity:0;
+          transform:translateY(6px);
+          white-space:nowrap;
+          font-family:'Space Grotesk',sans-serif;
+        }
+        #bf-splash[data-stage="logo"] .bf-tagline{
+          animation:bfTagIn .4s .22s ease forwards;
+        }
+        #bf-splash[data-stage="shrink"] .bf-tagline,
+        #bf-splash[data-stage="hide"] .bf-tagline{
+          animation:bfTagOut .3s ease forwards;
+        }
+        @keyframes bfTagIn{ to{opacity:1;transform:translateY(0);} }
+        @keyframes bfTagOut{ to{opacity:0;transform:translateY(-6px);} }
+
         #bf-splash[data-stage="shrink"] .bf-s-logo{opacity:1;pointer-events:auto;}
         #bf-splash[data-stage="shrink"] .bf-splash-logo{
           transform:translate(var(--tx,0px),var(--ty,0px)) scale(var(--ts,0.3));
