@@ -12,12 +12,13 @@ export default function usePaystackPayment() {
   const [error, setError] = useState<string | null>(null);
 
   const startPayment = useCallback(
-    async (type: PaymentType) => {
+    async (type: PaymentType, metadata?: Record<string, any>) => {
       setStatus('starting');
       setError(null);
       try {
         const { data, error: fnError } = await supabase.functions.invoke('paystack-initialize', {
-          body: { type, callbackOrigin: window.location.origin },
+          // Spread metadata into the body so edge function receives plan selection
+          body: { type, callbackOrigin: window.location.origin, ...metadata },
         });
         if (fnError) throw fnError;
         if (data?.error) throw new Error(data.error);
