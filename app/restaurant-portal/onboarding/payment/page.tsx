@@ -6,23 +6,27 @@ import { Loader2, CheckCircle2 } from 'lucide-react';
 import usePaystackPayment from '@/hooks/usePaystackPayment';
 import usePaymentStatus from '@/hooks/usePaymentStatus';
 import useRestaurant from '@/hooks/useRestaurant';
+import usePricingConfig from '@/hooks/usePricingConfig';
+import useHasMenuItem from '@/hooks/useHasMenuItem';
 
 export default function PaymentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { restaurant, loading: restaurantLoading } = useRestaurant();
-  
+
   // Using your custom hooks
   const { status: paymentStatus, error: hookError, startPayment, verifyPayment } = usePaystackPayment();
   const { promotionPaid, refresh: refreshPaymentStatus } = usePaymentStatus(restaurant?.id);
-  
+  const { prices, loading: pricesLoading } = usePricingConfig(['promotion_fee_discounted', 'promotion_fee_normal']);
+  const hasMenuItem = useHasMenuItem(restaurant?.id);
+
   const [selectedTier, setSelectedTier] = useState<'2_weeks' | '1_month'>('1_month');
   const reference = searchParams.get('reference');
 
   // 1. Handle returning from Paystack redirect
   useEffect(() => {
     if (!reference) return;
-    
+
     verifyPayment(reference).then((result) => {
       if (result.success) {
         refreshPaymentStatus();
@@ -47,7 +51,7 @@ export default function PaymentPage() {
 
   const isProcessing = paymentStatus === 'starting' || paymentStatus === 'redirecting' || paymentStatus === 'verifying';
 
-  if (restaurantLoading || paymentStatus === 'verifying') {
+  if (restaurantLoading || pricesLoading || paymentStatus === 'verifying') {
     return (
       <div className="py-10 flex flex-col items-center gap-2">
         <Loader2 className="w-5 h-5 animate-spin" style={{ color: 'var(--orange)' }} />
@@ -66,6 +70,10 @@ export default function PaymentPage() {
     );
   }
 
+  const monthPrice = prices.promotion_fee_normal;
+  const twoWeekPrice = prices.promotion_fee_discounted;
+  const selectedPrice = selectedTier === '1_month' ? monthPrice : twoWeekPrice;
+
   return (
     <>
       <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--orange)' }}>
@@ -81,6 +89,12 @@ export default function PaymentPage() {
       {hookError && (
         <p className="text-[11.5px] mb-3 p-3 rounded-[9px]" style={{ background: '#FEF2F2', color: 'var(--red)' }}>
           {hookError}
+        </p>
+      )}
+
+      {!hasMenuItem && (
+        <p className="text-[11.5px] mb-3 p-3 rounded-[9px]" style={{ background: 'var(--peach)', color: 'var(--gray)' }}>
+          Add at least one menu item before you can activate a promotion.
         </p>
       )}
 
@@ -105,9 +119,9 @@ export default function PaymentPage() {
         <button
           onClick={() => setSelectedTier('1_month')}
           className="w-full text-left p-4 rounded-[12px] flex items-center justify-between transition-all"
-          style={{ 
+          style={{
             border: selectedTier === '1_month' ? '2px solid var(--orange)' : '1px solid var(--line)',
-            background: selectedTier === '1_month' ? '#FFF9F5' : 'var(--white)'
+            background: selectedTier === '1_month' ? '#FFF9F5' : 'var(--white)',
           }}
         >
           <div>
@@ -121,7 +135,7 @@ export default function PaymentPage() {
           </div>
           <div className="text-right">
             <p className="text-[15px] font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: 'var(--ink)' }}>
-              ₦5,000
+              ₦{monthPrice?.toLocaleString()}
             </p>
           </div>
         </button>
@@ -129,9 +143,9 @@ export default function PaymentPage() {
         <button
           onClick={() => setSelectedTier('2_weeks')}
           className="w-full text-left p-4 rounded-[12px] flex items-center justify-between transition-all"
-          style={{ 
+          style={{
             border: selectedTier === '2_weeks' ? '2px solid var(--orange)' : '1px solid var(--line)',
-            background: selectedTier === '2_weeks' ? '#FFF9F5' : 'var(--white)'
+            background: selectedTier === '2_weeks' ? '#FFF9F5' : 'var(--white)',
           }}
         >
           <div>
@@ -140,7 +154,7 @@ export default function PaymentPage() {
           </div>
           <div className="text-right">
             <p className="text-[15px] font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: 'var(--ink)' }}>
-              ₦2,500
+              ₦{twoWeekPrice?.toLocaleString()}
             </p>
           </div>
         </button>
@@ -148,15 +162,14 @@ export default function PaymentPage() {
 
       <button
         onClick={handlePayment}
-        disabled={isProcessing}
+        disabled={isProcessing || !hasMenuItem}
         className="w-full py-3.5 rounded-[10px] text-[13.5px] font-semibold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
         style={{ background: 'var(--ink)' }}
       >
         {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-        {paymentStatus === 'redirecting' 
-          ? 'Redirecting to Paystack...' 
-          : `Select & Pay ${selectedTier === '1_month' ? '₦5,000' : '₦2,500'}`
-        }
+        {paymentStatus === 'redirecting'
+          ? 'Redirecting to Paystack...'
+          : `Select & Pay ₦${selectedPrice?.toLocaleString() ?? ''}`}
       </button>
 
       <p className="text-[11px] text-center mt-3" style={{ color: 'var(--gray)' }}>
