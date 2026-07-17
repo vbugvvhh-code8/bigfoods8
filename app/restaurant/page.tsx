@@ -40,7 +40,7 @@ export default function RestaurantLandingPage() {
               Blog
             </Link>
             <Link
-              href="/restaurant-portal/dashboard"
+              href="/restaurant-portal/login"
               className="px-4.5 py-2 rounded-[9px] font-semibold text-[13.5px]"
               style={{ border: '1px solid var(--line)', color: 'var(--ink)' }}
             >
@@ -88,7 +88,7 @@ export default function RestaurantLandingPage() {
             </Link>
             <p className="text-[12.5px]" style={{ color: 'var(--gray)' }}>
               Already registered?{' '}
-              <Link href="/restaurant-portal/dashboard" className="font-semibold" style={{ color: 'var(--orange)' }}>
+              <Link href="/restaurant-portal/login" className="font-semibold" style={{ color: 'var(--orange)' }}>
                 Log in
               </Link>
             </p>
