@@ -108,7 +108,7 @@ export default function RestaurantLandingPage() {
                 boxShadow: '0 8px 16px -8px rgba(249,115,22,0.5)',
               }}
             >
-              Register your restaurant
+              Register
             </Link>
             <p className="text-[11px]" style={{ color: 'var(--gray)' }}>
               Already registered?{' '}
@@ -257,9 +257,32 @@ const TICKETS = [
   { tag: 'Milestone', title: '50 orders this week', detail: "Awele's Kitchen, Awka zone" },
 ];
 
+/* Stacked "deck" ghost cards sit behind the active ticket, offset      */
+/* down-right, so the next card in line always peeks out a little.     */
 function LiveTicket() {
   return (
     <>
+      <div
+        className="absolute rounded-[11px]"
+        style={{
+          inset: 0,
+          transform: 'translate(9px, 9px) scale(0.93)',
+          background: 'var(--white)',
+          opacity: 0.3,
+          boxShadow: '0 6px 14px -8px rgba(25,23,20,0.1)',
+        }}
+      />
+      <div
+        className="absolute rounded-[11px]"
+        style={{
+          inset: 0,
+          transform: 'translate(4.5px, 4.5px) scale(0.965)',
+          background: 'var(--white)',
+          opacity: 0.55,
+          boxShadow: '0 6px 14px -8px rgba(25,23,20,0.13)',
+        }}
+      />
+
       {TICKETS.map((t, i) => (
         <div
           key={t.title}
@@ -314,9 +337,11 @@ function HeroVisual() {
             right: '-6%',
             height: '130%',
             minWidth: 90,
-            opacity: 0.16,
-            WebkitMaskImage: 'linear-gradient(to left, rgba(0,0,0,0.9) 30%, transparent 82%)',
-            maskImage: 'linear-gradient(to left, rgba(0,0,0,0.9) 30%, transparent 82%)',
+            opacity: 0.45,
+            WebkitMaskImage:
+              'linear-gradient(to left, rgba(0,0,0,0.95) 45%, rgba(0,0,0,0.35) 75%, transparent 100%)',
+            maskImage:
+              'linear-gradient(to left, rgba(0,0,0,0.95) 45%, rgba(0,0,0,0.35) 75%, transparent 100%)',
           }}
         />
         <div
@@ -326,7 +351,7 @@ function HeroVisual() {
           <span className="bf-live-dot w-1.5 h-1.5 rounded-full" style={{ background: 'var(--orange)' }} />
           Live on BigFoods
         </div>
-        <div className="relative z-[1]" style={{ height: 82 }}>
+        <div className="relative z-[1]" style={{ height: 82, width: '55%' }}>
           <LiveTicket />
         </div>
       </div>
@@ -351,7 +376,7 @@ function HeroVisual() {
             <span className="bf-live-dot w-1.5 h-1.5 rounded-full" style={{ background: 'var(--orange)' }} />
             Live on BigFoods
           </div>
-          <div className="relative z-[1]" style={{ height: 82 }}>
+          <div className="relative z-[1]" style={{ height: 82, width: '55%' }}>
             <LiveTicket />
           </div>
         </div>
