@@ -7,6 +7,7 @@ export type OnboardingStep =
   | 'restaurant-info'
   | 'location'
   | 'delivery-zone'
+  | 'menu'
   | 'payment';
 
 export const ONBOARDING_STEPS: { id: OnboardingStep; label: string; path: string }[] = [
@@ -14,6 +15,7 @@ export const ONBOARDING_STEPS: { id: OnboardingStep; label: string; path: string
   { id: 'restaurant-info', label: 'Business', path: '/restaurant-portal/onboarding/restaurant-info' },
   { id: 'location', label: 'Location', path: '/restaurant-portal/onboarding/location' },
   { id: 'delivery-zone', label: 'Delivery', path: '/restaurant-portal/onboarding/delivery-zone' },
+  { id: 'menu', label: 'Menu', path: '/restaurant-portal/onboarding/menu' },
   { id: 'payment', label: 'Payment', path: '/restaurant-portal/onboarding/payment' },
 ];
 
@@ -22,6 +24,7 @@ export interface OnboardingDraft {
   phone?: string;
   email?: string;
   emailVerified?: boolean;
+  passwordSet?: boolean;
   restaurantName?: string;
   category?: string;
   bannerUrl?: string;
@@ -67,9 +70,12 @@ function readOtpState(): EmailVerificationState {
  * Tracks in-progress onboarding step + form draft.
  * This is local-only scratch state for a form the user hasn't submitted yet —
  * the actual restaurant record is created server-side once payment (final step) completes.
- * 
- * FIX 5: Extended to also track OTP verification state (code, status, cooldown)
- * so it persists across tab switches and component remounts.
+ *
+ * Note: a real Supabase Auth session is established earlier than that, though —
+ * email OTP verification in the seller-info step (see EmailVerifyField /
+ * useEmailVerification) already signs the user in, and the password step
+ * right after it attaches a password to that same account via
+ * supabase.auth.updateUser(). Only the `restaurants` row itself is deferred.
  */
 export default function useOnboardingSession() {
   const [draft, setDraft] = useState<OnboardingDraft>({});
