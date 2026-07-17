@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import getBrowserSupabase from '@/lib/supabase/client';
+import { resolveRestaurantEntryPath } from '@/lib/resolveRestaurantEntryPath';
 
 export default function RestaurantLoginPage() {
   const router = useRouter();
@@ -22,7 +23,8 @@ export default function RestaurantLoginPage() {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      router.push('/restaurant-portal/dashboard');
+      const nextPath = await resolveRestaurantEntryPath(supabase);
+      router.push(nextPath);
     } catch (e: any) {
       setError(
         e?.message === 'Invalid login credentials'
