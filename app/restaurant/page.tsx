@@ -5,7 +5,7 @@ import Footer from '@/components/layout/Footer';
 
 export default function RestaurantLandingPage() {
   return (
-    <div style={{ background: 'var(--cream, #FDFBF7)' }}>
+    <div style={{ background: 'var(--white)' }}>
       <div className="max-w-[1180px] mx-auto px-6">
         {/* header */}
         <header className="pt-6 flex items-center justify-between">
@@ -13,7 +13,7 @@ export default function RestaurantLandingPage() {
             <div
               className="w-[30px] h-[30px] rounded-full flex items-center justify-center text-white flex-shrink-0"
               style={{
-                background: 'linear-gradient(155deg, var(--orange), var(--orange-dark, #DB6212))',
+                background: 'linear-gradient(155deg, var(--orange), var(--orange-dark))',
                 fontFamily: "'Space Grotesk', sans-serif",
                 fontWeight: 700,
                 fontSize: '11.5px',
@@ -113,7 +113,7 @@ export default function RestaurantLandingPage() {
         >
           <Feature
             icon={
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ stroke: "var(--orange)" }} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
             }
@@ -122,7 +122,7 @@ export default function RestaurantLandingPage() {
           />
           <Feature
             icon={
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ stroke: "var(--orange)" }} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M11 21l-1-4" /><path d="M13 3l1 4" /><path d="M4 15l4-11 4 11a4 4 0 0 1-8 0z" /><path d="M12 15l4-11 4 11a4 4 0 0 1-8 0z" />
               </svg>
             }
@@ -131,7 +131,7 @@ export default function RestaurantLandingPage() {
           />
           <Feature
             icon={
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ stroke: "var(--orange)" }} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="17" y1="7" x2="7" y2="17" /><polyline points="8 7 17 7 17 16" />
               </svg>
             }
@@ -205,7 +205,7 @@ function LiveTicker() {
     >
       <div
         className="inline-flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wide mb-4"
-        style={{ color: 'var(--orange-dark, #DB6212)' }}
+        style={{ color: 'var(--orange-dark)' }}
       >
         <span className="bf-live-dot w-1.5 h-1.5 rounded-full" style={{ background: 'var(--orange)' }} />
         Live on BigFoods
@@ -223,7 +223,7 @@ function LiveTicker() {
           >
             <span
               className="inline-block w-fit text-[9.5px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full mb-1.5"
-              style={{ color: 'var(--orange-dark, #DB6212)', background: 'var(--peach)' }}
+              style={{ color: 'var(--orange-dark)', background: 'var(--peach)' }}
             >
               {t.tag}
             </span>
