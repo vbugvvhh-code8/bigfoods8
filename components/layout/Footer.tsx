@@ -13,7 +13,7 @@ export default function Footer() {
               <div
                 className="w-[30px] h-[30px] rounded-full flex items-center justify-center flex-shrink-0"
                 style={{
-                  background: 'linear-gradient(155deg, var(--orange), var(--orange-dark, #DB6212))',
+                  background: 'linear-gradient(155deg, var(--orange), var(--orange-dark))',
                   boxShadow: '0 0 0 1px rgba(255,255,255,0.15)',
                   fontFamily: "'Space Grotesk', sans-serif",
                   fontWeight: 700,
