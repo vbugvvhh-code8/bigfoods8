@@ -98,21 +98,27 @@ export default function useEmailVerification(
         if (fnError) throw fnError;
         if (data?.error) throw new Error(data.error);
 
-        // FIX 1: Validate token_hash exists before attempting session creation
+        // Validate token_hash exists before attempting session creation
         if (!data?.token_hash) {
           throw new Error('Verification failed: no token received from server.');
         }
 
-        // FIX 2: Use correct verifyOtp signature - token_hash only (not email + token)
-        const { error: sessionError } = await supabase.auth.verifyOtp({
+        // Use correct verifyOtp signature - token_hash only (not email + token)
+        const { data: verifyData, error: sessionError } = await supabase.auth.verifyOtp({
           token_hash: data.token_hash,
           type: 'email',
         });
         if (sessionError) throw sessionError;
 
-        // FIX 3: Validate session was actually established
-        const { data: sessionData, error: sessionCheckError } = await supabase.auth.getSession();
-        if (sessionCheckError || !sessionData.session) {
+        // Read the session straight off verifyOtp's own response instead of a
+        // second getSession() call — calling getSession() immediately after
+        // verifyOtp() is a known SDK race: the session write to storage can
+        // lag a beat behind the promise resolving, causing that check to
+        // intermittently report "no session" even though verification
+        // actually succeeded (the previous version required a reload to
+        // clear this, and added an extra network/storage round-trip on
+        // every single verification).
+        if (!verifyData?.session) {
           throw new Error('Session was not established. Please try again.');
         }
 
