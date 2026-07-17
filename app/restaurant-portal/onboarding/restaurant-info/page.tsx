@@ -42,7 +42,7 @@ export default function RestaurantInfoPage() {
   return (
     <>
       <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--orange)' }}>
-        Step 2 of 5
+        Step 2 of 6
       </p>
       <h2 className="text-[20px] font-semibold mb-1.5" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
         Tell us about your kitchen
