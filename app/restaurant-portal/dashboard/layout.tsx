@@ -7,6 +7,7 @@ import useRestaurant from '@/hooks/useRestaurant';
 
 const TABS = [
   { label: 'Overview', path: '/restaurant-portal/dashboard' },
+  { label: 'Menu', path: '/restaurant-portal/dashboard/menu' },
   { label: 'Profile', path: '/restaurant-portal/dashboard/profile' },
   { label: 'Wallet', path: '/restaurant-portal/dashboard/wallet' },
   { label: 'Reports', path: '/restaurant-portal/dashboard/reports' },
