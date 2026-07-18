@@ -52,6 +52,13 @@
 // Both present in the rider-portal-merged version, both absent from the
 // programmer's file — but given his file predates that merge, this is
 // expected staleness, not evidence against either existing. Kept in below.
+//
+// NOTE (this pass) — menu_items.image_urls / subcategory
+// Verified directly against the live Supabase schema (bigfoods project):
+// both columns exist on the real table. image_urls is a text[] with a
+// check constraint requiring either 0 or 2-3 entries; subcategory is a
+// nullable text column. Added below — this was simply missing from the
+// prior version of this file, not a conflict between sources.
 
 export interface Database {
   public: {
@@ -164,6 +171,11 @@ export interface Database {
           image_url: string | null;
           is_seed_data: boolean;
           created_at: string | null;
+          // Verified against live schema this pass — see NOTE at top of file.
+          // Check constraint on the live table: array_length is either NULL
+          // or between 2 and 3 (never 1 image).
+          image_urls: string[] | null;
+          subcategory: string | null;
         };
         Insert: Partial<Database['public']['Tables']['menu_items']['Row']> & { name: string; price: number };
         Update: Partial<Database['public']['Tables']['menu_items']['Row']>;
