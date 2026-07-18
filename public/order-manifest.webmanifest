@@ -1,0 +1,26 @@
+{
+  "name": "BigFoods",
+  "short_name": "BigFoods",
+  "description": "Order food from local restaurants — fast delivery, real-time tracking, pay by card.",
+  "start_url": "/order",
+  "scope": "/order",
+  "id": "/order",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FF7A1A",
+  "icons": [
+    {
+      "src": "https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/0.4568313681357089.webp",
+      "sizes": "192x192",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
+      "src": "https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/0.4568313681357089.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "any"
+    }
+  ]
+}

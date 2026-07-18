@@ -3,7 +3,7 @@
 // (audit_log, disputes, announcements, etc.) are intentionally omitted —
 // that's the admin session's schema to maintain.
 //
-// RECONCILED VERSION — merged from two parallel updates:
+// RECONCILED VERSION (v2) — merged from THREE sources:
 //  1) Customer-order backend work: orders gained customer_id/delivery_address/
 //     delivery_lat/delivery_lng/delivery_code/tip_amount. email_otp_codes was
 //     dropped entirely and replaced by email_verification_codes (shared across
@@ -12,16 +12,46 @@
 //  2) Rider portal work: riders gained plate_number/strikes/profile_id,
 //     transactions gained rider_id, orders gained cancelled_by, and a new
 //     `payouts` table (rider payouts, parallel to restaurant_payouts) was added.
+//  3) Programmer's working file (this pass): IMPORTANT — this file was
+//     branched from an OLDER copy of the schema, before the rider-portal
+//     merge (2) landed, and his actual work in it was scoped to orders /
+//     customer flow. That changes how much weight to give different parts of it:
+//       - order_items, saved_addresses, and the full orders field set
+//         (customer_id, delivery_address/lat/lng/delivery_code, tip_amount,
+//         cancelled_by) ARE this pass's real, fresh contribution — trust these.
+//       - riders.plate_number/strikes/profile_id appearing in his file is NOT
+//         independent confirmation of anything — he inherited those from his
+//         (older) base without touching that section. Don't read it as a
+//         second source verifying profile_id; see conflict #1 below.
+//       - transactions missing rider_id, and payouts missing entirely, are
+//         most likely just staleness — his base predates when those were
+//         added — not a signal that they aren't real. Kept both in below.
 //
-// ⚠️ UNVERIFIED — CONFIRM WITH RIDER-PORTAL DEV BEFORE TRUSTING:
-// riders.profile_id — the customer-order-work version of this file explicitly
-// flagged riders as having NO auth/profile link yet ("known flagged gap, not
-// something to build against until it actually exists"). The rider-portal
-// version has profile_id live as a real column. One of these is wrong — either
-// the migration shipped and the old note is stale, or someone is building
-// against a column that isn't there. I could not verify against live Supabase
-// (the connected project in this session is a different app entirely, not
-// bigfoods) — check the actual DB or ask directly before relying on this field.
+// ⚠️ UNRESOLVED CONFLICT #1 — riders.profile_id
+// The customer-order-work version of this file explicitly flagged riders as
+// having NO auth/profile link yet ("known flagged gap, not something to build
+// against until it actually exists"). The rider-portal version has profile_id
+// live as a real column. The programmer's file also has it, but per the note
+// above that's inherited, not a fresh check — so this is effectively still
+// one source (rider-portal work) claiming it exists against one source
+// (customer-order work) flagging it as not yet real. Not resolved by this
+// pass. Confirm with the rider-portal dev or check the live DB directly
+// before building anything against it, especially anything auth-sensitive.
+//
+// ⚠️ UNRESOLVED CONFLICT #2 — email_verification_codes.purpose / rider_signup
+// The previous reconciled version stated rider_signup is NOT YET a valid
+// purpose value ("add it when the rider portal actually wires up its OTP
+// flow"). The programmer's file states the opposite: that the send-email-otp
+// / verify-email-otp Edge Functions already use rider_signup as one of three
+// live purpose values. Unlike the profile_id note above, this reads as a
+// deliberate claim about how the Edge Functions behave, not stale inherited
+// copy — worth resolving before any code (e.g. a Screen 6 / Login flow)
+// writes or expects a rider_signup code.
+//
+// NOTE — transactions.rider_id / payouts table
+// Both present in the rider-portal-merged version, both absent from the
+// programmer's file — but given his file predates that merge, this is
+// expected staleness, not evidence against either existing. Kept in below.
 
 export interface Database {
   public: {
@@ -76,8 +106,7 @@ export interface Database {
           lng: number | null;
           last_location_update: string | null;
           strikes: number;
-          // ⚠️ UNVERIFIED — see file-level note at top. Confirm this column
-          // actually exists on the live table before shipping code against it.
+          // See UNRESOLVED CONFLICT #1 at top of file before relying on this.
           profile_id: string | null;
         };
         Insert: Partial<Database['public']['Tables']['riders']['Row']> & { name: string };
@@ -116,6 +145,8 @@ export interface Database {
           created_at: string | null;
           is_seed_data: boolean;
           restaurant_id: string | null;
+          // Absent from the programmer's latest file — stale base, not a
+          // conflict. See NOTE — transactions.rider_id / payouts at top of file.
           rider_id: string | null;
           reference: string | null;
           status: string | null;
@@ -181,6 +212,8 @@ export interface Database {
       // (restaurant_payouts vs payouts, not rider_payouts) — worth confirming
       // with the rider-portal dev whether that's intentional or worth renaming
       // for consistency before too much code references it.
+      // NOTE: absent from the programmer's latest file — expected, since that
+      // file was branched before this table was added (see file-level note).
       payouts: {
         Row: {
           id: string;
@@ -220,6 +253,20 @@ export interface Database {
         Insert: Partial<Database['public']['Tables']['orders']['Row']> & { subtotal: number };
         Update: Partial<Database['public']['Tables']['orders']['Row']>;
       };
+      // NEW — added by the programmer's latest file. Not present in either
+      // prior reconciled source; no conflicting notes to carry over.
+      order_items: {
+        Row: {
+          id: string;
+          order_id: string | null;
+          menu_item_id: string | null;
+          quantity: number;
+          unit_price: number;
+          created_at: string | null;
+        };
+        Insert: Partial<Database['public']['Tables']['order_items']['Row']> & { unit_price: number };
+        Update: Partial<Database['public']['Tables']['order_items']['Row']>;
+      };
       push_subscriptions: {
         Row: {
           id: string;
@@ -234,16 +281,13 @@ export interface Database {
       // Replaces the old email_otp_codes table (dropped — 0 rows existed,
       // no migration needed). Shared across all three portals now; `purpose`
       // is what distinguishes a customer signup code from a restaurant one.
-      // NOTE: the rider-portal file this was merged with still referenced the
-      // old email_otp_codes table — that was stale and has been removed here.
-      // rider_signup is not yet a valid `purpose` value; add it when the rider
-      // portal actually wires up its OTP flow.
+      // See UNRESOLVED CONFLICT #2 at top of file re: rider_signup validity.
       email_verification_codes: {
         Row: {
           id: string;
           email: string;
           code: string;
-          purpose: string; // 'customer_signup' | 'restaurant_signup' (rider_signup not added yet)
+          purpose: string; // 'customer_signup' | 'restaurant_signup' | 'rider_signup' — see conflict note at top
           expires_at: string;
           verified_at: string | null;
           attempts: number;
@@ -262,6 +306,27 @@ export interface Database {
         Insert: Partial<Database['public']['Tables']['email_send_log']['Row']> & { email: string };
         Update: Partial<Database['public']['Tables']['email_send_log']['Row']>;
       };
+      // NEW — added by the programmer's latest file. Not present in either
+      // prior reconciled source; no conflicting notes to carry over.
+      saved_addresses: {
+        Row: {
+          id: string;
+          customer_id: string;
+          label: string;
+          address: string | null;
+          lat: number;
+          lng: number;
+          is_default: boolean;
+          created_at: string | null;
+        };
+        Insert: Partial<Database['public']['Tables']['saved_addresses']['Row']> & {
+          customer_id: string;
+          label: string;
+          lat: number;
+          lng: number;
+        };
+        Update: Partial<Database['public']['Tables']['saved_addresses']['Row']>;
+      };
     };
   };
 }
@@ -277,4 +342,6 @@ export type Promotion = Database['public']['Tables']['promotions']['Row'];
 export type RestaurantPayout = Database['public']['Tables']['restaurant_payouts']['Row'];
 export type Payout = Database['public']['Tables']['payouts']['Row'];
 export type Order = Database['public']['Tables']['orders']['Row'];
+export type OrderItem = Database['public']['Tables']['order_items']['Row'];
 export type EmailVerificationCode = Database['public']['Tables']['email_verification_codes']['Row'];
+export type SavedAddress = Database['public']['Tables']['saved_addresses']['Row'];

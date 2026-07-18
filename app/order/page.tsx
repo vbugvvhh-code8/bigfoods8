@@ -1,143 +1,50 @@
 'use client';
 
-import {useState, Suspense} from 'react';
-import {useCart} from '@/hooks/useCart';
-import {SearchBar} from '@/components/home/SearchBar';
-import {SearchSuggestions} from '@/components/home/SearchSuggestions';
-import {CategoryChips} from '@/components/home/CategoryChips';
-import {PromotedRow} from '@/components/home/PromotedRow';
-import {RestaurantList} from '@/components/home/RestaurantList';
-import {SearchResults} from '@/components/home/SearchResults';
-import {MenuScreen} from '@/components/home/MenuScreen';
-import {OrderTray} from '@/components/home/OrderTray';
-import {mockRestaurants, mockMenuItems} from '@/lib/mock-data';
-import Link from 'next/link';
-import {ArrowLeft} from 'lucide-react';
+import {useEffect, useMemo, useState} from 'react';
+import {useGeolocation} from '@/hooks/useGeolocation';
+import {useRestaurants} from '@/hooks/useRestaurants';
+import {SearchBar} from '@/components/customer/home/SearchBar';
+import {SearchSuggestions} from '@/components/customer/home/SearchSuggestions';
+import {CategoryChips} from '@/components/customer/home/CategoryChips';
+import {PromotedRow} from '@/components/customer/home/PromotedRow';
+import {RestaurantList} from '@/components/customer/home/RestaurantList';
+import {OrderTray} from '@/components/customer/menu/OrderTray';
 
-type View = 'home' | 'search' | 'menu';
-
-function OrderContent() {
-  const [view, setView] = useState<View>('home');
+export default function OrderHomePage() {
   const [category, setCategory] = useState('All');
-  const [searchQuery, setSearchQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [sortBy, setSortBy] = useState<'distance' | 'rating' | undefined>();
-  const [filterUnder20, setFilterUnder20] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [selectedRestaurantSlug, setSelectedRestaurantSlug] = useState<string | null>(null);
+  const {latitude, longitude, requestLocation} = useGeolocation();
 
-  const promotedRestaurants = mockRestaurants.filter((r) => r.is_promoted);
-  const selectedRestaurant = mockRestaurants.find((r) => r.slug === selectedRestaurantSlug);
+  useEffect(() => {
+    requestLocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    setView('search');
-    setShowSuggestions(false);
-  };
+  const {restaurants, isLoading, error} = useRestaurants({
+    category,
+    customerLat: latitude ?? undefined,
+    customerLng: longitude ?? undefined,
+  });
+  const {restaurants: allForCategories} = useRestaurants({});
+  const {restaurants: promoted} = useRestaurants({
+    featuredOnly: true,
+    customerLat: latitude ?? undefined,
+    customerLng: longitude ?? undefined,
+  });
 
-  const handleSelectRestaurant = (slug: string) => {
-    setSelectedRestaurantSlug(slug);
-    setView('menu');
-  };
-
-  const handleBackToHome = () => {
-    setView('home');
-    setSearchQuery('');
-    setSelectedRestaurantSlug(null);
-  };
-
-  const handleSortChange = (sort: 'distance' | 'rating' | undefined) => {
-    setSortBy(sort);
-  };
-
-  const handleFilterChange = (filter: 'under20' | 'open', value: boolean) => {
-    if (filter === 'under20') setFilterUnder20(value);
-    if (filter === 'open') setFilterOpen(value);
-  };
-
-  let searchResults = mockRestaurants.map((r, i) => ({
-    id: r.id,
-    name: r.name,
-    slug: r.slug ?? '',
-    rating: r.rating ?? 0,
-    zone: r.zone ?? '',
-    deliveryTimeMin: r.delivery_time_min ?? 0,
-    deliveryTimeMax: r.delivery_time_max ?? 0,
-    isOpen: r.is_open ?? false,
-    matchName: r.name,
-    matchPrice: 2500,
-    distance: 0.5 + i * 0.4,
-  }));
-
-  if (filterUnder20) searchResults = searchResults.filter((r) => r.deliveryTimeMax <= 20);
-  if (filterOpen) searchResults = searchResults.filter((r) => r.isOpen);
-  if (sortBy === 'rating') searchResults = [...searchResults].sort((a, b) => b.rating - a.rating);
-  if (sortBy === 'distance') searchResults = [...searchResults].sort((a, b) => a.distance - b.distance);
+  const categories = useMemo(
+    () => Array.from(new Set(allForCategories.map((r) => r.category).filter((c): c is string => !!c))).sort(),
+    [allForCategories]
+  );
 
   return (
-    <div className="w-full max-w-[380px] mx-auto px-4 py-8 pb-20 relative">
-      {/* Brand Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2">
-          <Link href="/" className="mr-1 text-gray hover:text-ink transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
-          <div className="w-5 h-5 rounded-md flex-shrink-0" style={{background: 'var(--orange)'}} />
-          <div
-            className="font-semibold text-[15px] tracking-tight"
-            style={{fontFamily: "'Space Grotesk', sans-serif"}}
-          >
-            BigFoods
-          </div>
-        </div>
-        <div className="text-[11px]" style={{color: 'var(--gray)'}}>Awka, Anambra</div>
-      </div>
-
-      {view === 'home' && (
-        <>
-          <SearchBar
-            onSearch={handleSearch}
-            onFocus={() => setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-          />
-          <SearchSuggestions visible={showSuggestions} onSearch={handleSearch} />
-          <CategoryChips active={category} onChange={setCategory} />
-          <PromotedRow restaurants={promotedRestaurants} onSelect={handleSelectRestaurant} />
-          <RestaurantList restaurants={mockRestaurants} onSelect={handleSelectRestaurant} />
-        </>
-      )}
-
-      {view === 'search' && (
-        <SearchResults
-          results={searchResults}
-          query={searchQuery}
-          sortBy={sortBy}
-          filterUnder20Min={filterUnder20}
-          filterOpenNow={filterOpen}
-          onSortChange={handleSortChange}
-          onFilterChange={handleFilterChange}
-          onSelect={handleSelectRestaurant}
-          onBack={handleBackToHome}
-        />
-      )}
-
-      {view === 'menu' && selectedRestaurant && (
-        <MenuScreen
-          restaurant={selectedRestaurant}
-          menuItems={mockMenuItems.filter((m) => m.restaurant_id === selectedRestaurant.id)}
-          onBack={() => setView('home')}
-        />
-      )}
-
+    <div className="w-full max-w-[380px] lg:max-w-2xl mx-auto px-4 py-6">
+      <SearchBar onFocus={() => setShowSuggestions(true)} onBlur={() => setTimeout(() => setShowSuggestions(false), 150)} />
+      <SearchSuggestions visible={showSuggestions} />
+      <CategoryChips categories={categories} active={category} onChange={setCategory} />
+      {category === 'All' && <PromotedRow restaurants={promoted} />}
+      <RestaurantList restaurants={restaurants} isLoading={isLoading} error={error} />
       <OrderTray />
     </div>
-  );
-}
-
-export default function OrderPage() {
-  return (
-    <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
-      <OrderContent />
-    </Suspense>
   );
 }
