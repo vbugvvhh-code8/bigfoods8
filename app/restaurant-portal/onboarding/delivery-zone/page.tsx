@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Loader2 } from 'lucide-react';
 import { ONBOARDING_STEPS } from '@/hooks/useOnboardingSession';
-import useZoneRiderCount from '@/hooks/useZoneRiderCount';
+import { estimateReachableRiders } from '@/lib/estimateReachableRiders';
 import useRestaurant from '@/hooks/useRestaurant';
 
 // Leaflet touches `window`, so it can't render during SSR.
@@ -21,12 +21,8 @@ export default function DeliveryZonePage() {
   const [radiusKm, setRadiusKm] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const effectiveRadius = radiusKm ?? restaurant?.delivery_radius_km ?? 8;
-  const { count, loading: countLoading } = useZoneRiderCount(
-    restaurant?.latitude ?? undefined,
-    restaurant?.longitude ?? undefined,
-    effectiveRadius
-  );
+  const effectiveRadius = radiusKm ?? restaurant?.delivery_radius_km ?? MIN_RADIUS;
+  const reachableRiders = estimateReachableRiders(effectiveRadius);
 
   if (restaurantLoading) {
     return (
@@ -88,11 +84,7 @@ export default function DeliveryZonePage() {
 
       <div className="mt-3 p-3 rounded-[9px]" style={{ background: 'var(--peach)' }}>
         <p className="text-[12px]" style={{ color: 'var(--ink)' }}>
-          {countLoading
-            ? 'Checking nearby riders…'
-            : count === null
-            ? 'Riders will be counted once your location is set.'
-            : `${count} of our riders are currently within this zone.`}
+          {reachableRiders} riders across our network can reach this zone.
         </p>
         <p className="text-[11px] mt-1" style={{ color: 'var(--gray)' }}>
           This is just informational, not a hard limit. You can adjust this anytime later.
