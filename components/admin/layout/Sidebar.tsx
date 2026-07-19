@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import NavItem from './NavItem';
-import { LayoutGrid, MapPin, Utensils, Bike, Settings, ArrowLeft, Menu, X, Inbox, AlertTriangle, Wallet, Megaphone } from 'lucide-react';
+import { LayoutGrid, MapPin, Utensils, Bike, Settings, Menu, X, Inbox, AlertTriangle, Wallet, Megaphone, LogOut } from 'lucide-react';
 import useSession from '@/hooks/useSession';
+import getBrowserSupabase from '@/lib/supabase/client';
 
 const NAV_ITEMS = [
   { id: '/admin/dashboard', label: 'Dashboard', icon: <LayoutGrid className="w-4 h-4" /> },
@@ -21,9 +22,6 @@ const NAV_ITEMS = [
 function BrandBlock() {
   return (
     <div className="flex items-center gap-2 px-1.5">
-      <Link href="/" className="mr-0.5 opacity-60 hover:opacity-100 transition-opacity" style={{ color: 'white' }}>
-        <ArrowLeft className="w-3.5 h-3.5" />
-      </Link>
       <div className="w-[18px] h-[18px] rounded-[5px] flex-shrink-0" style={{ background: 'var(--orange)' }} />
       <span className="font-semibold text-[14px] text-white tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
         BigFoods
@@ -42,13 +40,37 @@ function NavList() {
   );
 }
 
+function LogoutButton() {
+  const router = useRouter();
+  const supabase = getBrowserSupabase();
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push('/admin/login');
+  }
+
+  return (
+    <button
+      onClick={handleLogout}
+      className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg text-[12.5px] font-medium text-left transition-all w-full"
+      style={{ color: '#B8B0A8' }}
+    >
+      <LogOut className="w-4 h-4" />
+      Log out
+    </button>
+  );
+}
+
 export default function Sidebar() {
   const { profile } = useSession();
   const [open, setOpen] = useState(false);
 
   const footer = (
-    <div className="mt-auto pt-3 text-[10.5px] px-1.5" style={{ color: '#7A736A', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-      {profile ? `Logged in as ${profile.full_name ?? profile.id}` : 'Logged in as Admin'}
+    <div className="mt-auto pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+      <LogoutButton />
+      <div className="text-[10.5px] px-2.5 mt-1" style={{ color: '#7A736A' }}>
+        {profile ? `Logged in as ${profile.full_name ?? profile.id}` : 'Logged in as Admin'}
+      </div>
     </div>
   );
 
