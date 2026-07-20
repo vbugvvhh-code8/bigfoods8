@@ -34,14 +34,18 @@ export async function resolveRestaurantEntryPath(supabase: SupabaseClient): Prom
     .eq('restaurant_id', restaurant.id);
   if (!menuItemCount) return '/restaurant-portal/onboarding/menu';
 
-  const { data: verificationTxn } = await supabase
+  // The live payment step only ever creates `type: 'promotion'` transactions
+  // — 'verification_fee' isn't part of the actual onboarding flow, so
+  // checking for it here meant this could never resolve to "complete" for
+  // any restaurant, regardless of payment. Checking promotion success instead.
+  const { data: promotionTxn } = await supabase
     .from('transactions')
     .select('id')
     .eq('restaurant_id', restaurant.id)
-    .eq('type', 'verification_fee')
+    .eq('type', 'promotion')
     .eq('status', 'success')
     .maybeSingle();
-  if (!verificationTxn) return '/restaurant-portal/onboarding/payment';
+  if (!promotionTxn) return '/restaurant-portal/onboarding/payment';
 
   return '/restaurant-portal/dashboard';
 }
