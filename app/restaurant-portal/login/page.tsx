@@ -23,6 +23,28 @@ export default function RestaurantLoginPage() {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+
+      // Check for a blocked account before routing anywhere — sign back out
+      // immediately if blocked, rather than letting a session persist.
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('blocked, block_reason')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (profile?.blocked) {
+          await supabase.auth.signOut();
+          throw new Error(
+            profile.block_reason
+              ? `Your account has been blocked: ${profile.block_reason}`
+              : 'Your account has been blocked. Contact support@bigfoods.app for help.'
+          );
+        }
+      }
+
       const nextPath = await resolveRestaurantEntryPath(supabase);
       router.push(nextPath);
     } catch (e: any) {
