@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import ApprovalQueueTable from './ApprovalQueueTable';
 import useAdminAction from '@/hooks/useAdminAction';
 
@@ -49,14 +50,14 @@ export default function RestaurantsView({ restaurants = [], loading = false, err
               const isLoading = loadingIds.includes(r.id);
               return (
                 <div key={r.id} className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium text-[13px]">{r.name}</div>
+                  <Link href={`/admin/restaurants/${r.id}`} className="min-w-0 hover:opacity-70">
+                    <div className="font-medium text-[13px] truncate">{r.name}</div>
                     <div className="text-[11px]" style={{color: 'var(--gray)'}}>{r.zone ?? '—'}</div>
-                  </div>
+                  </Link>
                   <button
                     onClick={() => handleToggle(r.id, r.is_accepting_orders)}
                     disabled={isLoading}
-                    className="w-9 h-5 rounded-full relative transition-colors"
+                    className="w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ml-3"
                     style={{ background: r.is_accepting_orders ? 'var(--orange)' : 'var(--line)', opacity: isLoading ? 0.6 : 1 }}
                   >
                     <span
