@@ -70,6 +70,14 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL(RESTAURANT_LOGIN_PATH, req.url));
     }
 
+    // Catches a session that was already active before the account got
+    // blocked — the login page's own check only runs at sign-in time.
+    const { data: profile } = await supabase.from('profiles').select('blocked').eq('id', user.id).maybeSingle();
+    if (profile?.blocked) {
+      await supabase.auth.signOut();
+      return NextResponse.redirect(new URL(RESTAURANT_LOGIN_PATH, req.url));
+    }
+
     // Reuses the exact same resolver the login page uses, so "what's
     // actually finished" is defined in exactly one place. If onboarding
     // isn't complete, this sends them to the specific step they left off
