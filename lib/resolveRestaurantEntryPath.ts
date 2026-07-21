@@ -38,14 +38,18 @@ export async function resolveRestaurantEntryPath(supabase: SupabaseClient): Prom
   // — 'verification_fee' isn't part of the actual onboarding flow, so
   // checking for it here meant this could never resolve to "complete" for
   // any restaurant, regardless of payment. Checking promotion success instead.
-  const { data: promotionTxn } = await supabase
+  // Uses a count, not .maybeSingle() — a restaurant can have more than one
+  // successful promotion transaction (repeat/renewed promotions), and
+  // .maybeSingle() throws if more than one row matches, which would make
+  // this silently misreport "not paid" for any restaurant that has paid
+  // more than once.
+  const { count: promotionCount } = await supabase
     .from('transactions')
-    .select('id')
+    .select('id', { count: 'exact', head: true })
     .eq('restaurant_id', restaurant.id)
     .eq('type', 'promotion')
-    .eq('status', 'success')
-    .maybeSingle();
-  if (!promotionTxn) return '/restaurant-portal/onboarding/payment';
+    .eq('status', 'success');
+  if (!promotionCount) return '/restaurant-portal/onboarding/payment';
 
   return '/restaurant-portal/dashboard';
 }
