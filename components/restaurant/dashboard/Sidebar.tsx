@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import NavItem from './NavItem';
-import { LayoutGrid, ClipboardList, UtensilsCrossed, User, Wallet, BarChart3, Settings, Menu, X, LogOut } from 'lucide-react';
+import { LayoutGrid, ClipboardList, UtensilsCrossed, User, Wallet, BarChart3, Settings, Megaphone, Menu, X, LogOut } from 'lucide-react';
 import getBrowserSupabase from '@/lib/supabase/client';
 
 const NAV_ITEMS = [
   { id: '/restaurant-portal/dashboard', label: 'Overview', icon: <LayoutGrid className="w-4 h-4" /> },
   { id: '/restaurant-portal/dashboard/orders', label: 'Orders', icon: <ClipboardList className="w-4 h-4" /> },
   { id: '/restaurant-portal/dashboard/menu', label: 'Menu', icon: <UtensilsCrossed className="w-4 h-4" /> },
+  { id: '/restaurant-portal/dashboard/promotions', label: 'Promotions', icon: <Megaphone className="w-4 h-4" /> },
   { id: '/restaurant-portal/dashboard/profile', label: 'Profile', icon: <User className="w-4 h-4" /> },
   { id: '/restaurant-portal/dashboard/wallet', label: 'Wallet', icon: <Wallet className="w-4 h-4" /> },
   { id: '/restaurant-portal/dashboard/reports', label: 'Reports', icon: <BarChart3 className="w-4 h-4" /> },
