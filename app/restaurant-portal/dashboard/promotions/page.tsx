@@ -4,11 +4,16 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, CheckCircle2, Megaphone } from 'lucide-react';
 import PageHeader from '@/components/admin/layout/PageHeader';
+import DateRangeFilter from '@/components/restaurant/dashboard/DateRangeFilter';
+import KpiTile from '@/components/restaurant/dashboard/KpiTile';
+import MiniBarChart from '@/components/restaurant/dashboard/MiniBarChart';
 import usePricingConfig from '@/hooks/usePricingConfig';
 import usePaystackPayment from '@/hooks/usePaystackPayment';
 import useRestaurant from '@/hooks/useRestaurant';
+import useRestaurantEventStats from '@/hooks/useRestaurantEventStats';
 import getBrowserSupabase from '@/lib/supabase/client';
 import { PUBLIC_LAUNCH_DATE, isBeforeLaunch } from '@/lib/launchDate';
+import type { DateRange } from '@/hooks/useRestaurantAnalytics';
 
 type Plan = '1_day' | '2_days' | '1_week' | '2_weeks' | '1_month';
 
@@ -49,6 +54,8 @@ export default function PromotionsPage() {
   const [current, setCurrent] = useState<PromotionRow | null>(null);
   const [history, setHistory] = useState<PromotionRow[]>([]);
   const [loadingPromotions, setLoadingPromotions] = useState(true);
+  const [analyticsRange, setAnalyticsRange] = useState<DateRange>('7d');
+  const stats = useRestaurantEventStats(restaurant?.id, analyticsRange);
 
   const fetchPromotions = useCallback(async () => {
     if (!restaurant?.id) return;
@@ -184,6 +191,26 @@ export default function PromotionsPage() {
             ? 'Redirecting to Paystack…'
             : `Buy ${PLAN_LABELS[selectedPlan]} — ₦${prices[PRICING_KEY_BY_PLAN[selectedPlan]]?.toLocaleString() ?? ''}`}
         </button>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[12.5px] font-semibold" style={{ color: 'var(--ink)' }}>Analytics</p>
+          <DateRangeFilter value={analyticsRange} onChange={setAnalyticsRange} />
+        </div>
+        <div className="grid grid-cols-3 gap-2.5 mb-3">
+          <KpiTile label="Card clicks" value={String(stats.cardClicks)} />
+          <KpiTile label="Page views" value={String(stats.pageViews)} />
+          <KpiTile label="Click-through" value={stats.clickThroughRate !== null ? `${stats.clickThroughRate}%` : '—'} />
+        </div>
+        <div className="p-4 rounded-[12px]" style={{ border: '1px solid var(--line)' }}>
+          <p className="text-[11.5px] font-semibold mb-3" style={{ color: 'var(--ink)' }}>Page views trend</p>
+          {stats.loading ? (
+            <p className="text-[11.5px] py-6 text-center" style={{ color: 'var(--gray)' }}>Loading…</p>
+          ) : (
+            <MiniBarChart data={stats.dailyViews} />
+          )}
+        </div>
       </div>
 
       {history.length > 0 && (
