@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import getBrowserSupabase from '@/lib/supabase/client';
+import { extractEdgeFunctionError } from '@/lib/extractEdgeFunctionError';
 import type { RestaurantPayout } from '@/types/database';
 
 export interface BankAccount {
@@ -65,7 +66,7 @@ export default function useWallet(restaurantId?: string) {
         body: { amount },
       });
       if (fnError) {
-        setError(fnError.message);
+        setError(await extractEdgeFunctionError(fnError));
         return false;
       }
       if (data?.error) {
@@ -85,7 +86,7 @@ export default function useWallet(restaurantId?: string) {
         body: account,
       });
       if (fnError) {
-        setError(fnError.message);
+        setError(await extractEdgeFunctionError(fnError));
         return false;
       }
       if (data?.error) {
