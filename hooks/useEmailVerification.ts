@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import getBrowserSupabase from '@/lib/supabase/client';
+import { extractEdgeFunctionError } from '@/lib/extractEdgeFunctionError';
 
 type Status = 'idle' | 'sending' | 'sent' | 'verifying' | 'verified' | 'error';
 
@@ -77,7 +78,11 @@ export default function useEmailVerification(
       const { data, error: fnError } = await supabase.functions.invoke('send-email-otp', {
         body: { email, purpose },
       });
-      if (fnError) throw fnError;
+      if (fnError) {
+        setStatus('error');
+        setError(await extractEdgeFunctionError(fnError, 'Could not send the code — try again in a moment.'));
+        return;
+      }
       if (data?.error) throw new Error(data.error);
       setStatus('sent');
       startCooldown();
@@ -95,7 +100,11 @@ export default function useEmailVerification(
         const { data, error: fnError } = await supabase.functions.invoke('verify-email-otp', {
           body: { email, code, purpose, fullName, phone },
         });
-        if (fnError) throw fnError;
+        if (fnError) {
+          setStatus('error');
+          setError(await extractEdgeFunctionError(fnError, 'Could not verify that code — try again.'));
+          return false;
+        }
         if (data?.error) throw new Error(data.error);
 
         // Validate token_hash exists before attempting session creation
