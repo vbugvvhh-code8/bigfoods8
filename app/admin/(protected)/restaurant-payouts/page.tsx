@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, CheckCircle2, XCircle, Banknote } from 'lucide-react';
 import PageHeader from '@/components/admin/layout/PageHeader';
 import getBrowserSupabase from '@/lib/supabase/client';
+import { extractEdgeFunctionError } from '@/lib/extractEdgeFunctionError';
 
 interface PayoutRow {
   id: string;
@@ -57,8 +58,12 @@ export default function RestaurantPayoutsPage() {
       body: { payoutId, action, reason },
     });
     setBusyId(null);
-    if (fnError || data?.error) {
-      setError(fnError?.message ?? data?.error ?? 'Something went wrong');
+    if (fnError) {
+      setError(await extractEdgeFunctionError(fnError));
+      return;
+    }
+    if (data?.error) {
+      setError(data.error);
       return;
     }
     setRejectingId(null);
