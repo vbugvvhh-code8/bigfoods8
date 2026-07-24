@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import getBrowserSupabase from '@/lib/supabase/client';
+import { extractEdgeFunctionError } from '@/lib/extractEdgeFunctionError';
 
 type PaymentType = 'verification_fee' | 'promotion' | 'rider_verification_fee';
 type Status = 'idle' | 'starting' | 'redirecting' | 'verifying' | 'success' | 'error';
@@ -17,10 +18,13 @@ export default function usePaystackPayment() {
       setError(null);
       try {
         const { data, error: fnError } = await supabase.functions.invoke('paystack-initialize', {
-          // Spread metadata into the body so edge function receives plan selection
           body: { type, callbackOrigin: window.location.origin, ...metadata },
         });
-        if (fnError) throw fnError;
+        if (fnError) {
+          setStatus('error');
+          setError(await extractEdgeFunctionError(fnError, 'Could not start the payment.'));
+          return;
+        }
         if (data?.error) throw new Error(data.error);
 
         setStatus('redirecting');
@@ -41,7 +45,11 @@ export default function usePaystackPayment() {
         const { data, error: fnError } = await supabase.functions.invoke('paystack-verify', {
           body: { reference },
         });
-        if (fnError) throw fnError;
+        if (fnError) {
+          setStatus('error');
+          setError(await extractEdgeFunctionError(fnError, 'Could not verify the payment.'));
+          return { success: false, type: null };
+        }
         if (data?.error || data?.success === false) {
           throw new Error(data?.error ?? 'Payment was not successful.');
         }
