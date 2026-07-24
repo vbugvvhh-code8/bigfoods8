@@ -30,7 +30,7 @@ export default function ProgressTicket({ currentStep }: ProgressTicketProps) {
           const done = i < currentIndex;
           const current = i === currentIndex;
           return (
-            <div key={s.id} className="flex-1 flex flex-col items-center gap-1.5">
+            <div key={s.id} className="flex-1 flex flex-col items-center">
               <div
                 className="rounded-full flex items-center justify-center transition-all flex-shrink-0"
                 style={{
@@ -46,15 +46,6 @@ export default function ProgressTicket({ currentStep }: ProgressTicketProps) {
                   strokeWidth={2.5}
                 />
               </div>
-              <span
-                className="text-[10px] uppercase tracking-wide"
-                style={{
-                  color: i <= currentIndex ? 'var(--ink)' : 'var(--gray)',
-                  fontWeight: i <= currentIndex ? 500 : 400,
-                }}
-              >
-                {s.label}
-              </span>
             </div>
           );
         })}
