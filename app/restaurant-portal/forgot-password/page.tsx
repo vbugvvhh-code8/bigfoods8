@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import getBrowserSupabase from '@/lib/supabase/client';
+import { extractEdgeFunctionError } from '@/lib/extractEdgeFunctionError';
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -22,7 +23,7 @@ export default function ForgotPasswordPage() {
       const { data, error: fnError } = await supabase.functions.invoke('send-password-reset-otp', {
         body: { email },
       });
-      if (fnError) throw fnError;
+      if (fnError) throw new Error(await extractEdgeFunctionError(fnError, 'Could not send the reset code — try again.'));
       if (data?.error) throw new Error(data.error);
       router.push(`/restaurant-portal/reset-password?email=${encodeURIComponent(email)}`);
     } catch (e: any) {
