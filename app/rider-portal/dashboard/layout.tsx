@@ -1,18 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import Sidebar from '@/components/rider/dashboard/Sidebar';
 import useRider from '@/hooks/useRider';
 
-const TABS = [
-  { label: 'Today', path: '/rider-portal/dashboard' },
-  { label: 'Wallet', path: '/rider-portal/dashboard/wallet' },
-  { label: 'Profile', path: '/rider-portal/dashboard/profile' },
-];
-
 export default function RiderDashboardLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
   const router = useRouter();
   const { rider, loading } = useRider();
 
@@ -29,7 +22,7 @@ export default function RiderDashboardLayout({ children }: { children: React.Rea
   }
 
   // approval_status is admin-controlled (admin-review-application) or set by
-  // rider-cancel-delivery on hitting the strike limit — a paid rider isn't
+  // rider-cancel-delivery on hitting the strike limit -- a paid rider isn't
   // necessarily approved, and an approved rider can later become suspended.
   if (rider.approval_status !== 'approved') {
     const rejected = rider.approval_status === 'rejected';
@@ -59,34 +52,9 @@ export default function RiderDashboardLayout({ children }: { children: React.Rea
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--white)' }}>
-      <div className="max-w-[420px] mx-auto px-4 pt-6 pb-16">
-        <div className="flex items-center gap-2 mb-5">
-          <div className="w-5 h-5 rounded-md" style={{ background: 'var(--orange)' }} />
-          <span className="font-semibold text-[15px] tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-            BigFoods
-          </span>
-          <span className="text-[11px] ml-auto" style={{ color: 'var(--gray)' }}>Rider Dashboard</span>
-        </div>
-
-        <div className="flex gap-1 mb-6" style={{ borderBottom: '1px solid var(--line)' }}>
-          {TABS.map((tab) => {
-            const active = pathname === tab.path;
-            return (
-              <Link
-                key={tab.path}
-                href={tab.path}
-                className="px-3 py-2.5 text-[12.5px] font-medium whitespace-nowrap"
-                style={{ color: active ? 'var(--ink)' : 'var(--gray)', borderBottom: active ? '2px solid var(--orange)' : '2px solid transparent' }}
-              >
-                {tab.label}
-              </Link>
-            );
-          })}
-        </div>
-
-        {children}
-      </div>
+    <div className="flex flex-col md:flex-row min-h-screen" style={{ background: '#F7F4F0' }}>
+      <Sidebar riderName={rider.name} />
+      <main className="flex-1 px-4 py-4 sm:px-7 sm:py-6 max-w-[1180px] overflow-auto w-full">{children}</main>
     </div>
   );
 }
