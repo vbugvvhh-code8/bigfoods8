@@ -7,6 +7,20 @@ const ADMIN_LOGIN_PATH = '/admin/login';
 const ADMIN_BASE = '/admin';
 const RESTAURANT_LOGIN_PATH = '/restaurant-portal/login';
 const RESTAURANT_DASHBOARD_BASE = '/restaurant-portal/dashboard';
+const RESTAURANT_ONBOARDING_BASE = '/restaurant-portal/onboarding';
+
+// Duplicated from ONBOARDING_STEPS in hooks/useOnboardingSession.ts on
+// purpose — that file is a 'use client' hook, and middleware runs in the
+// Edge runtime outside React, so it can't safely import it. Keep this order
+// in sync if the onboarding step sequence ever changes.
+const ONBOARDING_PATH_ORDER = [
+  '/restaurant-portal/onboarding/seller-info',
+  '/restaurant-portal/onboarding/restaurant-info',
+  '/restaurant-portal/onboarding/location',
+  '/restaurant-portal/onboarding/delivery-zone',
+  '/restaurant-portal/onboarding/menu',
+  '/restaurant-portal/onboarding/payment',
+];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -18,9 +32,11 @@ export async function middleware(req: NextRequest) {
 
   const isAdminRoute = pathname.startsWith(ADMIN_BASE);
   const isRestaurantDashboardRoute = pathname.startsWith(RESTAURANT_DASHBOARD_BASE);
+  const isRestaurantOnboardingRoute = pathname.startsWith(RESTAURANT_ONBOARDING_BASE);
 
-  // Only protect /admin and /restaurant-portal/dashboard routes
-  if (!isAdminRoute && !isRestaurantDashboardRoute) return NextResponse.next();
+  if (!isAdminRoute && !isRestaurantDashboardRoute && !isRestaurantOnboardingRoute) {
+    return NextResponse.next();
+  }
 
   // Create a response we can mutate (so cookie set/delete operations are preserved)
   let response = NextResponse.next();
@@ -65,6 +81,31 @@ export async function middleware(req: NextRequest) {
       return response;
     }
 
+    if (isRestaurantOnboardingRoute) {
+      // seller-info is the actual entry point — email OTP verification
+      // inside it is what creates the session in the first place, so it
+      // must stay reachable before any auth exists.
+      if ((userError || !user) && pathname !== '/restaurant-portal/onboarding/seller-info') {
+        return NextResponse.redirect(new URL('/restaurant-portal/onboarding/seller-info', req.url));
+      }
+      if (userError || !user) {
+        return response;
+      }
+
+      const resolved = await resolveRestaurantEntryPath(supabase);
+      const resolvedIndex = ONBOARDING_PATH_ORDER.indexOf(resolved);
+      const currentIndex = ONBOARDING_PATH_ORDER.indexOf(pathname);
+
+      // Only block jumping AHEAD of the first incomplete step — freely
+      // revisiting an already-completed step is harmless and often useful
+      // (e.g. going back to double check the location step).
+      if (resolvedIndex !== -1 && currentIndex !== -1 && currentIndex > resolvedIndex) {
+        return NextResponse.redirect(new URL(resolved, req.url));
+      }
+
+      return response;
+    }
+
     // isRestaurantDashboardRoute
     if (userError || !user) {
       return NextResponse.redirect(new URL(RESTAURANT_LOGIN_PATH, req.url));
@@ -97,7 +138,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Match all /admin routes and the restaurant dashboard; the respective
-  // login pages are allowed through above.
-  matcher: ['/admin/:path*', '/restaurant-portal/dashboard/:path*'],
+  // Match /admin routes, the restaurant dashboard, and the onboarding flow;
+  // the respective login/entry pages are allowed through above.
+  matcher: ['/admin/:path*', '/restaurant-portal/dashboard/:path*', '/restaurant-portal/onboarding/:path*'],
 };
