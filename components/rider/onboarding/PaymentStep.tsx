@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import usePaystackPayment from '@/hooks/usePaystackPayment';
 import usePricingConfig from '@/hooks/usePricingConfig';
 import getBrowserSupabase from '@/lib/supabase/client';
@@ -12,6 +13,7 @@ interface PaymentStepProps {
 }
 
 export default function PaymentStep({ draft, onBack }: PaymentStepProps) {
+  const router = useRouter();
   const supabase = getBrowserSupabase();
   const { status, error, startPayment, verifyPayment } = usePaystackPayment();
   // Its own fee, separate from the restaurant portal's verification_fee key.
@@ -27,13 +29,16 @@ export default function PaymentStep({ draft, onBack }: PaymentStepProps) {
   }, []);
 
   // The rider row must exist (profile_id-linked) before paystack-initialize
-  // will accept a charge for it — same pattern as restaurant-onboarding-save
-  // running before the restaurant's payment step.
+  // will accept a charge for it. By this step name/phone/email/vehicle/plate
+  // were already saved on the Details step and id docs on the Documents step
+  // -- this just covers zone, which has no earlier step of its own yet.
   async function saveRiderThenPay() {
     setSaveError(null);
     const { error: saveErr } = await supabase.functions.invoke('rider-onboarding-save', {
       body: {
         name: draft.fullName,
+        phone: draft.phone,
+        email: draft.email,
         vehicle_type: draft.vehicleType,
         plate_number: draft.plateNumber,
         zone: draft.zone,
@@ -51,9 +56,16 @@ export default function PaymentStep({ draft, onBack }: PaymentStepProps) {
       <div className="text-center py-1.5">
         <div className="w-12 h-12 rounded-full flex items-center justify-center text-white text-xl font-semibold mx-auto mb-4" style={{ background: 'var(--orange)' }}>✓</div>
         <h2 className="text-[20px] font-semibold mb-1.5" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>You&apos;re verified</h2>
-        <p className="text-[12.5px]" style={{ color: 'var(--gray)' }}>
-          Your application is in for review. We&apos;ll notify you once approved — the rider dashboard isn&apos;t built yet.
+        <p className="text-[12.5px] mb-5" style={{ color: 'var(--gray)' }}>
+          Your application is in for review. We&apos;ll notify you once approved.
         </p>
+        <button
+          onClick={() => router.push('/rider-portal/dashboard')}
+          className="w-full py-3.5 rounded-[10px] text-[13.5px] font-semibold text-white"
+          style={{ background: 'var(--orange)' }}
+        >
+          Go to dashboard
+        </button>
       </div>
     );
   }
@@ -63,7 +75,7 @@ export default function PaymentStep({ draft, onBack }: PaymentStepProps) {
 
   return (
     <>
-      <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--orange)' }}>Step 3 of 3</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--orange)' }}>Step 4 of 4</p>
       <h2 className="text-[20px] font-semibold mb-1.5" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Verify your account</h2>
       <p className="text-[12.5px] mb-4" style={{ color: 'var(--gray)' }}>A small one-time fee to confirm you&apos;re serious about riding.</p>
 
