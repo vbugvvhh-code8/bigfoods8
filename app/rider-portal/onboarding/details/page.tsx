@@ -1,20 +1,28 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import DetailsForm from '@/components/rider/onboarding/DetailsForm';
-import useRiderOnboardingSession from '@/hooks/useRiderOnboardingSession';
+import useRiderOnboardingSession, { RIDER_ONBOARDING_STEPS } from '@/hooks/useRiderOnboardingSession';
 
 export default function RiderDetailsPage() {
   const router = useRouter();
-  const { draft, updateDraft, hydrated } = useRiderOnboardingSession();
+  const { draft, updateDraft, hydrated, resumeStep } = useRiderOnboardingSession();
 
-  if (!hydrated) return null;
+  useEffect(() => {
+    if (hydrated && resumeStep && resumeStep !== 'details') {
+      const target = RIDER_ONBOARDING_STEPS.find((s) => s.id === resumeStep);
+      if (target) router.replace(target.path);
+    }
+  }, [hydrated, resumeStep, router]);
+
+  if (!hydrated || resumeStep !== 'details') return null;
 
   return (
     <DetailsForm
       draft={draft}
       updateDraft={updateDraft}
-      onContinue={() => router.push('/rider-portal/onboarding/location')}
+      onContinue={() => router.push('/rider-portal/onboarding/documents')}
     />
   );
 }
