@@ -1,5 +1,8 @@
 'use client';
 
+import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
+import getBrowserSupabase from '@/lib/supabase/client';
 import EmailVerifyField from './EmailVerifyField';
 import { RiderOnboardingDraft } from '@/hooks/useRiderOnboardingSession';
 
@@ -22,12 +25,38 @@ interface DetailsFormProps {
 }
 
 export default function DetailsForm({ draft, updateDraft, onContinue }: DetailsFormProps) {
+  const supabase = getBrowserSupabase();
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   const canContinue =
     !!draft.fullName && !!draft.phone && !!draft.vehicleType && !!draft.plateNumber && !!draft.emailVerified;
 
+  async function handleContinue() {
+    setSaveError(null);
+    setSaving(true);
+    try {
+      const { error } = await supabase.functions.invoke('rider-onboarding-save', {
+        body: {
+          name: draft.fullName,
+          phone: draft.phone,
+          email: draft.email,
+          vehicle_type: draft.vehicleType,
+          plate_number: draft.plateNumber,
+        },
+      });
+      if (error) throw error;
+      onContinue();
+    } catch {
+      setSaveError('Could not save your details — try again.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <>
-      <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--orange)' }}>Step 1 of 3</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--orange)' }}>Step 1 of 4</p>
       <h2 className="text-[20px] font-semibold mb-1.5" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
         Tell us about you and your ride
       </h2>
@@ -60,7 +89,7 @@ export default function DetailsForm({ draft, updateDraft, onContinue }: DetailsF
         />
       </div>
 
-      <div className="flex gap-3 mb-5 mt-3.5">
+      <div className="flex gap-3 mb-2 mt-3.5">
         <div className="flex-1">
           <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>Vehicle</label>
           <select value={draft.vehicleType ?? ''} onChange={(e) => updateDraft({ vehicleType: e.target.value })}
@@ -73,9 +102,16 @@ export default function DetailsForm({ draft, updateDraft, onContinue }: DetailsF
           onChange={(e) => updateDraft({ plateNumber: e.target.value })} />
       </div>
 
-      <button onClick={onContinue} disabled={!canContinue}
-        className="w-full py-3.5 rounded-[10px] text-[13.5px] font-semibold text-white disabled:opacity-40"
+      {saveError && (
+        <p className="text-[11.5px] mb-3 p-3 rounded-[9px]" style={{ background: '#FEF2F2', color: 'var(--red)' }}>
+          {saveError}
+        </p>
+      )}
+
+      <button onClick={handleContinue} disabled={!canContinue || saving}
+        className="w-full py-3.5 rounded-[10px] text-[13.5px] font-semibold text-white disabled:opacity-40 flex items-center justify-center gap-2 mt-3"
         style={{ background: 'var(--orange)' }}>
+        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
         Continue
       </button>
     </>
