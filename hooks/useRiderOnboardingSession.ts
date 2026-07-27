@@ -17,6 +17,7 @@ export interface RiderOnboardingDraft {
   phone?: string;
   email?: string;
   emailVerified?: boolean;
+  passwordSet?: boolean;
   vehicleType?: string;
   plateNumber?: string;
   zone?: string;
@@ -63,7 +64,7 @@ function readOtpState(): EmailVerificationState {
 
 // Which step a rider row is missing fields for -- this is the actual
 // resume logic (server-side, works on any device), not the localStorage draft.
-function computeResumeStep(row: Record<string, any> | null): RiderOnboardingStep {
+export function computeResumeStep(row: Record<string, any> | null): RiderOnboardingStep {
   if (!row) return 'details';
   if (!row.name || !row.phone || !row.email || !row.vehicle_type || !row.plate_number) return 'details';
   if (!row.id_number || !row.face_photo_url || !row.id_front_url || !row.id_back_url) return 'documents';
