@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import getBrowserSupabase from '@/lib/supabase/client';
-import EmailVerifyField from './EmailVerifyField';
+import EmailVerifyField from '@/components/rider/onboarding/EmailVerifyField';
 import { RiderOnboardingDraft } from '@/hooks/useRiderOnboardingSession';
 
 const VEHICLE_TYPES = ['Okada', 'Keke', 'Car', 'Bicycle'];
