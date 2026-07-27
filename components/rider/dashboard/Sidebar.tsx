@@ -3,12 +3,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import NavItem from '@/components/restaurant/dashboard/NavItem';
-import { LayoutGrid, Truck, Wallet, User, Menu, X, LogOut } from 'lucide-react';
+import { LayoutGrid, Truck, Wallet, User, Menu, X, LogOut, HandHelping } from 'lucide-react';
 import getBrowserSupabase from '@/lib/supabase/client';
 
 const NAV_ITEMS = [
   { id: '/rider-portal/dashboard', label: 'Overview', icon: <LayoutGrid className="w-4 h-4" /> },
   { id: '/rider-portal/dashboard/deliveries', label: 'Deliveries', icon: <Truck className="w-4 h-4" /> },
+  { id: '/rider-portal/dashboard/transfers', label: 'Hand-offs', icon: <HandHelping className="w-4 h-4" /> },
   { id: '/rider-portal/dashboard/wallet', label: 'Wallet', icon: <Wallet className="w-4 h-4" /> },
   { id: '/rider-portal/dashboard/profile', label: 'Profile', icon: <User className="w-4 h-4" /> },
 ];
