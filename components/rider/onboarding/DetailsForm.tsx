@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
 import getBrowserSupabase from '@/lib/supabase/client';
 import EmailVerifyField from './EmailVerifyField';
 import { RiderOnboardingDraft } from '@/hooks/useRiderOnboardingSession';
@@ -29,8 +29,42 @@ export default function DetailsForm({ draft, updateDraft, onContinue }: DetailsF
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  const passwordValid = password.length >= 8;
+  const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
+
   const canContinue =
-    !!draft.fullName && !!draft.phone && !!draft.vehicleType && !!draft.plateNumber && !!draft.emailVerified;
+    !!draft.fullName &&
+    !!draft.phone &&
+    !!draft.vehicleType &&
+    !!draft.plateNumber &&
+    !!draft.emailVerified &&
+    !!draft.passwordSet;
+
+  // Same pattern as the restaurant portal's seller-info step: email OTP
+  // verification (EmailVerifyField, above) already created a real Supabase
+  // Auth session for this user -- this just attaches a password to that same
+  // account, which is what actually lets them use supabase.auth.signInWithPassword
+  // later. Without this step a rider can onboard but can never log back in.
+  async function handleSetPassword() {
+    if (!passwordValid || !passwordsMatch) return;
+    setSavingPassword(true);
+    setPasswordError(null);
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      updateDraft({ passwordSet: true });
+    } catch (e: any) {
+      setPasswordError(e?.message ?? 'Could not set your password — try again.');
+    } finally {
+      setSavingPassword(false);
+    }
+  }
 
   async function handleContinue() {
     setSaveError(null);
@@ -73,7 +107,7 @@ export default function DetailsForm({ draft, updateDraft, onContinue }: DetailsF
         <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>Email</label>
         <input
           value={draft.email ?? ''}
-          onChange={(e) => updateDraft({ email: e.target.value, emailVerified: false })}
+          onChange={(e) => updateDraft({ email: e.target.value, emailVerified: false, passwordSet: false })}
           placeholder="you@example.com"
           type="email"
           className="w-full px-3 py-2.5 rounded-[9px] text-[13px] outline-none"
@@ -88,6 +122,69 @@ export default function DetailsForm({ draft, updateDraft, onContinue }: DetailsF
           purpose="rider_signup"
         />
       </div>
+
+      {draft.emailVerified && (
+        <div className="mb-3.5 mt-3.5">
+          <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
+            Set a password
+          </label>
+
+          {draft.passwordSet ? (
+            <p className="text-[11.5px]" style={{ color: 'var(--green)' }}>✓ Password set</p>
+          ) : (
+            <>
+              <div className="relative mb-2">
+                <input
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  type={showPassword ? 'text' : 'password'}
+                  className="w-full px-3 py-2.5 pr-10 rounded-[9px] text-[13px] outline-none"
+                  style={inputStyle}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                  style={{ color: 'var(--gray)' }}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <input
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm password"
+                type={showPassword ? 'text' : 'password'}
+                className="w-full px-3 py-2.5 rounded-[9px] text-[13px] outline-none mb-2"
+                style={inputStyle}
+              />
+
+              {password.length > 0 && !passwordValid && (
+                <p className="text-[11px] mb-1.5" style={{ color: 'var(--red)' }}>Password must be at least 8 characters.</p>
+              )}
+              {confirmPassword.length > 0 && !passwordsMatch && (
+                <p className="text-[11px] mb-1.5" style={{ color: 'var(--red)' }}>Passwords don't match.</p>
+              )}
+              {passwordError && (
+                <p className="text-[11px] mb-1.5" style={{ color: 'var(--red)' }}>{passwordError}</p>
+              )}
+
+              <button
+                type="button"
+                onClick={handleSetPassword}
+                disabled={!passwordValid || !passwordsMatch || savingPassword}
+                className="w-full py-2.5 rounded-[9px] text-[12.5px] font-semibold text-white disabled:opacity-40 flex items-center justify-center gap-2"
+                style={{ background: 'var(--orange)' }}
+              >
+                {savingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Set password
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-3 mb-2 mt-3.5">
         <div className="flex-1">
