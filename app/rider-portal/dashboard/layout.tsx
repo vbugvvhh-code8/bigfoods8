@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Sidebar from '@/components/rider/dashboard/Sidebar';
+import WaiverBanner from '@/components/rider/dashboard/WaiverBanner';
 import useRider from '@/hooks/useRider';
 
 export default function RiderDashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { rider, loading } = useRider();
 
   useEffect(() => {
@@ -54,7 +56,10 @@ export default function RiderDashboardLayout({ children }: { children: React.Rea
   return (
     <div className="flex flex-col md:flex-row min-h-screen" style={{ background: '#F7F4F0' }}>
       <Sidebar riderName={rider.name} />
-      <main className="flex-1 px-4 py-4 sm:px-7 sm:py-6 max-w-[1180px] overflow-auto w-full">{children}</main>
+      <main className="flex-1 px-4 py-4 sm:px-7 sm:py-6 max-w-[1180px] overflow-auto w-full">
+        {!rider.waiver_completed && !pathname?.startsWith('/rider-portal/dashboard/waiver') && <WaiverBanner />}
+        {children}
+      </main>
     </div>
   );
 }
