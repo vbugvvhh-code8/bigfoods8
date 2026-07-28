@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import getBrowserSupabase from '@/lib/supabase/client';
 import type { Rider } from '@/types/database';
 
@@ -11,11 +11,14 @@ export interface RiderSaveFields {
   zone?: string;
 }
 
+const LOCATION_HEARTBEAT_MS = 5 * 60 * 1000; // every 5 minutes, per spec
+
 export default function useRider() {
   const supabase = getBrowserSupabase();
   const [rider, setRider] = useState<Rider | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const riderIdRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -84,6 +87,40 @@ export default function useRider() {
     },
     [rider, supabase]
   );
+
+  // Location heartbeat: while online, refresh lat/lng every 5 minutes so
+  // dispatch (nearest-rider matching) isn't working off a stale position
+  // from whenever the rider happened to tap "Go online". last_location_update
+  // doubles as an implicit activity signal (proves GPS + app were reachable
+  // at that tick) rather than needing a separate heartbeat table.
+  useEffect(() => {
+    riderIdRef.current = rider?.id ?? null;
+    if (rider?.status !== 'online' || typeof navigator === 'undefined' || !navigator.geolocation) return;
+
+    const tick = async () => {
+      const currentRiderId = riderIdRef.current;
+      if (!currentRiderId) return;
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000 })
+        );
+        await supabase
+          .from('riders')
+          .update({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            last_location_update: new Date().toISOString(),
+          })
+          .eq('id', currentRiderId);
+      } catch {
+        // GPS unavailable this tick — try again next interval rather than
+        // taking the rider offline; a missed refresh isn't worth interrupting them for.
+      }
+    };
+
+    const interval = setInterval(tick, LOCATION_HEARTBEAT_MS);
+    return () => clearInterval(interval);
+  }, [rider?.id, rider?.status, supabase]);
 
   return { rider, loading, error, save, setOnline, refresh };
 }
