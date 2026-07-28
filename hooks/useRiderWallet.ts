@@ -12,6 +12,7 @@ const EARNING_TYPES = [
   'delivery_commission',
   'delivery_commission_transfer',
   'delivery_commission_transfer_original',
+  'delivery_tip',
   'cancellation_penalty',
 ];
 
