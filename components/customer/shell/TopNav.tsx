@@ -26,7 +26,6 @@ function MobileTopBar() {
   return (
     <header
       className="flex lg:hidden sticky top-0 z-40 items-center justify-between px-4 h-14 bg-white"
-      style={{borderBottom: '1px solid var(--line)'}}
     >
       <Link href="/order" className="flex items-center gap-2">
         <div className="w-6 h-6 rounded-md overflow-hidden flex-shrink-0" style={{background: 'var(--orange)'}}>
