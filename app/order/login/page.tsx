@@ -2,7 +2,7 @@
 
 import {Suspense, useState} from 'react';
 import {useRouter, useSearchParams} from 'next/navigation';
-import {Mail, ArrowLeft} from 'lucide-react';
+import {Mail, ArrowLeft, User} from 'lucide-react';
 import useCustomerAuth from '@/hooks/useCustomerAuth';
 
 function LoginContent() {
@@ -10,11 +10,13 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const next = searchParams.get('next') ?? '/order';
 
-  const [step, setStep] = useState<'email' | 'code'>('email');
+  const [step, setStep] = useState<'email' | 'code' | 'name'>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
+  const [name, setName] = useState('');
+  const [savingName, setSavingName] = useState(false);
 
-  const {status, error, cooldown, sendCode, verifyCode} = useCustomerAuth(email);
+  const {status, error, cooldown, isNewUser, sendCode, verifyCode, saveName} = useCustomerAuth(email);
 
   const handleSendCode = async () => {
     await sendCode();
@@ -23,6 +25,19 @@ function LoginContent() {
 
   const handleVerify = async () => {
     const ok = await verifyCode(code);
+    if (!ok) return;
+    if (isNewUser) {
+      setStep('name');
+      return;
+    }
+    router.replace(next);
+  };
+
+  const handleSaveName = async () => {
+    if (!name.trim()) return;
+    setSavingName(true);
+    const ok = await saveName(name.trim());
+    setSavingName(false);
     if (ok) router.replace(next);
   };
 
@@ -41,19 +56,21 @@ function LoginContent() {
         className="w-11 h-11 rounded-full flex items-center justify-center mb-4"
         style={{background: 'var(--peach)', color: 'var(--orange)'}}
       >
-        <Mail className="w-5 h-5" />
+        {step === 'name' ? <User className="w-5 h-5" /> : <Mail className="w-5 h-5" />}
       </div>
 
       <h1 className="font-display text-[19px] font-semibold" style={{color: 'var(--ink)'}}>
-        {step === 'email' ? 'Log in or sign up' : 'Enter your code'}
+        {step === 'email' ? 'Log in or sign up' : step === 'code' ? 'Enter your code' : "What's your name?"}
       </h1>
       <p className="text-[12.5px] mt-1 leading-relaxed" style={{color: 'var(--gray)'}}>
         {step === 'email'
           ? "We'll email you a one-time code — no password needed."
-          : `We sent a 6-digit code to ${email}.`}
+          : step === 'code'
+          ? `We sent a 6-digit code to ${email}.`
+          : "So restaurants and riders know who they're delivering to."}
       </p>
 
-      {step === 'email' ? (
+      {step === 'email' && (
         <>
           <input
             type="email"
@@ -74,7 +91,9 @@ function LoginContent() {
             {status === 'sending' ? 'Sending…' : 'Send code'}
           </button>
         </>
-      ) : (
+      )}
+
+      {step === 'code' && (
         <>
           <input
             type="text"
@@ -103,6 +122,29 @@ function LoginContent() {
             style={{color: 'var(--gray)'}}
           >
             {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
+          </button>
+        </>
+      )}
+
+      {step === 'name' && (
+        <>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && name.trim() && handleSaveName()}
+            placeholder="Your full name"
+            className="w-full mt-5 rounded-xl px-4 py-3 text-[13px] outline-none"
+            style={{background: 'var(--peach)', color: 'var(--ink)'}}
+            autoFocus
+          />
+          <button
+            onClick={handleSaveName}
+            disabled={!name.trim() || savingName}
+            className="w-full mt-3 py-3 rounded-xl text-[13px] font-semibold text-white disabled:opacity-50"
+            style={{background: 'var(--orange)'}}
+          >
+            {savingName ? 'Saving…' : 'Continue'}
           </button>
         </>
       )}
