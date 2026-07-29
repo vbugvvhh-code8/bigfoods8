@@ -2,6 +2,7 @@
 
 import {useCallback, useState} from 'react';
 import getBrowserSupabase from '@/lib/supabase/client';
+import {extractEdgeFunctionError} from '@/lib/extractEdgeFunctionError';
 
 type Status = 'idle' | 'sending' | 'sent' | 'verifying' | 'verified' | 'error';
 
@@ -58,7 +59,7 @@ export default function useCustomerAuth(email: string, fullName?: string, phone?
       const {data, error: fnError} = await supabase.functions.invoke('send-email-otp', {
         body: {email, purpose: 'customer_signup'},
       });
-      if (fnError) throw fnError;
+      if (fnError) throw new Error(await extractEdgeFunctionError(fnError, 'Could not send the code — try again in a moment.'));
       if (data?.error) throw new Error(data.error);
       setStatus('sent');
       startCooldown();
@@ -76,7 +77,7 @@ export default function useCustomerAuth(email: string, fullName?: string, phone?
         const {data, error: fnError} = await supabase.functions.invoke('verify-email-otp', {
           body: {email, code, purpose: 'customer_signup', full_name: fullName, phone},
         });
-        if (fnError) throw fnError;
+        if (fnError) throw new Error(await extractEdgeFunctionError(fnError, 'Could not verify that code — try again.'));
         if (data?.error) throw new Error(data.error);
 
         if (data?.token_hash) {
@@ -107,7 +108,7 @@ export default function useCustomerAuth(email: string, fullName?: string, phone?
         const {data, error: fnError} = await supabase.functions.invoke('customer-set-name', {
           body: {full_name: name},
         });
-        if (fnError) throw fnError;
+        if (fnError) throw new Error(await extractEdgeFunctionError(fnError, 'Could not save your name — try again.'));
         if (data?.error) throw new Error(data.error);
         return true;
       } catch (e: any) {
