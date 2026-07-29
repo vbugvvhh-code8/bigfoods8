@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
-import {Home, ClipboardList, User} from 'lucide-react';
+import {Home, ClipboardList, User, MapPin} from 'lucide-react';
+import {useGeolocation} from '@/hooks/useGeolocation';
+import {useEffect} from 'react';
 
 const LOGO_URL =
   'https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/0.4927238865897102.webp';
@@ -13,36 +15,74 @@ const ITEMS = [
   {href: '/order/profile', label: 'Profile', icon: User},
 ];
 
-export function TopNav() {
-  const pathname = usePathname();
+function MobileTopBar() {
+  const {lgaGuess, requestLocation, isLoading} = useGeolocation();
+
+  useEffect(() => {
+    requestLocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <header
-      className="hidden lg:flex sticky top-0 z-40 items-center justify-between px-8 h-16 bg-white"
+      className="flex lg:hidden sticky top-0 z-40 items-center justify-between px-4 h-14 bg-white"
       style={{borderBottom: '1px solid var(--line)'}}
     >
-      <Link href="/order" className="flex items-center gap-2.5">
-        <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0" style={{background: 'var(--orange)'}}>
+      <Link href="/order" className="flex items-center gap-2">
+        <div className="w-6 h-6 rounded-md overflow-hidden flex-shrink-0" style={{background: 'var(--orange)'}}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={LOGO_URL} alt="BigFoods" className="w-full h-full object-cover" />
         </div>
-        <span className="font-display font-semibold text-[16px]" style={{color: 'var(--ink)'}}>
+        <span className="font-display font-semibold text-[15px]" style={{color: 'var(--ink)'}}>
           BigFoods
         </span>
       </Link>
 
-      <nav className="flex items-center gap-6">
-        {ITEMS.map(({href, label, icon: Icon}) => {
-          const active = href === '/order' ? pathname === '/order' : pathname?.startsWith(href);
-          const color = active ? 'var(--orange)' : 'var(--gray)';
-          return (
-            <Link key={href} href={href} className="flex items-center gap-1.5 text-[13px] font-medium" style={{color}}>
-              <Icon className="w-4 h-4" strokeWidth={active ? 2.25 : 1.75} />
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
+      <div className="flex items-center gap-1 text-[11.5px]" style={{color: 'var(--gray)'}}>
+        <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+        <span className="max-w-[130px] truncate">
+          {isLoading ? 'Locating…' : lgaGuess ? `${lgaGuess}, Anambra` : 'Set location'}
+        </span>
+      </div>
     </header>
+  );
+}
+
+export function TopNav() {
+  const pathname = usePathname();
+
+  return (
+    <>
+      <MobileTopBar />
+
+      {/* Desktop: unchanged nav bar */}
+      <header
+        className="hidden lg:flex sticky top-0 z-40 items-center justify-between px-8 h-16 bg-white"
+        style={{borderBottom: '1px solid var(--line)'}}
+      >
+        <Link href="/order" className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0" style={{background: 'var(--orange)'}}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={LOGO_URL} alt="BigFoods" className="w-full h-full object-cover" />
+          </div>
+          <span className="font-display font-semibold text-[16px]" style={{color: 'var(--ink)'}}>
+            BigFoods
+          </span>
+        </Link>
+
+        <nav className="flex items-center gap-6">
+          {ITEMS.map(({href, label, icon: Icon}) => {
+            const active = href === '/order' ? pathname === '/order' : pathname?.startsWith(href);
+            const color = active ? 'var(--orange)' : 'var(--gray)';
+            return (
+              <Link key={href} href={href} className="flex items-center gap-1.5 text-[13px] font-medium" style={{color}}>
+                <Icon className="w-4 h-4" strokeWidth={active ? 2.25 : 1.75} />
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+      </header>
+    </>
   );
 }
