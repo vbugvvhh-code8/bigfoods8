@@ -11,7 +11,7 @@ const RESEND_COOLDOWN_SECONDS = 60;
  * Customer-specific wrapper around send-email-otp / verify-email-otp.
  *
  * Deliberately NOT a reuse of hooks/useEmailVerification.ts (the restaurant
- * onboarding hook) — that hook omits `purpose` entirely, and both Edge
+ * onboarding hook) -- that hook omits `purpose` entirely, and both Edge
  * Functions default `purpose` to 'restaurant_signup' when it's missing.
  * Reusing it as-is would silently register every customer with
  * role: 'restaurant'. This hook always sends purpose: 'customer_signup',
@@ -20,14 +20,22 @@ const RESEND_COOLDOWN_SECONDS = 60;
  *
  * Note: if the email already belongs to an existing account (e.g. someone
  * who signed up as a restaurant owner first), verify-email-otp logs them
- * into that existing account/role rather than creating a second profile —
+ * into that existing account/role rather than creating a second profile --
  * one email maps to one account across all three portals.
+ *
+ * isNewUser (added this pass): customers don't collect a name up front like
+ * restaurant/rider signup does -- fullName/phone here will almost always be
+ * undefined for the customer flow. Instead, verify-email-otp reports whether
+ * this verification just created a brand-new account, and the login page
+ * uses isNewUser to show a one-time "what's your name?" step only for
+ * genuinely new signups, saved separately via customer-set-name.
  */
 export default function useCustomerAuth(email: string, fullName?: string, phone?: string) {
   const supabase = getBrowserSupabase();
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
+  const [isNewUser, setIsNewUser] = useState(false);
 
   const startCooldown = useCallback(() => {
     setCooldown(RESEND_COOLDOWN_SECONDS);
@@ -80,6 +88,7 @@ export default function useCustomerAuth(email: string, fullName?: string, phone?
           if (sessionError) throw sessionError;
         }
 
+        setIsNewUser(!!data?.is_new_user);
         setStatus('verified');
         return true;
       } catch (e: any) {
@@ -91,5 +100,23 @@ export default function useCustomerAuth(email: string, fullName?: string, phone?
     [email, fullName, phone, supabase]
   );
 
-  return {status, error, cooldown, sendCode, verifyCode};
+  const saveName = useCallback(
+    async (name: string) => {
+      setError(null);
+      try {
+        const {data, error: fnError} = await supabase.functions.invoke('customer-set-name', {
+          body: {full_name: name},
+        });
+        if (fnError) throw fnError;
+        if (data?.error) throw new Error(data.error);
+        return true;
+      } catch (e: any) {
+        setError(e?.message ?? 'Could not save your name — try again.');
+        return false;
+      }
+    },
+    [supabase]
+  );
+
+  return {status, error, cooldown, isNewUser, sendCode, verifyCode, saveName};
 }
