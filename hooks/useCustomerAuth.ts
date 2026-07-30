@@ -82,7 +82,6 @@ export default function useCustomerAuth(email: string, fullName?: string, phone?
 
         if (data?.token_hash) {
           const {error: sessionError} = await supabase.auth.verifyOtp({
-            email,
             token_hash: data.token_hash,
             type: 'email',
           });
