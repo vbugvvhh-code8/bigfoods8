@@ -7,10 +7,16 @@ import {RestaurantSwitchModal} from '@/components/customer/shared/RestaurantSwit
 import {InstallPrompt} from '@/components/customer/shell/InstallPrompt';
 import {ServiceWorkerRegister} from '@/components/customer/shell/ServiceWorkerRegister';
 
-// Login and the payment callback are focused, single-purpose flows —
+// Auth routes and the payment callback are focused, single-purpose flows —
 // hiding the primary nav here removes exit points at the moments a person
 // is mid-auth or mid-payment-confirmation.
-const NAV_HIDDEN_PREFIXES = ['/order/login', '/order/checkout/callback'];
+const NAV_HIDDEN_PREFIXES = [
+  '/order/login',
+  '/order/signup',
+  '/order/forgot-password',
+  '/order/reset-password',
+  '/order/checkout/callback',
+];
 
 export function OrderShellClient({children}: {children: React.ReactNode}) {
   const pathname = usePathname() ?? '';
