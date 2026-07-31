@@ -2,6 +2,7 @@
 
 import {useState} from 'react';
 import getBrowserSupabase from '@/lib/supabase/client';
+import {extractEdgeFunctionError} from '@/lib/extractEdgeFunctionError';
 import type {CartItem} from '@/hooks/useCart';
 
 interface InitializeParams {
@@ -33,7 +34,9 @@ export function useCheckout() {
           callbackOrigin: window.location.origin,
         },
       });
-      if (fnError) throw fnError;
+      if (fnError) {
+        throw new Error(await extractEdgeFunctionError(fnError, 'Could not start payment. Try again.'));
+      }
       if (data?.error) throw new Error(data.error);
       if (!data?.authorization_url) throw new Error('Could not start payment');
       window.location.href = data.authorization_url;
