@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import {Navigation} from 'lucide-react';
+import type {BatchStop} from '@/hooks/useOrderTracking';
 
 const TrackingMap = dynamic(() => import('./TrackingMap'), {
   ssr: false,
@@ -14,7 +15,9 @@ const TrackingMap = dynamic(() => import('./TrackingMap'), {
 
 interface TrackingMapViewProps {
   riderPosition: [number, number] | null;
-  destinationPosition: [number, number];
+  currentDestination: {lat: number; lng: number; label: string};
+  finalDestination: [number, number];
+  otherStops?: BatchStop[];
   distanceKm: number | null;
   etaMinutes: number | null;
   lastUpdatedLabel: string | null;
@@ -22,14 +25,21 @@ interface TrackingMapViewProps {
 
 export function TrackingMapView({
   riderPosition,
-  destinationPosition,
+  currentDestination,
+  finalDestination,
+  otherStops,
   distanceKm,
   etaMinutes,
   lastUpdatedLabel,
 }: TrackingMapViewProps) {
   return (
     <div className="relative w-full rounded-xl overflow-hidden" style={{height: 220}}>
-      <TrackingMap riderPosition={riderPosition} destinationPosition={destinationPosition} />
+      <TrackingMap
+        riderPosition={riderPosition}
+        currentDestination={[currentDestination.lat, currentDestination.lng]}
+        finalDestination={finalDestination}
+        otherStops={otherStops}
+      />
 
       {riderPosition && distanceKm != null && (
         <div
@@ -38,7 +48,7 @@ export function TrackingMapView({
         >
           <Navigation className="w-3.5 h-3.5" style={{color: 'var(--orange)'}} />
           <span className="text-[11.5px] font-semibold" style={{color: 'var(--ink)'}}>
-            {distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m away` : `${distanceKm.toFixed(1)} km away`}
+            {distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m` : `${distanceKm.toFixed(1)} km`} from {currentDestination.label}
             {etaMinutes != null && ` · ~${etaMinutes} min`}
           </span>
         </div>
