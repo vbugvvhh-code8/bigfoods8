@@ -11,19 +11,25 @@ export interface CartItem {
   restaurantName: string;
 }
 
+export interface RestaurantGroup {
+  restaurantId: string;
+  restaurantName: string;
+  items: CartItem[];
+  subtotal: number;
+}
+
 interface CartContextValue {
   items: CartItem[];
   count: number;
   total: number;
-  restaurantId: string | null;
-  restaurantName: string | null;
-  /** Set when addItem was blocked because the cart already holds items from a different restaurant. */
-  pendingSwitch: {id: string; name: string; price: number; restaurantId: string; restaurantName: string} | null;
+  /** Items grouped by restaurant -- this is what checkout/multi-restaurant dispatch actually operates on. */
+  groups: RestaurantGroup[];
+  /** True once the cart spans more than one restaurant -- checkout uses this to decide single-order vs. order-group flow. */
+  isMultiRestaurant: boolean;
   addItem: (item: Omit<CartItem, 'quantity'>) => void;
-  confirmRestaurantSwitch: () => void;
-  cancelRestaurantSwitch: () => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
+  removeRestaurant: (restaurantId: string) => void;
   clearCart: () => void;
 }
 
@@ -33,9 +39,7 @@ const STORAGE_KEY = 'bigfoods-customer-cart';
 export function CartProvider({children}: {children: ReactNode}) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
-  const [pendingSwitch, setPendingSwitch] = useState<CartContextValue['pendingSwitch']>(null);
 
-  // Hydrate from localStorage once on mount (client-side only).
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -57,33 +61,34 @@ export function CartProvider({children}: {children: ReactNode}) {
 
   const count = items.reduce((sum, item) => sum + item.quantity, 0);
   const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const restaurantId = items.length > 0 ? items[0].restaurantId : null;
-  const restaurantName = items.length > 0 ? items[0].restaurantName : null;
 
-  const addItem = useCallback(
-    (item: Omit<CartItem, 'quantity'>) => {
-      if (restaurantId && item.restaurantId !== restaurantId) {
-        setPendingSwitch(item);
-        return;
+  const groups: RestaurantGroup[] = Object.values(
+    items.reduce((acc, item) => {
+      if (!acc[item.restaurantId]) {
+        acc[item.restaurantId] = {
+          restaurantId: item.restaurantId,
+          restaurantName: item.restaurantName,
+          items: [],
+          subtotal: 0,
+        };
       }
-      setItems((prev) => {
-        const existing = prev.find((i) => i.id === item.id);
-        if (existing) {
-          return prev.map((i) => (i.id === item.id ? {...i, quantity: i.quantity + 1} : i));
-        }
-        return [...prev, {...item, quantity: 1}];
-      });
-    },
-    [restaurantId]
+      acc[item.restaurantId].items.push(item);
+      acc[item.restaurantId].subtotal += item.price * item.quantity;
+      return acc;
+    }, {} as Record<string, RestaurantGroup>)
   );
 
-  const confirmRestaurantSwitch = useCallback(() => {
-    if (!pendingSwitch) return;
-    setItems([{...pendingSwitch, quantity: 1}]);
-    setPendingSwitch(null);
-  }, [pendingSwitch]);
+  const isMultiRestaurant = groups.length > 1;
 
-  const cancelRestaurantSwitch = useCallback(() => setPendingSwitch(null), []);
+  const addItem = useCallback((item: Omit<CartItem, 'quantity'>) => {
+    setItems((prev) => {
+      const existing = prev.find((i) => i.id === item.id);
+      if (existing) {
+        return prev.map((i) => (i.id === item.id ? {...i, quantity: i.quantity + 1} : i));
+      }
+      return [...prev, {...item, quantity: 1}];
+    });
+  }, []);
 
   const removeItem = useCallback((id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
@@ -96,6 +101,10 @@ export function CartProvider({children}: {children: ReactNode}) {
     });
   }, []);
 
+  const removeRestaurant = useCallback((restaurantId: string) => {
+    setItems((prev) => prev.filter((i) => i.restaurantId !== restaurantId));
+  }, []);
+
   const clearCart = useCallback(() => setItems([]), []);
 
   return (
@@ -104,14 +113,12 @@ export function CartProvider({children}: {children: ReactNode}) {
         items,
         count,
         total,
-        restaurantId,
-        restaurantName,
-        pendingSwitch,
+        groups,
+        isMultiRestaurant,
         addItem,
-        confirmRestaurantSwitch,
-        cancelRestaurantSwitch,
         removeItem,
         updateQuantity,
+        removeRestaurant,
         clearCart,
       }}
     >
