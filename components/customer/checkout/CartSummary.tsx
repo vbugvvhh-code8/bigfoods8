@@ -3,12 +3,18 @@
 import {Plus, Minus, Trash2} from 'lucide-react';
 import {useCart} from '@/hooks/useCart';
 
-export function CartSummary() {
+interface CartSummaryProps {
+  /** When provided, only that restaurant's items are shown -- used by multi-restaurant checkout so each group renders its own items only. Omit to show the whole cart (original single-restaurant behavior). */
+  restaurantId?: string;
+}
+
+export function CartSummary({restaurantId}: CartSummaryProps) {
   const {items, updateQuantity, removeItem} = useCart();
+  const visibleItems = restaurantId ? items.filter((i) => i.restaurantId === restaurantId) : items;
 
   return (
     <div className="divide-y" style={{borderColor: 'var(--line)'}}>
-      {items.map((item) => (
+      {visibleItems.map((item) => (
         <div key={item.id} className="flex items-center gap-3 py-3">
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-[12.5px]" style={{color: 'var(--ink)'}}>
