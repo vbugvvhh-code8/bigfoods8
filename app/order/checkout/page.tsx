@@ -18,24 +18,46 @@ import {ShoppingBag} from 'lucide-react';
 
 function CheckoutContent() {
   const router = useRouter();
-  const {items, total: subtotal, restaurantId, restaurantName} = useCart();
-  const {restaurant} = useRestaurant(restaurantId ?? '');
-  const {prices} = usePricingConfig(['platform_fee', 'delivery_rate_per_km']);
+  const {items, groups, total: subtotal, isMultiRestaurant} = useCart();
+  const {prices} = usePricingConfig(['platform_fee', 'delivery_rate_per_km', 'minimum_delivery_fee']);
   const {initializePayment, isSubmitting, error: paymentError} = useCheckout();
 
   const [deliveryPoint, setDeliveryPoint] = useState<DeliveryPoint | null>(null);
   const [note, setNote] = useState('');
   const [tipAmount, setTipAmount] = useState(0);
 
-  const deliveryFee = useMemo(() => {
-    if (!deliveryPoint || !restaurant?.latitude || !restaurant?.longitude || !prices.delivery_rate_per_km) return null;
-    const distanceKm = haversineKm(restaurant.latitude, restaurant.longitude, deliveryPoint.lat, deliveryPoint.lng);
-    return Math.round(distanceKm * prices.delivery_rate_per_km);
-  }, [deliveryPoint, restaurant, prices.delivery_rate_per_km]);
+  // Rough client-side estimate only -- the real fee (with proper batch
+  // clustering for 3+ restaurants) is computed server-side at payment init.
+  // This is here purely so the customer sees a believable total before paying.
+  const {restaurant: singleRestaurant} = useRestaurant(!isMultiRestaurant ? groups[0]?.restaurantId ?? '' : '');
+  const restaurantResults = groups.map((g) => useRestaurant(g.restaurantId));
 
-  const platformFee = prices.platform_fee ?? 500;
+  const minDeliveryFee = prices.minimum_delivery_fee ?? 1000;
+  const platformFee = (prices.platform_fee ?? 500) * groups.length;
 
-  if (items.length === 0 || !restaurantId) {
+  const estimatedDeliveryFee = useMemo(() => {
+    if (!deliveryPoint || !prices.delivery_rate_per_km) return null;
+    if (!isMultiRestaurant) {
+      if (!singleRestaurant?.latitude || !singleRestaurant?.longitude) return null;
+      const km = haversineKm(singleRestaurant.latitude, singleRestaurant.longitude, deliveryPoint.lat, deliveryPoint.lng);
+      return Math.max(Math.round(km * prices.delivery_rate_per_km), minDeliveryFee);
+    }
+    // Multi-restaurant: rough estimate assuming one batch per restaurant
+    // visited independently to the same address (real clustering happens
+    // server-side and may combine up to 3 into one trip, which would be
+    // cheaper than this estimate -- intentionally conservative).
+    let total = 0;
+    let anyMissing = false;
+    for (const r of restaurantResults) {
+      if (!r.restaurant?.latitude || !r.restaurant?.longitude) { anyMissing = true; continue; }
+      const km = haversineKm(r.restaurant.latitude, r.restaurant.longitude, deliveryPoint.lat, deliveryPoint.lng);
+      total += Math.max(Math.round(km * prices.delivery_rate_per_km), minDeliveryFee);
+    }
+    return anyMissing && total === 0 ? null : total;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deliveryPoint, singleRestaurant, restaurantResults.map((r) => r.restaurant?.id).join(','), prices.delivery_rate_per_km]);
+
+  if (items.length === 0) {
     return (
       <div className="w-full max-w-[380px] mx-auto px-4 py-8">
         <EmptyState
@@ -55,13 +77,16 @@ function CheckoutContent() {
   }
 
   const handlePay = () => {
-    if (!deliveryPoint || !restaurantId) return;
+    if (!deliveryPoint) return;
     initializePayment({
-      restaurantId,
-      items,
+      groups: groups.map((g) => ({
+        restaurant_id: g.restaurantId,
+        items: g.items.map((i) => ({menu_item_id: i.id, quantity: i.quantity})),
+      })),
       deliveryAddress: deliveryPoint.label + (note ? ` — ${note}` : ''),
       deliveryLat: deliveryPoint.lat,
       deliveryLng: deliveryPoint.lng,
+      deliveryNote: note,
       tipAmount,
     });
   };
@@ -77,18 +102,34 @@ function CheckoutContent() {
         Checkout
       </h1>
       <p className="text-[12px] mt-0.5" style={{color: 'var(--gray)'}}>
-        {restaurantName}
+        {isMultiRestaurant ? `${groups.length} restaurants` : groups[0]?.restaurantName}
       </p>
 
-      <div className="mt-4">
-        <CartSummary />
+      {isMultiRestaurant && (
+        <div className="mt-3 p-3 rounded-xl text-[11.5px]" style={{background: 'var(--peach)', color: 'var(--ink)'}}>
+          Ordering from {groups.length} restaurants means this may arrive as separate deliveries — each rider
+          brings their own portion, and you'll get each one's contact info and their own drop-off code.
+        </div>
+      )}
+
+      <div className="mt-4 space-y-3">
+        {groups.map((g) => (
+          <div key={g.restaurantId}>
+            {isMultiRestaurant && (
+              <p className="text-[12px] font-semibold mb-1.5" style={{color: 'var(--ink)'}}>
+                {g.restaurantName}
+              </p>
+            )}
+            <CartSummary restaurantId={g.restaurantId} />
+          </div>
+        ))}
       </div>
 
       <DeliveryLocationPicker selected={deliveryPoint} onSelect={setDeliveryPoint} note={note} onNoteChange={setNote} />
 
       <TipSelector value={tipAmount} onChange={setTipAmount} />
 
-      <PriceBreakdown subtotal={subtotal} platformFee={platformFee} deliveryFee={deliveryFee} tipAmount={tipAmount} />
+      <PriceBreakdown subtotal={subtotal} platformFee={platformFee} deliveryFee={estimatedDeliveryFee} tipAmount={tipAmount} />
 
       {paymentError && (
         <p className="text-[12px] mt-3 text-center" style={{color: 'var(--red, #C1453A)'}}>
@@ -107,7 +148,7 @@ function CheckoutContent() {
             {isSubmitting
               ? 'Starting payment…'
               : deliveryPoint
-              ? `Pay ₦${(subtotal + platformFee + (deliveryFee ?? 0) + tipAmount).toLocaleString()}`
+              ? `Pay ₦${(subtotal + platformFee + (estimatedDeliveryFee ?? 0) + tipAmount).toLocaleString()}`
               : 'Choose a delivery location to pay'}
           </button>
         </div>
