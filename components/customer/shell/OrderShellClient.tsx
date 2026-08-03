@@ -3,7 +3,6 @@
 import {usePathname} from 'next/navigation';
 import {TopNav} from '@/components/customer/shell/TopNav';
 import {BottomNav} from '@/components/customer/shell/BottomNav';
-import {RestaurantSwitchModal} from '@/components/customer/shared/RestaurantSwitchModal';
 import {InstallPrompt} from '@/components/customer/shell/InstallPrompt';
 import {ServiceWorkerRegister} from '@/components/customer/shell/ServiceWorkerRegister';
 
@@ -28,7 +27,6 @@ export function OrderShellClient({children}: {children: React.ReactNode}) {
       {!hideNav && <TopNav />}
       <main className={`flex-1 ${hideNav ? '' : 'pb-24 lg:pb-8'}`}>{children}</main>
       {!hideNav && <BottomNav />}
-      <RestaurantSwitchModal />
       <InstallPrompt />
     </div>
   );
