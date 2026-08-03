@@ -150,6 +150,10 @@ export interface Database {
           rider_id: string | null;
           reference: string | null;
           status: string | null;
+          // NEW this pass — set for a multi-restaurant order's single
+          // combined payment (order_id stays null in that case; use this
+          // instead to find which order_group a payment covers).
+          order_group_id: string | null;
         };
         Insert: Partial<Database['public']['Tables']['transactions']['Row']> & { type: string; amount: number };
         Update: Partial<Database['public']['Tables']['transactions']['Row']>;
@@ -332,9 +336,60 @@ export interface Database {
           // NEW this pass — dispatch-retry tracking, see file-level note above.
           last_dispatch_attempt_at: string | null;
           dispatch_retry_count: number;
+          // NEW this pass — set when this order is one leg of a multi-restaurant
+          // order (see order_groups/delivery_batches below). Null for a plain
+          // single-restaurant order, which works exactly as before.
+          order_group_id: string | null;
+          delivery_batch_id: string | null;
         };
         Insert: Partial<Database['public']['Tables']['orders']['Row']> & { subtotal: number };
         Update: Partial<Database['public']['Tables']['orders']['Row']>;
+      };
+      // NEW this pass — the customer-facing wrapper for a checkout that
+      // spans multiple restaurants: one delivery address, one combined
+      // Paystack payment. Each restaurant leg is still a normal `orders`
+      // row (own subtotal, own platform_fee, own status), just linked back
+      // here via order_group_id.
+      order_groups: {
+        Row: {
+          id: string;
+          customer_id: string;
+          delivery_address: string | null;
+          delivery_lat: number;
+          delivery_lng: number;
+          delivery_note: string | null;
+          payment_reference: string | null;
+          payment_status: string; // 'pending' | 'paid' | 'failed'
+          total_amount: number;
+          created_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['order_groups']['Row']> & {
+          customer_id: string;
+          delivery_lat: number;
+          delivery_lng: number;
+        };
+        Update: Partial<Database['public']['Tables']['order_groups']['Row']>;
+      };
+      // NEW this pass — one per rider within an order_group. A cart spanning
+      // more than 3 restaurants splits into multiple batches, each an
+      // independent delivery with its own rider, fee, and drop-off code.
+      delivery_batches: {
+        Row: {
+          id: string;
+          order_group_id: string;
+          rider_id: string | null;
+          status: string; // 'assigning' | 'collecting' | 'delivered' | 'cancelled'
+          delivery_code: string | null;
+          delivery_fee: number;
+          tip_amount: number;
+          route_sequence: string[] | null; // ordered restaurant_ids for this rider's pickup sequence
+          last_dispatch_attempt_at: string | null;
+          dispatch_retry_count: number;
+          delivered_at: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['delivery_batches']['Row']> & { order_group_id: string };
+        Update: Partial<Database['public']['Tables']['delivery_batches']['Row']>;
       };
       order_items: {
         Row: {
@@ -426,3 +481,5 @@ export type Order = Database['public']['Tables']['orders']['Row'];
 export type OrderItem = Database['public']['Tables']['order_items']['Row'];
 export type EmailVerificationCode = Database['public']['Tables']['email_verification_codes']['Row'];
 export type SavedAddress = Database['public']['Tables']['saved_addresses']['Row'];
+export type OrderGroup = Database['public']['Tables']['order_groups']['Row'];
+export type DeliveryBatch = Database['public']['Tables']['delivery_batches']['Row'];
