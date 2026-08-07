@@ -9,6 +9,11 @@ import {AuthGate} from '@/components/customer/shell/AuthGate';
 
 type Status = 'verifying' | 'success' | 'failed';
 
+interface BatchCode {
+  id: string;
+  delivery_code: string | null;
+}
+
 function CallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -17,7 +22,13 @@ function CallbackContent() {
   const supabase = getBrowserSupabase();
 
   const [status, setStatus] = useState<Status>('verifying');
-  const [result, setResult] = useState<{order_id?: string; delivery_code?: string; error?: string}>({});
+  const [result, setResult] = useState<{
+    order_id?: string;
+    delivery_code?: string;
+    order_group_id?: string;
+    batches?: BatchCode[];
+    error?: string;
+  }>({});
 
   useEffect(() => {
     if (!reference) {
@@ -39,7 +50,12 @@ function CallbackContent() {
         }
         clearCart();
         setStatus('success');
-        setResult({order_id: data.order_id, delivery_code: data.delivery_code});
+        setResult({
+          order_id: data.order_id,
+          delivery_code: data.delivery_code,
+          order_group_id: data.order_group_id,
+          batches: data.batches,
+        });
       });
 
     return () => {
@@ -47,6 +63,8 @@ function CallbackContent() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reference]);
+
+  const isMultiRestaurant = !!result.order_group_id;
 
   return (
     <div className="w-full max-w-[380px] mx-auto px-4 py-16 text-center">
@@ -59,7 +77,7 @@ function CallbackContent() {
         </>
       )}
 
-      {status === 'success' && (
+      {status === 'success' && !isMultiRestaurant && (
         <>
           <CheckCircle2 className="w-10 h-10 mx-auto" style={{color: 'var(--orange)'}} />
           <p className="font-display font-semibold text-[16px] mt-3" style={{color: 'var(--ink)'}}>
@@ -77,6 +95,50 @@ function CallbackContent() {
             style={{background: 'var(--orange)'}}
           >
             Track my order
+          </button>
+          <button
+            onClick={() => router.push('/order')}
+            className="w-full mt-2 py-3 rounded-xl text-[13px] font-semibold"
+            style={{color: 'var(--gray)'}}
+          >
+            Back to Home
+          </button>
+        </>
+      )}
+
+      {status === 'success' && isMultiRestaurant && (
+        <>
+          <CheckCircle2 className="w-10 h-10 mx-auto" style={{color: 'var(--orange)'}} />
+          <p className="font-display font-semibold text-[16px] mt-3" style={{color: 'var(--ink)'}}>
+            Order placed!
+          </p>
+          <p className="text-[12.5px] mt-1 mb-4" style={{color: 'var(--gray)'}}>
+            {(result.batches?.length ?? 0) > 1
+              ? `This is arriving as ${result.batches?.length} separate deliveries — give each rider their own code below.`
+              : 'Give your rider this code at delivery:'}
+          </p>
+
+          <div className="space-y-2.5">
+            {result.batches?.map((b, i) => (
+              <div key={b.id} className="rounded-xl p-3.5" style={{background: 'var(--peach)'}}>
+                {(result.batches?.length ?? 0) > 1 && (
+                  <p className="text-[10.5px] uppercase tracking-wide mb-1" style={{color: 'var(--gray)'}}>
+                    Delivery {i + 1}
+                  </p>
+                )}
+                <p className="font-display text-[22px] font-bold tracking-widest" style={{color: 'var(--orange)'}}>
+                  {b.delivery_code}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={() => router.push('/order/orders')}
+            className="w-full mt-6 py-3 rounded-xl text-[13px] font-semibold text-white"
+            style={{background: 'var(--orange)'}}
+          >
+            Track my orders
           </button>
           <button
             onClick={() => router.push('/order')}
