@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 export default function PortalHome() {
-  const states = ['Anambra', 'Delta', 'Port Harcourt', 'Lagos', 'Abuja'];
+  const states = ['Anambra', 'Delta', 'PH City', 'Lagos', 'Abuja'];
   const [currentStateIndex, setCurrentStateIndex] = useState(0);
 
   useEffect(() => {
@@ -20,6 +20,7 @@ export default function PortalHome() {
         <nav>
           <div className="logo">
             <div className="logo-badge">
+              {/* Real BigFoods mark: fork + spoon on a round badge */}
               <svg viewBox="0 0 24 24" fill="none">
                 <path
                   d="M7 2v7a2 2 0 0 0 2 2v11"
@@ -46,7 +47,7 @@ export default function PortalHome() {
             </div>
             <span className="logo-text">BigFoods</span>
           </div>
-          
+
           <div className="nav-right">
             <div className="live-indicator">
               <span>Live in</span>
@@ -70,17 +71,31 @@ export default function PortalHome() {
               collect it hot and bring it to your door — every day, on
               schedule, no re-ordering.
             </p>
-            <div className="hero-ctas">
-              <Link href="/order" className="btn-primary">
-                Order food now
-              </Link>
-              <Link href="/restaurant-portal" className="btn-ghost">
-                Open your kitchen
-              </Link>
-              <Link href="/rider-portal" className="btn-ghost">
-                Become a rider
+
+            <div className="cta-row">
+              <div className="hero-ctas">
+                <Link href="/order" className="btn-primary sm">
+                  Order food now
+                </Link>
+                <Link href="/restaurant-portal" className="btn-ghost sm">
+                  Open your kitchen
+                </Link>
+                <Link href="/rider-portal" className="btn-ghost sm">
+                  Become a rider
+                </Link>
+              </div>
+
+              <Link href="/order" className="subscribe-float">
+                <span className="sf-pill">Subscribe</span>
+                <span className="sf-text">Subscribe to your favourite restaurant for constant meals</span>
+                <span className="sf-arrow">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M9 5l7 7-7 7" stroke="#241C14" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
               </Link>
             </div>
+
             <div className="trust-row">
               <div className="avatars">
                 <span className="a1">🍲</span>
@@ -93,6 +108,10 @@ export default function PortalHome() {
           </div>
 
           <div className="hero-visual">
+            <div className="rating-badge">
+              <span className="stars">⭐ 4.8</span>
+              <span className="rated-by">1,200+ happy diners</span>
+            </div>
             <svg className="route-svg" viewBox="0 0 400 460" fill="none">
               <path
                 d="M70 70 C 170 60, 190 190, 300 210 S 150 380, 90 400"
@@ -162,12 +181,13 @@ export default function PortalHome() {
             <div className="seller-copy">
               <p className="sec-eyebrow">for home-based sellers</p>
               <h2 className="serif" style={{ fontSize: '2.1rem', fontWeight: 600, margin: '0 0 18px' }}>
-                Cook. Our riders come to you. Our riders collect your food and delivers, you get paid.
+                Cook! Our rider picks from you and delivers to hungry customers.
               </h2>
               <p className="lede">
-                BigFoods is a platform where you can easily open your restaurant. We fully support home kitchens. 
-                No matter where you live, our rider will come to you, collect your meal from you, and deliver it. 
-                Users can also subscribe to your restaurant and choose specific days where they need specific meals.
+                We built BigFoods to support home restaurants — no storefront, no limitations on
+                where you live, and no complex sign-ups. Register your kitchen in minutes, start
+                taking orders, and let subscribers lock in their favourite meals from you on the
+                days they want them.
               </p>
               <div className="stat-row">
                 <div className="stat">
@@ -289,12 +309,12 @@ export default function PortalHome() {
         }
         .logo { display: flex; align-items: center; gap: 10px; }
         .logo-badge {
-          width: 38px; height: 38px; border-radius: 11px;
+          width: 38px; height: 38px; border-radius: 50%;
           background: linear-gradient(160deg, #FF9966, var(--clay) 60%, var(--clay-dark));
           display: flex; align-items: center; justify-content: center;
           box-shadow: 0 8px 16px -8px rgba(230, 92, 0, 0.55);
         }
-        .logo-badge svg { width: 18px; height: 18px; }
+        .logo-badge svg { width: 17px; height: 17px; }
         .logo-text { font-family: 'Fraunces', serif; font-weight: 700; font-size: 1.25rem; }
         
         .nav-right { display: flex; align-items: center; gap: 30px; font-size: 0.92rem; font-weight: 600; }
@@ -312,7 +332,7 @@ export default function PortalHome() {
           border-radius: 50%;
           animation: blink 1.5s infinite;
         }
-        .state-name { width: 105px; font-weight: 700; }
+        .state-name { width: 72px; font-weight: 700; transition: opacity 0.3s; }
 
         @keyframes blink {
           0%, 100% { opacity: 1; }
@@ -344,9 +364,19 @@ export default function PortalHome() {
           line-height: 1.6;
           color: #4a4033;
           max-width: 480px;
-          margin: 0 0 32px;
+          margin: 0 0 26px;
         }
-        .hero-ctas { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 30px; }
+
+        /* CTA row: smaller buttons + floating subscribe card sitting to the right */
+        .cta-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          flex-wrap: wrap;
+          margin-bottom: 28px;
+        }
+        .hero-ctas { display: flex; gap: 10px; flex-wrap: wrap; }
         .btn-primary {
           background: var(--clay); color: #fff;
           padding: 15px 26px; border-radius: 100px;
@@ -365,6 +395,51 @@ export default function PortalHome() {
           transition: background 0.2s;
         }
         .btn-ghost:hover { background: #fafafa; }
+        .btn-primary.sm, .btn-ghost.sm {
+          padding: 10px 16px;
+          font-size: 0.82rem;
+        }
+
+        .subscribe-float {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          background: var(--char);
+          color: #fff;
+          text-decoration: none;
+          padding: 10px 16px 10px 10px;
+          border-radius: 100px;
+          max-width: 300px;
+          box-shadow: 0 12px 22px -12px rgba(36,28,20,0.45);
+          flex: 0 0 auto;
+        }
+        .sf-pill {
+          flex: 0 0 auto;
+          background: var(--amber);
+          color: var(--char);
+          font-size: 0.66rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          padding: 5px 10px;
+          border-radius: 100px;
+        }
+        .sf-text {
+          font-size: 0.78rem;
+          font-weight: 600;
+          line-height: 1.3;
+        }
+        .sf-arrow {
+          flex: 0 0 auto;
+          width: 22px; height: 22px;
+          background: #fff;
+          border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+        }
+        @media(max-width: 640px) {
+          .cta-row { flex-direction: column; align-items: flex-start; }
+          .subscribe-float { max-width: 100%; }
+        }
         
         .trust-row { display: flex; align-items: center; gap: 16px; }
         .avatars { display: flex; }
@@ -391,6 +466,11 @@ export default function PortalHome() {
           padding: 16px 18px;
           width: 190px;
           box-shadow: 0 20px 40px -22px rgba(36, 28, 20, 0.15);
+          animation: floaty 5s ease-in-out infinite;
+        }
+        @keyframes floaty {
+          0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); }
+          50% { transform: translateY(-6px) rotate(var(--r, 0deg)); }
         }
         .stop-card .tag {
           font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
@@ -403,11 +483,11 @@ export default function PortalHome() {
           display: flex; align-items: center; justify-content: center; margin-bottom: 10px;
           font-size: 1.1rem;
         }
-        .stop1 { top: 8px; left: 0; transform: rotate(-3deg); }
+        .stop1 { top: 44px; left: 0; --r: -3deg; transform: rotate(-3deg); animation-delay: 0s; }
         .stop1 .ico { background: var(--amber-soft); }
-        .stop2 { top: 190px; right: 6px; transform: rotate(2deg); }
+        .stop2 { top: 224px; right: 6px; --r: 2deg; transform: rotate(2deg); animation-delay: 1.2s; }
         .stop2 .ico { background: var(--palm-soft); }
-        .stop3 { bottom: 6px; left: 24px; transform: rotate(-1.5deg); }
+        .stop3 { bottom: 6px; left: 24px; --r: -1.5deg; transform: rotate(-1.5deg); animation-delay: 2.4s; }
         .stop3 .ico { background: #FBDCC0; }
         .tape {
           position: absolute; width: 64px; height: 22px;
@@ -416,9 +496,23 @@ export default function PortalHome() {
           transform: rotate(-8deg);
           border-radius: 2px;
         }
+        .rating-badge {
+          position: absolute;
+          top: 0; right: 0;
+          background: #fff;
+          border: 1px solid var(--line);
+          border-radius: 14px;
+          padding: 10px 14px;
+          display: flex;
+          flex-direction: column;
+          box-shadow: 0 12px 22px -14px rgba(36,28,20,0.25);
+          z-index: 2;
+        }
+        .rating-badge .stars { font-weight: 800; font-size: 0.9rem; }
+        .rating-badge .rated-by { font-size: 0.68rem; color: var(--muted); font-weight: 600; margin-top: 2px; }
         @media(max-width: 900px){
            .hero { grid-template-columns: 1fr; gap: 40px; padding: 30px 0 60px; }
-           .hero-visual { height: 360px; transform: scale(0.85); transform-origin: left top; }
+           .hero-visual { height: 380px; transform: scale(0.85); transform-origin: left top; }
         }
 
         /* ---------------- SECTION SHELL ---------------- */
