@@ -1,347 +1,558 @@
 'use client';
 
 import Link from 'next/link';
-import {useEffect, useMemo, useRef, useState} from 'react';
-import {
-  ShoppingBag,
-  Store,
-  Bike,
-  LayoutGrid,
-  ArrowRight,
-  Pizza,
-  Sandwich,
-  Soup,
-  IceCream2,
-  Beef,
-  Salad,
-  Cookie,
-  Coffee,
-  Fish,
-  UtensilsCrossed,
-} from 'lucide-react';
-
-const portals = [
-  {
-    href: '/order',
-    icon: ShoppingBag,
-    title: 'Order Food',
-    badge: 'CUSTOMER APP',
-    description: 'Browse restaurants, search dishes, track your delivery.',
-  },
-  {
-    href: '/restaurant-portal',
-    icon: Store,
-    title: 'Restaurant Portal',
-    badge: 'FOR SELLERS',
-    description: 'Register your kitchen and get on BigFoods.',
-  },
-  {
-    href: '/rider-portal',
-    icon: Bike,
-    title: 'Rider Portal',
-    badge: 'FOR DISPATCH',
-    description: 'Apply to ride and earn on your own schedule.',
-  },
-  {
-    href: '/admin',
-    icon: LayoutGrid,
-    title: 'Admin Console',
-    badge: 'INTERNAL',
-    description: 'Platform dashboard, zone map, and restaurant management.',
-  },
-];
-
-const LOGO_URL =
-  'https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/0.4927238865897102.webp';
-
-const FOOD_ICONS = [Pizza, Sandwich, Soup, IceCream2, Beef, Salad, Cookie, Coffee, Fish, UtensilsCrossed];
-
-const FOOD_ITEMS = FOOD_ICONS.map((Icon, i) => {
-  const count = FOOD_ICONS.length;
-  const angle = (i / count) * Math.PI * 2;
-  const dist = 120 + (i % 3) * 26;
-  const x = Math.cos(angle) * dist;
-  const y = Math.sin(angle) * dist;
-  const rot = ((i * 47) % 70) - 35;
-  return {
-    Icon,
-    x: Math.round(x),
-    y: Math.round(y),
-    rot,
-    outDelay: i * 0.03,
-    inDelay: (count - i) * 0.018,
-  };
-});
-
-// Shortened splash: explode -> implode -> logo pop (+ tagline) -> shrink -> hide -> done
-type Stage = 'explode' | 'implode' | 'logo' | 'shrink' | 'hide' | 'done';
+import { useEffect, useState } from 'react';
 
 export default function PortalHome() {
-  const [stage, setStage] = useState<Stage>('explode');
-  const realLogoRef = useRef<HTMLDivElement>(null);
-  const splashLogoRef = useRef<HTMLDivElement>(null);
-  const [logoTransform, setLogoTransform] = useState({tx: 0, ty: 0, ts: 0.3});
+  const states = ['Anambra', 'Delta', 'Port Harcourt', 'Lagos', 'Abuja'];
+  const [currentStateIndex, setCurrentStateIndex] = useState(0);
 
   useEffect(() => {
-    const timers: ReturnType<typeof setTimeout>[] = [];
-
-    timers.push(setTimeout(() => setStage('implode'), 800));
-    timers.push(setTimeout(() => setStage('logo'), 1400));
-    timers.push(
-      setTimeout(() => {
-        const target = realLogoRef.current?.getBoundingClientRect();
-        const splash = splashLogoRef.current?.getBoundingClientRect();
-        if (target && splash) {
-          const targetCenterX = target.left + target.width / 2;
-          const targetCenterY = target.top + target.height / 2;
-          const splashCenterX = splash.left + splash.width / 2;
-          const splashCenterY = splash.top + splash.height / 2;
-          setLogoTransform({
-            tx: targetCenterX - splashCenterX,
-            ty: targetCenterY - splashCenterY,
-            ts: target.width / splash.width,
-          });
-        }
-        setStage('shrink');
-      }, 2500)
-    );
-    timers.push(setTimeout(() => setStage('hide'), 3200));
-    timers.push(setTimeout(() => setStage('done'), 3850));
-
-    return () => timers.forEach(clearTimeout);
+    const interval = setInterval(() => {
+      setCurrentStateIndex((prev) => (prev + 1) % states.length);
+    }, 3000);
+    return () => clearInterval(interval);
   }, []);
 
-  const overlayStyle = useMemo<React.CSSProperties>(
-    () => ({
-      '--tx': `${logoTransform.tx}px`,
-      '--ty': `${logoTransform.ty}px`,
-      '--ts': `${logoTransform.ts}`,
-    } as React.CSSProperties),
-    [logoTransform]
-  );
-
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center px-5 py-12"
-      style={{background: 'var(--white)'}}
-    >
-      <div className="w-full max-w-[360px]">
-        {/* Brand */}
-        <div className="flex flex-col items-center mb-10">
-          <div
-            ref={realLogoRef}
-            className="w-12 h-12 rounded-xl mb-3 flex items-center justify-center overflow-hidden"
-            style={{background: 'var(--orange)'}}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={LOGO_URL} alt="BigFoods" className="w-full h-full object-cover" />
+    <>
+      <div className="wrap">
+        <nav>
+          <div className="logo">
+            <div className="logo-badge">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M7 2v7a2 2 0 0 0 2 2v11"
+                  stroke="#fff"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M7 2v5M9 2v5M11 2v7"
+                  stroke="#fff"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M17 2c-2 1.5-2.5 4-2.5 6.5C14.5 11 16 12 17 12v10"
+                  stroke="#fff"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <span className="logo-text">BigFoods</span>
           </div>
-          <h1
-            className="text-[26px] font-bold tracking-tight mb-1"
-            style={{fontFamily: "'Space Grotesk', sans-serif", color: 'var(--ink)'}}
-          >
-            BigFoods
-          </h1>
-          <p style={{color: 'var(--gray)', fontSize: '13px'}}>
-            Awka, Anambra — choose a portal
-          </p>
-        </div>
+          
+          <div className="nav-right">
+            <div className="live-indicator">
+              <span>Live in</span>
+              <span className="green-dot"></span>
+              <span className="state-name">{states[currentStateIndex]}</span>
+            </div>
+          </div>
+        </nav>
+      </div>
 
-        {/* Portal cards */}
-        <div className="flex flex-col gap-3">
-          {portals.map(({href, icon: Icon, title, badge, description}) => (
-            <Link
-              key={href}
-              href={href}
-              className="flex items-center gap-4 bg-white rounded-2xl px-4 py-4 transition-all hover:shadow-card active:scale-[0.98]"
-              style={{border: '1px solid var(--line)'}}
-            >
-              <div
-                className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{background: 'var(--peach)'}}
-              >
-                <Icon className="w-5 h-5" style={{color: 'var(--orange)'}} />
+      {/* HERO */}
+      <div className="wrap">
+        <div className="hero">
+          <div>
+            <h1 className="headline">
+              Subscribe to<br />
+              your meals, <span className="accent">not<br />your stress.</span>
+            </h1>
+            <p className="lede">
+              Pick a home kitchen you trust, set your plan, and let a rider
+              collect it hot and bring it to your door — every day, on
+              schedule, no re-ordering.
+            </p>
+            <div className="hero-ctas">
+              <Link href="/order" className="btn-primary">
+                Order food now
+              </Link>
+              <Link href="/restaurant-portal" className="btn-ghost">
+                Open your kitchen
+              </Link>
+              <Link href="/rider-portal" className="btn-ghost">
+                Become a rider
+              </Link>
+            </div>
+            <div className="trust-row">
+              <div className="avatars">
+                <span className="a1">🍲</span>
+                <span className="a2">🥘</span>
+                <span className="a3">🍢</span>
+                <span className="a4">+90</span>
               </div>
+              <small>home kitchens already delivering weekly plans</small>
+            </div>
+          </div>
 
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                  <span
-                    className="font-semibold text-[15px]"
-                    style={{fontFamily: "'Space Grotesk', sans-serif", color: 'var(--ink)'}}
-                  >
-                    {title}
-                  </span>
-                  <span
-                    className="text-[9.5px] font-bold px-2 py-0.5 rounded-full"
-                    style={{background: 'var(--peach)', color: 'var(--orange-dark)'}}
-                  >
-                    {badge}
-                  </span>
-                </div>
-                <p style={{color: 'var(--gray)', fontSize: '12px', lineHeight: '1.4'}}>
-                  {description}
-                </p>
-              </div>
-
-              <ArrowRight className="w-4 h-4 flex-shrink-0" style={{color: 'var(--gray)'}} />
-            </Link>
-          ))}
+          <div className="hero-visual">
+            <svg className="route-svg" viewBox="0 0 400 460" fill="none">
+              <path
+                d="M70 70 C 170 60, 190 190, 300 210 S 150 380, 90 400"
+                stroke="#FF7A2E"
+                strokeWidth="2"
+                strokeDasharray="1 10"
+                strokeLinecap="round"
+              />
+            </svg>
+            <div className="stop-card stop1">
+              <div className="tape"></div>
+              <div className="ico">🍛</div>
+              <div className="tag">Stop 01 · Kitchen</div>
+              <h4>Mama Ngozi's Pot</h4>
+              <p>Jollof + plantain, packed hot at 12:15pm</p>
+            </div>
+            <div className="stop-card stop2">
+              <div className="ico">🏍️</div>
+              <div className="tag">Stop 02 · Rider</div>
+              <h4>Chidi is en route</h4>
+              <p>Picked up · 6 mins to your street</p>
+            </div>
+            <div className="stop-card stop3">
+              <div className="ico">🏠</div>
+              <div className="tag">Stop 03 · Your door</div>
+              <h4>Delivered, no re-order</h4>
+              <p>Tomorrow's plate is already queued</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* ============ SPLASH INTRO ============ */}
-      {stage !== 'done' && (
-        <div
-          id="bf-splash"
-          data-stage={stage}
-          style={overlayStyle}
-          className={stage === 'hide' ? 'bf-splash bf-splash-out' : 'bf-splash'}
-        >
-          <div className="bf-burst-ring" />
-
-          <div className="bf-stage bf-s-food">
-            <div className="bf-food-center">
-              {FOOD_ITEMS.map(({Icon, x, y, rot, outDelay, inDelay}, i) => (
-                <div
-                  key={i}
-                  className="bf-food-item"
-                  style={
-                    {
-                      '--x': `${x}px`,
-                      '--y': `${y}px`,
-                      '--r': `${rot}deg`,
-                      '--d': `${outDelay}s`,
-                      '--di': `${inDelay}s`,
-                    } as React.CSSProperties
-                  }
-                >
-                  <Icon size={34} color="#fff" strokeWidth={1.75} />
-                </div>
-              ))}
-            </div>
+      {/* THE HANDOFF */}
+      <section className="how" id="how">
+        <div className="wrap">
+          <div className="sec-head">
+            <p className="sec-eyebrow">the handoff</p>
+            <h2>Three stops, one plate that always arrives.</h2>
           </div>
-
-          <div className="bf-stage bf-s-logo">
-            <div className="bf-logo-wrap">
-              <div ref={splashLogoRef} className="bf-splash-logo">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={LOGO_URL} alt="" />
-              </div>
-              <div className="bf-tagline">Made to serve Anambra</div>
+          <div className="steps">
+            <div className="step">
+              <div className="step-num">01</div>
+              <div className="step-ico">🍳</div>
+              <h3>A home kitchen cooks</h3>
+              <p>Verified sellers cook your plan for the day, right in their own kitchen — not a commercial line, just real home cooking.</p>
+            </div>
+            <div className="step">
+              <div className="step-num">02</div>
+              <div className="step-ico">🏍️</div>
+              <h3>A rider collects it</h3>
+              <p>No seller has to leave the stove. A BigFoods rider picks up your plate the moment it's packed and moves straight to your address.</p>
+            </div>
+            <div className="step">
+              <div className="step-num">03</div>
+              <div className="step-ico">🍽️</div>
+              <h3>It reaches your door</h3>
+              <p>Your subscription runs itself after that — same time, same standard, until you pause or change your plan.</p>
             </div>
           </div>
         </div>
-      )}
+      </section>
+
+      {/* WHAT THE APP DOES / FOR SELLERS */}
+      <section id="sellers">
+        <div className="wrap">
+          <div className="sellers">
+            <div className="seller-copy">
+              <p className="sec-eyebrow">for home-based sellers</p>
+              <h2 className="serif" style={{ fontSize: '2.1rem', fontWeight: 600, margin: '0 0 18px' }}>
+                Cook. Our riders come to you. Our riders collect your food and delivers, you get paid.
+              </h2>
+              <p className="lede">
+                BigFoods is a platform where you can easily open your restaurant. We fully support home kitchens. 
+                No matter where you live, our rider will come to you, collect your meal from you, and deliver it. 
+                Users can also subscribe to your restaurant and choose specific days where they need specific meals.
+              </p>
+              <div className="stat-row">
+                <div className="stat">
+                  <b>0</b>
+                  <span>Storefront needed</span>
+                </div>
+                <div className="stat">
+                  <b>1</b>
+                  <span>Pickup point — your kitchen</span>
+                </div>
+                <div className="stat">
+                  <b>92%</b>
+                  <span>Sellers keep repeat subscribers</span>
+                </div>
+              </div>
+            </div>
+            <div className="recipe-cards">
+              <div className="recipe-card">
+                <div className="pin"></div>
+                <h4>Subscribe to your best meal</h4>
+                <p>Allow customers to lock in their favorite dishes from your kitchen on specific days of the week.</p>
+              </div>
+              <div className="recipe-card">
+                <div className="pin"></div>
+                <h4>No delivery hassle</h4>
+                <p>Riders collect batch orders straight from your kitchen at set pickup windows.</p>
+              </div>
+              <div className="recipe-card">
+                <div className="pin"></div>
+                <h4>Paid on schedule</h4>
+                <p>Weekly payouts straight to your account, no chasing customers for cash.</p>
+              </div>
+              <div className="recipe-card">
+                <div className="pin"></div>
+                <h4>Built-in trust badge</h4>
+                <p>A verified home-kitchen stamp customers recognise and return for.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* TESTIMONIAL */}
+      <section>
+        <div className="wrap">
+          <div className="testimonial">
+            <div className="stamp">
+              <div className="stamp-inner">
+                <b>Verified<br />Home Kitchen</b>
+                <span>SINCE 2024</span>
+              </div>
+            </div>
+            <div className="quote">
+              <p>"I used to hawk food by okada myself. Now I just cook — BigFoods sends a rider, and my customers get a fresh plate before it goes cold. My kitchen finally pays like a business."</p>
+              <cite>
+                Ngozi Eze<span>Home seller, Amawbia Road, Awka</span>
+              </cite>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FINAL CTA */}
+      <div className="wrap">
+        <div className="final">
+          <h2 className="serif">Your next plate is one tap away.</h2>
+          <Link className="btn-primary" href="/order" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            Order food now
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M9 5l7 7-7 7" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Link>
+        </div>
+
+        <footer>
+          <span>BigFoods · serving Awka, Anambra</span>
+          <div className="flinks">
+            <Link href="#how">How it works</Link>
+            <Link href="#sellers">Sell with us</Link>
+          </div>
+        </footer>
+      </div>
 
       <style>{`
-        .bf-splash{
-          position:fixed;inset:0;z-index:999;
-          background:radial-gradient(120% 120% at 50% 30%, #FF7A2E 0%, var(--orange) 45%, var(--orange-dark) 100%);
-          display:flex;align-items:center;justify-content:center;
-          overflow:hidden;
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,800&family=Caveat:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        
+        :root {
+          --cream: #FFFFFF;
+          --paper: #FFFFFF;
+          --char: #241C14;
+          --clay: #FF7A2E;
+          --clay-dark: #E65C00;
+          --palm: #345E43;
+          --palm-soft: #E4EEE7;
+          --amber: #E3A857;
+          --amber-soft: #FFF4E5;
+          --line: #EBEBEB;
+          --muted: #8A7A68;
         }
-        .bf-splash-out{ animation:bfSplashOut .55s ease forwards; pointer-events:none; }
-        @keyframes bfSplashOut{ to{opacity:0;} }
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+          margin: 0;
+          background: var(--cream);
+          color: var(--char);
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          -webkit-font-smoothing: antialiased;
+          overflow-x: hidden;
+        }
+        a { color: inherit; }
+        .wrap { max-width: 1160px; margin: 0 auto; padding: 0 32px; }
+        .serif { font-family: 'Fraunces', serif; }
+        .mark-font { font-family: 'Caveat', cursive; }
 
-        .bf-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-          opacity:0;pointer-events:none;}
+        /* ---------------- NAV ---------------- */
+        nav {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 26px 0;
+        }
+        .logo { display: flex; align-items: center; gap: 10px; }
+        .logo-badge {
+          width: 38px; height: 38px; border-radius: 11px;
+          background: linear-gradient(160deg, #FF9966, var(--clay) 60%, var(--clay-dark));
+          display: flex; align-items: center; justify-content: center;
+          box-shadow: 0 8px 16px -8px rgba(230, 92, 0, 0.55);
+        }
+        .logo-badge svg { width: 18px; height: 18px; }
+        .logo-text { font-family: 'Fraunces', serif; font-weight: 700; font-size: 1.25rem; }
+        
+        .nav-right { display: flex; align-items: center; gap: 30px; font-size: 0.92rem; font-weight: 600; }
+        .live-indicator {
+          display: flex; align-items: center; gap: 8px;
+          background: #f7f7f7;
+          border: 1px solid var(--line);
+          padding: 8px 16px;
+          border-radius: 100px;
+          color: var(--char);
+        }
+        .green-dot {
+          width: 8px; height: 8px;
+          background-color: #10B981;
+          border-radius: 50%;
+          animation: blink 1.5s infinite;
+        }
+        .state-name { width: 105px; font-weight: 700; }
 
-        /* burst ring flash right as the food explodes out */
-        .bf-burst-ring{
-          position:absolute;width:20px;height:20px;border-radius:50%;
-          border:3px solid rgba(255,255,255,.9);
-          opacity:0;
-        }
-        #bf-splash[data-stage="explode"] .bf-burst-ring{
-          animation:bfRingPulse .6s cubic-bezier(.2,.7,.3,1) forwards;
-        }
-        @keyframes bfRingPulse{
-          0%{width:20px;height:20px;opacity:.9;border-width:4px;}
-          100%{width:340px;height:340px;opacity:0;border-width:1px;}
-        }
-
-        .bf-food-center{position:relative;width:10px;height:10px;}
-        .bf-food-item{
-          position:absolute;top:0;left:0;
-          display:flex;align-items:center;justify-content:center;
-          transform:translate(-50%,-50%) scale(0);
-          opacity:0;
-        }
-        #bf-splash[data-stage="explode"] .bf-s-food{opacity:1;pointer-events:auto;}
-        #bf-splash[data-stage="explode"] .bf-food-item{
-          animation:bfFoodOut .6s cubic-bezier(.2,.75,.3,1.2) forwards;
-          animation-delay:var(--d,0s);
-        }
-        #bf-splash[data-stage="implode"] .bf-s-food{opacity:1;pointer-events:auto;}
-        #bf-splash[data-stage="implode"] .bf-food-item{
-          transform:translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(1) rotate(var(--r));
-          opacity:1;
-          animation:bfFoodIn .5s cubic-bezier(.5,0,.75,0) forwards;
-          animation-delay:var(--di,0s);
-        }
-        @keyframes bfFoodOut{
-          0%{transform:translate(-50%,-50%) scale(0) rotate(0deg);opacity:0;}
-          55%{opacity:1;}
-          100%{transform:translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(1) rotate(var(--r));opacity:1;}
-        }
-        @keyframes bfFoodIn{
-          0%{transform:translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(1) rotate(var(--r));opacity:1;}
-          100%{transform:translate(-50%,-50%) scale(0) rotate(0deg);opacity:0;}
-        }
-
-        .bf-logo-wrap{
-          display:flex;flex-direction:column;align-items:center;
-        }
-
-        .bf-splash-logo{
-          width:120px;height:120px;border-radius:30px;overflow:hidden;
-          box-shadow:0 20px 50px -12px rgba(0,0,0,.35);
-          transform:scale(0);opacity:0;
-          background:var(--orange);
-        }
-        .bf-splash-logo img{width:100%;height:100%;object-fit:cover;display:block;}
-        #bf-splash[data-stage="logo"] .bf-s-logo{opacity:1;pointer-events:auto;}
-        #bf-splash[data-stage="logo"] .bf-splash-logo{animation:bfLogoPop .45s cubic-bezier(.2,.8,.3,1.3) forwards;}
-        @keyframes bfLogoPop{
-          0%{transform:scale(0) rotate(-8deg);opacity:0;}
-          70%{transform:scale(1.1) rotate(2deg);opacity:1;}
-          100%{transform:scale(1) rotate(0deg);opacity:1;}
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
         }
 
-        .bf-tagline{
-          margin-top:14px;
-          color:rgba(255,255,255,.92);
-          font-size:13px;
-          font-weight:600;
-          letter-spacing:.14em;
-          text-transform:uppercase;
-          opacity:0;
-          transform:translateY(6px);
-          white-space:nowrap;
-          font-family:'Space Grotesk',sans-serif;
+        @media(max-width: 820px) { 
+           .state-name { width: auto; }
         }
-        #bf-splash[data-stage="logo"] .bf-tagline{
-          animation:bfTagIn .4s .22s ease forwards;
-        }
-        #bf-splash[data-stage="shrink"] .bf-tagline,
-        #bf-splash[data-stage="hide"] .bf-tagline{
-          animation:bfTagOut .3s ease forwards;
-        }
-        @keyframes bfTagIn{ to{opacity:1;transform:translateY(0);} }
-        @keyframes bfTagOut{ to{opacity:0;transform:translateY(-6px);} }
 
-        #bf-splash[data-stage="shrink"] .bf-s-logo{opacity:1;pointer-events:auto;}
-        #bf-splash[data-stage="shrink"] .bf-splash-logo{
-          transform:translate(var(--tx,0px),var(--ty,0px)) scale(var(--ts,0.3));
-          border-radius:12px;
-          transition:transform .7s cubic-bezier(.6,0,.2,1), border-radius .7s ease;
+        /* ---------------- HERO ---------------- */
+        .hero {
+          padding: 56px 0 90px;
+          display: grid;
+          grid-template-columns: 1.05fr 0.95fr;
+          gap: 56px;
+          align-items: center;
         }
-        #bf-splash[data-stage="hide"] .bf-s-logo{opacity:1;pointer-events:auto;}
-        #bf-splash[data-stage="hide"] .bf-splash-logo{
-          transform:translate(var(--tx,0px),var(--ty,0px)) scale(var(--ts,0.3));
-          border-radius:12px;
+        h1.headline {
+          font-size: clamp(2.2rem, 4.5vw, 3.4rem);
+          line-height: 1.05;
+          font-weight: 700;
+          letter-spacing: -0.015em;
+          margin: 0 0 22px;
         }
+        h1.headline .accent { color: var(--clay); font-style: italic; font-weight: 600; }
+        .hero p.lede {
+          font-size: 1.12rem;
+          line-height: 1.6;
+          color: #4a4033;
+          max-width: 480px;
+          margin: 0 0 32px;
+        }
+        .hero-ctas { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 30px; }
+        .btn-primary {
+          background: var(--clay); color: #fff;
+          padding: 15px 26px; border-radius: 100px;
+          text-decoration: none; font-weight: 700; font-size: 0.96rem;
+          box-shadow: 0 14px 26px -12px rgba(255, 122, 46, 0.5);
+          display: inline-flex; align-items: center; gap: 8px;
+          transition: transform 0.2s;
+        }
+        .btn-primary:active { transform: scale(0.98); }
+        .btn-ghost {
+          padding: 15px 24px; border-radius: 100px;
+          border: 1.5px solid var(--line);
+          text-decoration: none; font-weight: 700; font-size: 0.96rem;
+          color: var(--char);
+          background: #fff;
+          transition: background 0.2s;
+        }
+        .btn-ghost:hover { background: #fafafa; }
+        
+        .trust-row { display: flex; align-items: center; gap: 16px; }
+        .avatars { display: flex; }
+        .avatars span {
+          width: 32px; height: 32px; border-radius: 50%;
+          border: 2.5px solid var(--cream);
+          margin-left: -9px;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 0.9rem;
+        }
+        .avatars span:first-child { margin-left: 0; }
+        .a1 { background: #F3D3B6; } .a2 { background: #D4E3D8; } .a3 { background: #F6C9C2; } 
+        .a4 { background: var(--char); color: #fff; font-weight: 700; font-size: 0.7rem; }
+        .trust-row small { color: var(--muted); font-weight: 600; font-size: 0.85rem; }
+
+        /* hero visual */
+        .hero-visual { position: relative; height: 460px; }
+        .route-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+        .stop-card {
+          position: absolute;
+          background: var(--paper);
+          border: 1px solid var(--line);
+          border-radius: 18px;
+          padding: 16px 18px;
+          width: 190px;
+          box-shadow: 0 20px 40px -22px rgba(36, 28, 20, 0.15);
+        }
+        .stop-card .tag {
+          font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+          color: var(--muted); margin-bottom: 6px;
+        }
+        .stop-card h4 { margin: 0 0 3px; font-family: 'Fraunces', serif; font-size: 1.02rem; font-weight: 600; }
+        .stop-card p { margin: 0; font-size: 0.8rem; color: var(--muted); }
+        .stop-card .ico {
+          width: 34px; height: 34px; border-radius: 10px;
+          display: flex; align-items: center; justify-content: center; margin-bottom: 10px;
+          font-size: 1.1rem;
+        }
+        .stop1 { top: 8px; left: 0; transform: rotate(-3deg); }
+        .stop1 .ico { background: var(--amber-soft); }
+        .stop2 { top: 190px; right: 6px; transform: rotate(2deg); }
+        .stop2 .ico { background: var(--palm-soft); }
+        .stop3 { bottom: 6px; left: 24px; transform: rotate(-1.5deg); }
+        .stop3 .ico { background: #FBDCC0; }
+        .tape {
+          position: absolute; width: 64px; height: 22px;
+          background: rgba(227, 168, 87, 0.45);
+          top: -10px; left: 20px;
+          transform: rotate(-8deg);
+          border-radius: 2px;
+        }
+        @media(max-width: 900px){
+           .hero { grid-template-columns: 1fr; gap: 40px; padding: 30px 0 60px; }
+           .hero-visual { height: 360px; transform: scale(0.85); transform-origin: left top; }
+        }
+
+        /* ---------------- SECTION SHELL ---------------- */
+        section { padding: 70px 0; }
+        .sec-head { max-width: 600px; margin-bottom: 48px; }
+        .sec-eyebrow {
+          font-family: 'Caveat', cursive;
+          font-size: 1.4rem;
+          color: var(--clay);
+          font-weight: 700;
+          margin: 0 0 2px;
+        }
+        .sec-head h2 {
+          font-size: clamp(1.9rem, 3vw, 2.6rem);
+          margin: 0;
+          font-weight: 600;
+          letter-spacing: -0.01em;
+        }
+
+        /* ---------------- HOW IT WORKS ---------------- */
+        .how { background: #FDFDFD; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+        .steps {
+          display: grid; grid-template-columns: repeat(3, 1fr);
+          gap: 0;
+          position: relative;
+        }
+        .step { padding: 0 26px; position: relative; }
+        .step:not(:last-child)::after {
+          content: ''; position: absolute; top: 26px; right: -14px;
+          width: 0; height: 0;
+          border-top: 7px solid transparent; border-bottom: 7px solid transparent;
+          border-left: 10px solid var(--line);
+        }
+        .step-num {
+          font-family: 'Fraunces', serif;
+          font-size: 0.85rem; font-weight: 700;
+          color: var(--clay);
+          margin-bottom: 14px;
+        }
+        .step-ico {
+          width: 52px; height: 52px; border-radius: 15px;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 1.5rem; margin-bottom: 18px;
+        }
+        .step:nth-child(1) .step-ico { background: var(--amber-soft); }
+        .step:nth-child(2) .step-ico { background: var(--palm-soft); }
+        .step:nth-child(3) .step-ico { background: #FBDCC0; }
+        .step h3 { font-family: 'Fraunces', serif; font-size: 1.28rem; font-weight: 600; margin: 0 0 10px; }
+        .step p { margin: 0; color: #5c5040; font-size: 0.94rem; line-height: 1.55; }
+        @media(max-width: 820px) {
+          .steps { grid-template-columns: 1fr; gap: 40px; }
+          .step:not(:last-child)::after { display: none; }
+        }
+
+        /* ---------------- SELLERS ---------------- */
+        .sellers { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 60px; align-items: start; }
+        .seller-copy p.lede { font-size: 1.05rem; line-height: 1.65; color: #4a4033; margin-bottom: 26px; }
+        .stat-row { display: flex; gap: 34px; margin-top: 8px; }
+        .stat b { display: block; font-family: 'Fraunces', serif; font-size: 2rem; color: var(--clay-dark); }
+        .stat span { font-size: 0.82rem; color: var(--muted); font-weight: 600; }
+
+        .recipe-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        .recipe-card {
+          background: var(--paper);
+          border: 1px solid var(--line);
+          border-radius: 16px;
+          padding: 20px;
+          position: relative;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+        }
+        .recipe-card:nth-child(2) { transform: translateY(18px); }
+        .recipe-card:nth-child(3) { transform: translateY(-6px); }
+        .recipe-card:nth-child(4) { transform: translateY(10px); }
+        .recipe-card .pin {
+          position: absolute; top: -9px; left: 16px;
+          width: 16px; height: 16px; border-radius: 50%;
+          background: var(--clay);
+          box-shadow: 0 3px 6px rgba(255,122,46,0.3);
+        }
+        .recipe-card h4 { font-family: 'Fraunces', serif; font-size: 1.02rem; font-weight: 600; margin: 6px 0 8px; }
+        .recipe-card p { margin: 0; font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
+        @media(max-width: 900px) {
+          .sellers { grid-template-columns: 1fr; }
+          .recipe-card:nth-child(n) { transform: none; }
+        }
+
+        /* ---------------- TESTIMONIAL ---------------- */
+        .testimonial { display: flex; align-items: center; gap: 54px; }
+        .stamp {
+          flex: 0 0 auto;
+          width: 150px; height: 150px; border-radius: 50%;
+          border: 2px dashed var(--palm);
+          display: flex; align-items: center; justify-content: center;
+          transform: rotate(-8deg);
+        }
+        .stamp-inner {
+          width: 120px; height: 120px; border-radius: 50%;
+          border: 1px solid var(--palm);
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          color: var(--palm); text-align: center;
+        }
+        .stamp-inner b { font-family: 'Fraunces', serif; font-size: 0.78rem; letter-spacing: 0.03em; line-height: 1.2; }
+        .stamp-inner span { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.08em; margin-top: 4px; }
+        .quote p {
+          font-family: 'Fraunces', serif;
+          font-size: 1.55rem;
+          font-weight: 500;
+          line-height: 1.45;
+          margin: 0 0 18px;
+          letter-spacing: -0.01em;
+        }
+        .quote cite { font-style: normal; font-weight: 700; font-size: 0.92rem; display: block; }
+        .quote cite span { display: block; font-weight: 500; color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
+        @media(max-width: 760px) { .testimonial { flex-direction: column; text-align: center; gap: 26px; } }
+
+        /* ---------------- FINAL CTA ---------------- */
+        .final { text-align: center; padding: 90px 0 70px; }
+        .final h2 {
+          font-size: clamp(2rem, 4vw, 3rem);
+          max-width: 640px; margin: 0 auto 26px;
+          font-weight: 600;
+        }
+        .final .btn-primary { padding: 17px 34px; font-size: 1.02rem; }
+
+        footer {
+          border-top: 1px solid var(--line);
+          padding: 34px 0;
+          display: flex; align-items: center; justify-content: space-between;
+          color: var(--muted); font-size: 0.85rem;
+        }
+        footer .flinks { display: flex; gap: 22px; }
+        footer a { text-decoration: none; color: var(--muted); }
+        @media(max-width: 600px) { footer { flex-direction: column; gap: 12px; text-align: center; } }
       `}</style>
-    </div>
+    </>
   );
 }
