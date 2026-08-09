@@ -8,6 +8,8 @@ const ADMIN_BASE = '/admin';
 const RESTAURANT_LOGIN_PATH = '/restaurant-portal/login';
 const RESTAURANT_DASHBOARD_BASE = '/restaurant-portal/dashboard';
 const RESTAURANT_ONBOARDING_BASE = '/restaurant-portal/onboarding';
+const RIDER_LOGIN_PATH = '/rider-portal/login';
+const RIDER_DASHBOARD_BASE = '/rider-portal/dashboard';
 
 // Duplicated from ONBOARDING_STEPS in hooks/useOnboardingSession.ts on
 // purpose — that file is a 'use client' hook, and middleware runs in the
@@ -26,15 +28,16 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Allow the login pages through
-  if (pathname === ADMIN_LOGIN_PATH || pathname === RESTAURANT_LOGIN_PATH) {
+  if (pathname === ADMIN_LOGIN_PATH || pathname === RESTAURANT_LOGIN_PATH || pathname === RIDER_LOGIN_PATH) {
     return NextResponse.next();
   }
 
   const isAdminRoute = pathname.startsWith(ADMIN_BASE);
   const isRestaurantDashboardRoute = pathname.startsWith(RESTAURANT_DASHBOARD_BASE);
   const isRestaurantOnboardingRoute = pathname.startsWith(RESTAURANT_ONBOARDING_BASE);
+  const isRiderDashboardRoute = pathname.startsWith(RIDER_DASHBOARD_BASE);
 
-  if (!isAdminRoute && !isRestaurantDashboardRoute && !isRestaurantOnboardingRoute) {
+  if (!isAdminRoute && !isRestaurantDashboardRoute && !isRestaurantOnboardingRoute && !isRiderDashboardRoute) {
     return NextResponse.next();
   }
 
@@ -106,39 +109,61 @@ export async function middleware(req: NextRequest) {
       return response;
     }
 
-    // isRestaurantDashboardRoute
-    if (userError || !user) {
-      return NextResponse.redirect(new URL(RESTAURANT_LOGIN_PATH, req.url));
+    if (isRestaurantDashboardRoute) {
+      // isRestaurantDashboardRoute
+      if (userError || !user) {
+        return NextResponse.redirect(new URL(RESTAURANT_LOGIN_PATH, req.url));
+      }
+
+      // Catches a session that was already active before the account got
+      // blocked — the login page's own check only runs at sign-in time.
+      const { data: profile } = await supabase.from('profiles').select('blocked').eq('id', user.id).maybeSingle();
+      if (profile?.blocked) {
+        await supabase.auth.signOut();
+        return NextResponse.redirect(new URL(RESTAURANT_LOGIN_PATH, req.url));
+      }
+
+      // Reuses the exact same resolver the login page uses, so "what's
+      // actually finished" is defined in exactly one place. If onboarding
+      // isn't complete, this sends them to the specific step they left off
+      // at instead of letting them into a dashboard for a restaurant that
+      // doesn't fully exist yet.
+      const nextPath = await resolveRestaurantEntryPath(supabase);
+      if (nextPath !== RESTAURANT_DASHBOARD_BASE) {
+        return NextResponse.redirect(new URL(nextPath, req.url));
+      }
+
+      return response;
     }
 
-    // Catches a session that was already active before the account got
-    // blocked — the login page's own check only runs at sign-in time.
-    const { data: profile } = await supabase.from('profiles').select('blocked').eq('id', user.id).maybeSingle();
-    if (profile?.blocked) {
-      await supabase.auth.signOut();
-      return NextResponse.redirect(new URL(RESTAURANT_LOGIN_PATH, req.url));
-    }
+    if (isRiderDashboardRoute) {
+      // Rider dashboard — require authentication
+      if (userError || !user) {
+        return NextResponse.redirect(new URL(RIDER_LOGIN_PATH, req.url));
+      }
 
-    // Reuses the exact same resolver the login page uses, so "what's
-    // actually finished" is defined in exactly one place. If onboarding
-    // isn't complete, this sends them to the specific step they left off
-    // at instead of letting them into a dashboard for a restaurant that
-    // doesn't fully exist yet.
-    const nextPath = await resolveRestaurantEntryPath(supabase);
-    if (nextPath !== RESTAURANT_DASHBOARD_BASE) {
-      return NextResponse.redirect(new URL(nextPath, req.url));
+      return response;
     }
 
     return response;
   } catch (err) {
+    const isRiderRoute = pathname.startsWith('/rider-portal');
     return NextResponse.redirect(
-      new URL(isAdminRoute ? ADMIN_LOGIN_PATH : RESTAURANT_LOGIN_PATH, req.url)
+      new URL(
+        isAdminRoute ? ADMIN_LOGIN_PATH : isRiderRoute ? RIDER_LOGIN_PATH : RESTAURANT_LOGIN_PATH,
+        req.url
+      )
     );
   }
 }
 
 export const config = {
-  // Match /admin routes, the restaurant dashboard, and the onboarding flow;
+  // Match /admin routes, the restaurant dashboard/onboarding, and rider dashboard;
   // the respective login/entry pages are allowed through above.
-  matcher: ['/admin/:path*', '/restaurant-portal/dashboard/:path*', '/restaurant-portal/onboarding/:path*'],
+  matcher: [
+    '/admin/:path*',
+    '/restaurant-portal/dashboard/:path*',
+    '/restaurant-portal/onboarding/:path*',
+    '/rider-portal/dashboard/:path*',
+  ],
 };
