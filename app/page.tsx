@@ -14,37 +14,44 @@ export default function PortalHome() {
     return () => clearInterval(interval);
   }, []);
 
+  const handleChefClick = (e) => {
+    e.preventDefault();
+    alert('Coming soon!');
+  };
+
   return (
     <>
-      <div className="wrap">
-        <nav>
-          <div className="logo">
-            <div className="logo-badge">
-              <img 
-                src="https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/0.4927238865897102.webp" 
-                alt="BigFoods Logo" 
-              />
+      {/* SLIM STICKY HEADER */}
+      <header className="sticky-header">
+        <div className="wrap">
+          <nav>
+            <div className="logo">
+              <div className="logo-badge">
+                <img 
+                  src="https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/0.4927238865897102.webp" 
+                  alt="BigFoods Logo" 
+                />
+              </div>
+              <span className="logo-text">BigFoods</span>
             </div>
-            <span className="logo-text">BigFoods</span>
-          </div>
 
-          <div className="nav-right">
-            <div className="live-indicator">
-              <span>Live in</span>
-              <span className="green-dot"></span>
-              <span className="state-name">{states[currentStateIndex]}</span>
+            <div className="nav-right">
+              <div className="live-indicator">
+                <span>Live in</span>
+                <span className="green-dot"></span>
+                <span className="state-name">{states[currentStateIndex]}</span>
+              </div>
             </div>
-          </div>
-        </nav>
-      </div>
+          </nav>
+        </div>
+      </header>
 
       {/* HERO */}
       <div className="wrap">
         <div className="hero">
           <div>
             <h1 className="headline">
-              Subscribe to<br />
-              your meals, <span className="accent">not<br />your stress.</span>
+              Cook! Our rider picks from you and delivers to <span className="accent">hungry customers.</span>
             </h1>
             <p className="lede">
               Pick a home kitchen you trust, set your plan, and let a rider
@@ -57,12 +64,15 @@ export default function PortalHome() {
                 <Link href="/order" className="btn-primary sm">
                   Order food now
                 </Link>
-                <Link href="/restaurant-portal" className="btn-ghost sm">
+                <Link href="/restaurant" className="btn-ghost sm">
                   Open your kitchen
                 </Link>
                 <Link href="/rider-portal" className="btn-ghost sm">
                   Become a rider
                 </Link>
+                <button onClick={handleChefClick} className="btn-ghost sm" style={{ cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Hire a Private Chef
+                </button>
               </div>
 
               <Link href="/order" className="subscribe-float">
@@ -123,6 +133,52 @@ export default function PortalHome() {
           </div>
         </div>
       </div>
+
+      {/* 3D SUPPORTED MEALS SECTION */}
+      <section className="meals-3d-showcase">
+        <div className="wrap">
+          <div className="sec-head" style={{ textAlign: 'center', margin: '0 auto 54px' }}>
+            <p className="sec-eyebrow">our menu</p>
+            <h2>Freshly packed, ready for you.</h2>
+          </div>
+          <div className="pouch-grid">
+            
+            {/* Package 1 */}
+            <div className="pouch-card">
+              <div className="pouch-3d-wrap">
+                <div className="pouch-front native-bg">
+                  <div className="pouch-label">Premium Bowl</div>
+                  <h3>Native Dishes</h3>
+                  <p>Authentic Jollof, Pounded Yam, and rich soups packed hot.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Package 2 */}
+            <div className="pouch-card">
+              <div className="pouch-3d-wrap zobo-wrap">
+                <div className="pouch-front zobo-bg">
+                  <div className="pouch-label">Chilled Drink</div>
+                  <h3>Zobo</h3>
+                  <p>Freshly brewed, iced hibiscus goodness to wash it down.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Package 3 */}
+            <div className="pouch-card">
+              <div className="pouch-3d-wrap ginger-wrap">
+                <div className="pouch-front ginger-bg">
+                  <div className="pouch-label">Health Boost</div>
+                  <h3>Ginger Shots</h3>
+                  <p>Cold-pressed ginger extracts for your daily energy kick.</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
 
       {/* THE HANDOFF */}
       <section className="how" id="how">
@@ -282,24 +338,30 @@ export default function PortalHome() {
         .serif { font-family: 'Fraunces', serif; }
         .mark-font { font-family: 'Caveat', cursive; }
 
-        /* ---------------- NAV ---------------- */
+        /* ---------------- SLIM STICKY HEADER ---------------- */
+        .sticky-header {
+          position: sticky;
+          top: 0;
+          z-index: 999;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(12px);
+          border-bottom: 1px solid var(--line);
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+          transition: all 0.3s ease;
+        }
         nav {
           display: flex; align-items: center; justify-content: space-between;
-          padding: 26px 0;
+          padding: 16px 0;
         }
         .logo { display: flex; align-items: center; gap: 10px; }
         .logo-badge {
-          width: 38px; height: 38px; border-radius: 50%;
+          width: 36px; height: 36px; border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
           box-shadow: 0 8px 16px -8px rgba(230, 92, 0, 0.55);
           overflow: hidden;
           background: #fff;
         }
-        .logo-badge img { 
-          width: 100%; 
-          height: 100%; 
-          object-fit: cover; 
-        }
+        .logo-badge img { width: 100%; height: 100%; object-fit: cover; }
         .logo-text { font-family: 'Fraunces', serif; font-weight: 700; font-size: 1.25rem; }
         
         .nav-right { display: flex; align-items: center; gap: 30px; font-size: 0.92rem; font-weight: 600; }
@@ -307,7 +369,7 @@ export default function PortalHome() {
           display: flex; align-items: center; gap: 8px;
           background: #f7f7f7;
           border: 1px solid var(--line);
-          padding: 8px 16px;
+          padding: 6px 14px;
           border-radius: 100px;
           color: var(--char);
         }
@@ -352,7 +414,7 @@ export default function PortalHome() {
           margin: 0 0 26px;
         }
 
-        /* CTA row: smaller buttons + floating subscribe card sitting to the right */
+        /* CTA row */
         .cta-row {
           display: flex;
           align-items: center;
@@ -409,11 +471,7 @@ export default function PortalHome() {
           padding: 5px 10px;
           border-radius: 100px;
         }
-        .sf-text {
-          font-size: 0.78rem;
-          font-weight: 600;
-          line-height: 1.3;
-        }
+        .sf-text { font-size: 0.78rem; font-weight: 600; line-height: 1.3; }
         .sf-arrow {
           flex: 0 0 auto;
           width: 22px; height: 22px;
@@ -500,6 +558,106 @@ export default function PortalHome() {
            .hero-visual { height: 380px; transform: scale(0.85); transform-origin: left top; }
         }
 
+        /* ---------------- 3D PACKAGED MEALS SECTION ---------------- */
+        .meals-3d-showcase { 
+          background: #FCFBF9; 
+          border-top: 1px solid var(--line); 
+          padding: 80px 0;
+        }
+        .pouch-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 32px;
+          perspective: 1400px;
+        }
+        .pouch-card {
+          height: 400px;
+          background: transparent;
+          cursor: pointer;
+        }
+        .pouch-3d-wrap {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+          transform-style: preserve-3d;
+          border-radius: 24px;
+          box-shadow: 0 25px 50px -12px rgba(36, 28, 20, 0.15), 0 0 0 1px inset rgba(255,255,255,0.2);
+        }
+        .pouch-card:hover .pouch-3d-wrap {
+          transform: translateY(-15px) rotateX(8deg) rotateY(-6deg) scale(1.03);
+          box-shadow: 0 40px 60px -15px rgba(36, 28, 20, 0.25), 0 0 0 1px inset rgba(255,255,255,0.4);
+        }
+        .pouch-card:hover .zobo-wrap { transform: translateY(-15px) rotateX(10deg) rotateY(4deg) scale(1.03); }
+        .pouch-card:hover .ginger-wrap { transform: translateY(-15px) rotateX(12deg) rotateY(-8deg) scale(1.03); }
+
+        .pouch-front {
+          position: absolute;
+          inset: 0;
+          backface-visibility: hidden;
+          border-radius: 24px;
+          padding: 34px 28px;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+          color: #fff;
+          overflow: hidden;
+        }
+        .pouch-front::after {
+          content: '';
+          position: absolute;
+          top: 0; left: -150%;
+          width: 50%; height: 100%;
+          background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.25) 50%, rgba(255,255,255,0) 100%);
+          transform: skewX(-25deg);
+          transition: left 0.7s ease-in-out;
+        }
+        .pouch-card:hover .pouch-front::after {
+          left: 200%;
+        }
+        
+        .native-bg {
+          background-color: var(--clay-dark);
+          background-image: linear-gradient(to top, rgba(26, 12, 0, 0.9) 0%, rgba(26, 12, 0, 0) 80%);
+        }
+        .zobo-bg {
+          background-color: #8A1C3B;
+          background-image: linear-gradient(to top, rgba(30, 0, 10, 0.9) 0%, rgba(30, 0, 10, 0) 80%);
+        }
+        .ginger-bg {
+          background-color: var(--amber);
+          background-image: linear-gradient(to top, rgba(40, 25, 0, 0.9) 0%, rgba(40, 25, 0, 0) 80%);
+        }
+        
+        .pouch-label {
+          background: rgba(255, 255, 255, 0.2);
+          backdrop-filter: blur(8px);
+          padding: 8px 14px;
+          border-radius: 100px;
+          font-size: 0.7rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          align-self: flex-start;
+          margin-bottom: auto;
+          border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .pouch-front h3 {
+          font-family: 'Fraunces', serif;
+          font-size: 2.2rem;
+          font-weight: 700;
+          margin: 0 0 10px;
+          line-height: 1.1;
+          letter-spacing: -0.01em;
+        }
+        .pouch-front p {
+          font-size: 0.95rem;
+          margin: 0;
+          opacity: 0.9;
+          line-height: 1.5;
+          font-weight: 500;
+        }
+
         /* ---------------- SECTION SHELL ---------------- */
         section { padding: 70px 0; }
         .sec-head { max-width: 600px; margin-bottom: 48px; }
@@ -518,7 +676,7 @@ export default function PortalHome() {
         }
 
         /* ---------------- HOW IT WORKS ---------------- */
-        .how { background: #FDFDFD; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+        .how { background: #FFFFFF; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
         .steps {
           display: grid; grid-template-columns: repeat(3, 1fr);
           gap: 0;
