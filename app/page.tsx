@@ -20,30 +20,10 @@ export default function PortalHome() {
         <nav>
           <div className="logo">
             <div className="logo-badge">
-              {/* Real BigFoods mark: fork + spoon on a round badge */}
-              <svg viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M7 2v7a2 2 0 0 0 2 2v11"
-                  stroke="#fff"
-                  strokeWidth="1.7"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M7 2v5M9 2v5M11 2v7"
-                  stroke="#fff"
-                  strokeWidth="1.7"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M17 2c-2 1.5-2.5 4-2.5 6.5C14.5 11 16 12 17 12v10"
-                  stroke="#fff"
-                  strokeWidth="1.7"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <img 
+                src="https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/0.4927238865897102.webp" 
+                alt="BigFoods Logo" 
+              />
             </div>
             <span className="logo-text">BigFoods</span>
           </div>
@@ -310,11 +290,16 @@ export default function PortalHome() {
         .logo { display: flex; align-items: center; gap: 10px; }
         .logo-badge {
           width: 38px; height: 38px; border-radius: 50%;
-          background: linear-gradient(160deg, #FF9966, var(--clay) 60%, var(--clay-dark));
           display: flex; align-items: center; justify-content: center;
           box-shadow: 0 8px 16px -8px rgba(230, 92, 0, 0.55);
+          overflow: hidden;
+          background: #fff;
         }
-        .logo-badge svg { width: 17px; height: 17px; }
+        .logo-badge img { 
+          width: 100%; 
+          height: 100%; 
+          object-fit: cover; 
+        }
         .logo-text { font-family: 'Fraunces', serif; font-weight: 700; font-size: 1.25rem; }
         
         .nav-right { display: flex; align-items: center; gap: 30px; font-size: 0.92rem; font-weight: 600; }
