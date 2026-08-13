@@ -14,11 +14,6 @@ export default function PortalHome() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleChefClick = (e) => {
-    e.preventDefault();
-    alert('Coming soon!');
-  };
-
   return (
     <>
       {/* SLIM STICKY HEADER */}
@@ -51,7 +46,8 @@ export default function PortalHome() {
         <div className="hero">
           <div>
             <h1 className="headline">
-              Cook! Our rider picks from you and delivers to <span className="accent">hungry customers.</span>
+              Subscribe to<br />
+              your meals, <span className="accent">not<br />your stress.</span>
             </h1>
             <p className="lede">
               Pick a home kitchen you trust, set your plan, and let a rider
@@ -64,15 +60,12 @@ export default function PortalHome() {
                 <Link href="/order" className="btn-primary sm">
                   Order food now
                 </Link>
-                <Link href="/restaurant" className="btn-ghost sm">
+                <Link href="/restaurant-portal" className="btn-ghost sm">
                   Open your kitchen
                 </Link>
                 <Link href="/rider-portal" className="btn-ghost sm">
                   Become a rider
                 </Link>
-                <button onClick={handleChefClick} className="btn-ghost sm" style={{ cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Hire a Private Chef
-                </button>
               </div>
 
               <Link href="/order" className="subscribe-float">
@@ -351,7 +344,7 @@ export default function PortalHome() {
         }
         nav {
           display: flex; align-items: center; justify-content: space-between;
-          padding: 16px 0;
+          padding: 16px 0; /* Slimmer padding so it takes less space when scrolling */
         }
         .logo { display: flex; align-items: center; gap: 10px; }
         .logo-badge {
@@ -568,7 +561,7 @@ export default function PortalHome() {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
           gap: 32px;
-          perspective: 1400px;
+          perspective: 1400px; /* Crucial for the 3D effect */
         }
         .pouch-card {
           height: 400px;
@@ -588,6 +581,7 @@ export default function PortalHome() {
           transform: translateY(-15px) rotateX(8deg) rotateY(-6deg) scale(1.03);
           box-shadow: 0 40px 60px -15px rgba(36, 28, 20, 0.25), 0 0 0 1px inset rgba(255,255,255,0.4);
         }
+        /* Specific rotations to make the packages look dynamic */
         .pouch-card:hover .zobo-wrap { transform: translateY(-15px) rotateX(10deg) rotateY(4deg) scale(1.03); }
         .pouch-card:hover .ginger-wrap { transform: translateY(-15px) rotateX(12deg) rotateY(-8deg) scale(1.03); }
 
@@ -603,6 +597,7 @@ export default function PortalHome() {
           color: #fff;
           overflow: hidden;
         }
+        /* Lighting Glare / Shine Effect to simulate a real package */
         .pouch-front::after {
           content: '';
           position: absolute;
@@ -639,7 +634,7 @@ export default function PortalHome() {
           text-transform: uppercase;
           letter-spacing: 0.08em;
           align-self: flex-start;
-          margin-bottom: auto;
+          margin-bottom: auto; /* Pushes content to the bottom */
           border: 1px solid rgba(255, 255, 255, 0.3);
         }
         .pouch-front h3 {
