@@ -4,12 +4,10 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Footer from '@/components/layout/Footer';
 
-const LOGO_URL =
-  'https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/0.4568313681357089.webp';
-const CHEF_URL =
-  'https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/0.6413335176944374.webp';
-
 const BASE = 'https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/';
+const LOGO_URL = `${BASE}0.4568313681357089.webp`;
+const MASCOT_URL = `${BASE}0.589270104135831.webp`;
+
 const PARTNERS = [
   { id: '0.014563627963848691', name: 'Partner 1' },
   { id: '0.1874883265404469', name: 'Partner 2' },
@@ -22,7 +20,7 @@ const HEADING_FONT = { fontFamily: "'Space Grotesk', sans-serif" };
 
 export default function RestaurantLandingPage() {
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--white)' }}>
+    <div className="min-h-screen flex flex-col text-left" style={{ background: 'var(--white)' }}>
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg"
@@ -41,7 +39,11 @@ export default function RestaurantLandingPage() {
         }}
       >
         <div className="max-w-[1180px] mx-auto px-5 sm:px-6 flex items-center justify-between h-14">
-          <Link href="/" className="flex items-center gap-2.5 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4" style={{ outlineColor: 'var(--orange)' }}>
+          <Link
+            href="/"
+            className="flex items-center gap-2.5 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4"
+            style={{ outlineColor: 'var(--orange)' }}
+          >
             <BFImage
               src={LOGO_URL}
               alt=""
@@ -72,59 +74,76 @@ export default function RestaurantLandingPage() {
       </header>
 
       <main id="main" className="flex-1">
-        <section className="max-w-[1180px] mx-auto px-5 sm:px-6 pt-8 sm:pt-12 flex flex-col items-center text-center">
-          <h1
-            className="text-[28px] sm:text-[38px] lg:text-[48px] leading-[1.12] font-semibold max-w-[17ch] sm:max-w-[22ch] lg:max-w-[26ch] text-balance"
-            style={{ ...HEADING_FONT, color: 'var(--ink)', letterSpacing: '-0.02em', textWrap: 'balance' as any }}
-          >
-            Cook, bake, fry. We pick up from you and deliver to clients.
-          </h1>
-
-          <div className="mt-6 flex flex-col sm:flex-row items-center gap-3 sm:gap-5">
-            <Link
-              href="/restaurant-portal/onboarding/restaurant-info"
-              className="px-7 py-3.5 rounded-xl text-white font-semibold text-[14px] transition-transform active:scale-[0.98] hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-              style={{
-                background: 'var(--orange)',
-                boxShadow: '0 10px 20px -10px rgba(249,115,22,0.55)',
-                outlineColor: 'var(--orange)',
-              }}
+        <section className="max-w-[1180px] mx-auto px-5 sm:px-6 pt-8 sm:pt-12 lg:pt-8 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+          {/* copy + CTA */}
+          <div className="max-w-[560px]">
+            <h1
+              className="text-[30px] sm:text-[40px] lg:text-[50px] leading-[1.1] font-semibold"
+              style={{ ...HEADING_FONT, color: 'var(--ink)', letterSpacing: '-0.02em', textWrap: 'balance' as any }}
             >
-              Register your kitchen
-            </Link>
-            <p className="text-[13px]" style={{ color: 'var(--gray)' }}>
-              Already registered?{' '}
-              <Link href="/restaurant-portal/login" className="font-semibold underline-offset-4 hover:underline" style={{ color: 'var(--orange)' }}>
-                Log in
+              Cook, bake, fry. We pick up from you and deliver to clients.
+            </h1>
+
+            <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5">
+              <Link
+                href="/restaurant-portal/onboarding/restaurant-info"
+                className="px-7 py-3.5 rounded-xl text-white font-semibold text-[14px] text-center transition-transform active:scale-[0.98] hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{
+                  background: 'var(--orange)',
+                  boxShadow: '0 10px 20px -10px rgba(249,115,22,0.55)',
+                  outlineColor: 'var(--orange)',
+                }}
+              >
+                Register your kitchen
               </Link>
-            </p>
+              <p className="text-[13px]" style={{ color: 'var(--gray)' }}>
+                Already registered?{' '}
+                <Link href="/restaurant-portal/login" className="font-semibold underline-offset-4 hover:underline" style={{ color: 'var(--orange)' }}>
+                  Log in
+                </Link>
+              </p>
+            </div>
           </div>
 
-          {/* chef — the main image */}
-          <div className="relative mt-8 sm:mt-10 w-full flex justify-center">
+          {/* mascot + message */}
+          <div className="flex flex-col items-start lg:items-center">
+            <div className="relative w-full max-w-[340px] sm:max-w-[420px] lg:max-w-[500px] aspect-square">
+              <div
+                aria-hidden="true"
+                className="absolute inset-[6%] rounded-full"
+                style={{ background: 'radial-gradient(closest-side, var(--peach), rgba(255,255,255,0))' }}
+              />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={MASCOT_URL}
+                alt="BigFoods AI, an orange robot chef mascot"
+                width={1254}
+                height={1254}
+                fetchPriority="high"
+                decoding="async"
+                referrerPolicy="no-referrer"
+                className="bf-mascot relative block w-full h-full object-contain"
+              />
+            </div>
+
             <div
-              aria-hidden="true"
-              className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[min(88%,560px)] h-[62%] rounded-[28px]"
-              style={{ background: 'var(--peach)' }}
-            />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={CHEF_URL}
-              alt="Illustration of a chef presenting a dish"
-              width={600}
-              height={600}
-              fetchPriority="high"
-              decoding="async"
-              referrerPolicy="no-referrer"
-              className="relative block object-contain w-auto max-w-full"
-              style={{ height: 'clamp(240px, 46vh, 460px)' }}
-            />
+              className="bf-message mt-4 sm:mt-5 w-full max-w-[420px] lg:max-w-[500px] pl-4"
+              style={{ borderLeft: '3px solid var(--orange)' }}
+            >
+              <p className="text-[16px] sm:text-[18px] font-semibold leading-snug" style={{ ...HEADING_FONT, color: 'var(--ink)' }}>
+                Hey, I&apos;m the BigFoods AI, and we&apos;re about to make history.
+              </p>
+              <p className="mt-2 text-[13px] sm:text-[14px] leading-[1.6]" style={{ color: 'var(--gray)' }}>
+                We won&apos;t leave you hanging after you register. The key is to fulfill your orders early
+                enough to keep your food shop from getting closed, ok?
+              </p>
+            </div>
           </div>
         </section>
 
         {/* partners marquee */}
-        <section aria-label="Our partners" className="mt-8 sm:mt-10 pb-12 sm:pb-16">
-          <p className="text-center text-[12px] mb-4" style={{ color: 'var(--gray)' }}>
+        <section aria-label="Our partners" className="mt-10 sm:mt-14 pb-12 sm:pb-16">
+          <p className="max-w-[1180px] mx-auto px-5 sm:px-6 text-[12px] mb-4" style={{ color: 'var(--gray)' }}>
             Trusted by our partners
           </p>
 
@@ -151,11 +170,33 @@ export default function RestaurantLandingPage() {
       <Footer />
 
       <style jsx>{`
+        /* mascot: pops up with a little bounce on mount */
+        .bf-mascot {
+          opacity: 0;
+          transform-origin: 50% 90%;
+          animation: bf-pop 900ms cubic-bezier(0.34, 1.4, 0.5, 1) 150ms forwards;
+        }
+        @keyframes bf-pop {
+          0%   { opacity: 0; transform: translateY(48px) scale(0.55); }
+          45%  { opacity: 1; transform: translateY(-22px) scale(1.06); }
+          65%  { transform: translateY(6px) scale(0.98); }
+          82%  { transform: translateY(-5px) scale(1.01); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .bf-message {
+          opacity: 0;
+          animation: bf-fade 500ms ease-out 850ms forwards;
+        }
+        @keyframes bf-fade {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
         .bf-marquee {
           -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
           mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
         }
-        /* Moves left → right: starts shifted by one copy, ends at 0 */
+        /* slides left to right */
         .bf-track {
           animation: bf-slide 28s linear infinite;
           will-change: transform;
@@ -165,15 +206,16 @@ export default function RestaurantLandingPage() {
         }
         @keyframes bf-slide {
           from { transform: translate3d(-50%, 0, 0); }
-          to { transform: translate3d(0, 0, 0); }
+          to   { transform: translate3d(0, 0, 0); }
         }
+
         @media (prefers-reduced-motion: reduce) {
+          .bf-mascot, .bf-message { animation: none; opacity: 1; }
           .bf-track {
             animation: none;
             transform: none;
             width: 100%;
             flex-wrap: wrap;
-            justify-content: center;
           }
           .bf-track > ul:nth-child(2) { display: none; }
           .bf-marquee {
