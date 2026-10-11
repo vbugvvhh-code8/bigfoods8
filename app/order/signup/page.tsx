@@ -6,6 +6,8 @@ import Link from 'next/link';
 import {Loader2, Eye, EyeOff} from 'lucide-react';
 import getBrowserSupabase from '@/lib/supabase/client';
 import EmailVerifyField from '@/components/restaurant/onboarding/EmailVerifyField';
+import AuthSplitLayout from '@/components/customer/auth/AuthSplitLayout';
+import {SIGNUP_IMAGE} from '@/lib/authImages';
 
 export default function CustomerSignupPage() {
   const router = useRouter();
@@ -54,6 +56,7 @@ export default function CustomerSignupPage() {
   }
 
   return (
+    <AuthSplitLayout imageUrl={SIGNUP_IMAGE}>
     <div className="w-full max-w-[380px] mx-auto px-4 py-12">
       <h1 className="font-display text-[19px] font-semibold" style={{color: 'var(--ink)'}}>
         Create your account
@@ -201,5 +204,6 @@ export default function CustomerSignupPage() {
         </Link>
       </p>
     </div>
+    </AuthSplitLayout>
   );
 }
