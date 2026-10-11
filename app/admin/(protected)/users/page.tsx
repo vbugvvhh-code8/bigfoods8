@@ -54,7 +54,10 @@ export default function AdminUsersPage() {
 
   async function toggleStar(user: AdminUser) {
     setBusyId(user.id);
-    const { error: updateError } = await supabase.from('profiles').update({ starred: !user.starred }).eq('id', user.id);
+    const { error: updateError } = await supabase.rpc('admin_set_user_flags', {
+      target_user_id: user.id,
+      p_starred: !user.starred,
+    });
     setBusyId(null);
     if (updateError) {
       setError(updateError.message);
@@ -66,10 +69,11 @@ export default function AdminUsersPage() {
   async function handleBlock(user: AdminUser) {
     if (!blockReason) return;
     setBusyId(user.id);
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ blocked: true, block_reason: blockReason })
-      .eq('id', user.id);
+    const { error: updateError } = await supabase.rpc('admin_set_user_flags', {
+      target_user_id: user.id,
+      p_blocked: true,
+      p_block_reason: blockReason,
+    });
     setBusyId(null);
     if (updateError) {
       setError(updateError.message);
@@ -82,10 +86,10 @@ export default function AdminUsersPage() {
 
   async function handleUnblock(user: AdminUser) {
     setBusyId(user.id);
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ blocked: false, block_reason: null })
-      .eq('id', user.id);
+    const { error: updateError } = await supabase.rpc('admin_set_user_flags', {
+      target_user_id: user.id,
+      p_blocked: false,
+    });
     setBusyId(null);
     if (updateError) {
       setError(updateError.message);
