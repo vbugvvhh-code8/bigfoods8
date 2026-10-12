@@ -139,6 +139,7 @@ export default function SettingsPage() {
         <LocationPicker
           address={address}
           lga={lga}
+          state={restaurant?.state ?? undefined}
           onChange={(v) => {
             setAddress(v.address);
             if (v.lga) setLga(v.lga);

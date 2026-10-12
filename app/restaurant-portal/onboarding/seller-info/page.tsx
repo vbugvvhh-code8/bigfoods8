@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import EmailVerifyField from '@/components/restaurant/onboarding/EmailVerifyField';
 import useOnboardingSession, { stepLabel, stepPath } from '@/hooks/useOnboardingSession';
-import { NIGERIA_STATES, lgasForState } from '@/lib/nigeriaLocations';
+import { NIGERIA_STATES, lgaOptions } from '@/lib/nigeriaLocations';
 import { latestAllowedBirthDate, isAtLeast18 } from '@/lib/age';
 import getBrowserSupabase from '@/lib/supabase/client';
 
@@ -233,9 +233,9 @@ export default function SellerInfoPage() {
             style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }}
           >
             <option value="">{draft.state ? 'Select LGA' : 'Choose a state first'}</option>
-            {lgasForState(draft.state).map((l) => (
-              <option key={l} value={l}>
-                {l}
+            {lgaOptions(draft.state).map((l) => (
+              <option key={l.value} value={l.value}>
+                {l.label}
               </option>
             ))}
           </select>

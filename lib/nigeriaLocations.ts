@@ -47,6 +47,44 @@ export function lgasForState(state?: string): readonly string[] {
   return (state && NIGERIA_LOCATIONS[state]) || [];
 }
 
+// Six LGA names exist in two states (e.g. Surulere in Lagos and Oyo). Riders
+// and orders are matched on the zone string, so zones must be unique
+// nationwide: duplicates get the state added, e.g. "Surulere (Lagos)". Every
+// other zone is just the plain LGA name, so existing Anambra data is unchanged.
+const lgaCount = new Map<string, number>();
+Object.values(NIGERIA_LOCATIONS).forEach((list) => {
+  list.forEach((lga) => lgaCount.set(lga, (lgaCount.get(lga) ?? 0) + 1));
+});
+export const DUPLICATE_LGAS = new Set<string>();
+lgaCount.forEach((n, name) => {
+  if (n > 1) DUPLICATE_LGAS.add(name);
+});
+
+/** The unique zone string stored on restaurants, riders and orders. */
+export function zoneKey(state: string, lga: string): string {
+  return DUPLICATE_LGAS.has(lga) ? `${lga} (${state})` : lga;
+}
+
+/** The plain LGA name for display or geocoding: "Surulere (Lagos)" -> "Surulere". */
+export function zoneLabel(zone: string): string {
+  return zone.replace(/ \([^)]+\)$/, '');
+}
+
+/** Dropdown options for a state: label is the LGA, value is the unique zone. */
+export function lgaOptions(state?: string): { label: string; value: string }[] {
+  if (!state) return [];
+  return lgasForState(state).map((lga) => ({ label: lga, value: zoneKey(state, lga) }));
+}
+
+const stateByZone = new Map<string, string>();
+Object.entries(NIGERIA_LOCATIONS).forEach(([state, list]) => {
+  list.forEach((lga) => stateByZone.set(zoneKey(state, lga), state));
+});
+/** Which state a stored zone belongs to (undefined if the zone is unknown). */
+export function stateOfZone(zone?: string | null): string | undefined {
+  return zone ? stateByZone.get(zone) : undefined;
+}
+
 /** Loose match between a geocoder's state name ("Lagos State", "Abuja") and ours. */
 export function sameState(detected: string | null | undefined, chosen: string | undefined): boolean {
   if (!detected || !chosen) return true; // unknown: don't block

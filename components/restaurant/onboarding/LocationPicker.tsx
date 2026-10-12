@@ -4,7 +4,7 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { MapPin, Loader2, AlertCircle } from 'lucide-react';
 import { useGeolocation } from '@/hooks/useGeolocation';
-import { lgasForState, sameState } from '@/lib/nigeriaLocations';
+import { NIGERIA_STATES, lgaOptions, sameState, stateOfZone, zoneLabel } from '@/lib/nigeriaLocations';
 
 // Leaflet touches `window`, so it can't render during SSR.
 const LocationMapPicker = dynamic(() => import('@/components/restaurant/onboarding/LocationMapPicker'), {
@@ -14,12 +14,16 @@ const LocationMapPicker = dynamic(() => import('@/components/restaurant/onboardi
 interface LocationPickerProps {
   address?: string;
   lga?: string;
-  /** State chosen in step 1; the pin and address must be inside it. */
+  /** State chosen earlier; the pin and address must be inside it. Optional: the picker has its own state dropdown. */
   state?: string;
-  onChange: (value: { address: string; lga?: string; latitude?: number; longitude?: number }) => void;
+  /** `lga` is the unique zone value (e.g. "Surulere (Lagos)" for repeated names). */
+  onChange: (value: { address: string; lga?: string; state?: string; latitude?: number; longitude?: number }) => void;
 }
 
-export default function LocationPicker({ address, lga, state, onChange }: LocationPickerProps) {
+export default function LocationPicker({ address, lga, state: stateProp, onChange }: LocationPickerProps) {
+  // The state is whatever was passed in, else inferred from a saved zone, else chosen here.
+  const [pickedState, setPickedState] = useState<string | undefined>(stateProp ?? stateOfZone(lga));
+  const state = stateProp ?? pickedState;
   const {
     latitude,
     longitude,
@@ -33,6 +37,7 @@ export default function LocationPicker({ address, lga, state, onChange }: Locati
   } = useGeolocation();
   const stateLabel = state ?? 'your state';
   const autoOutsideServiceArea = !sameState(detectedState, state);
+  const detectedKnownState = NIGERIA_STATES.find((n) => sameState(detectedState, n) && !!detectedState);
 
   const [manualMode, setManualMode] = useState(false);
   const [streetAddress, setStreetAddress] = useState(address ?? '');
@@ -58,6 +63,7 @@ export default function LocationPicker({ address, lga, state, onChange }: Locati
     onChange({
       address: detectedAddress ?? `Detected location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`,
       lga: lga || lgaGuess || undefined,
+      state: state ?? detectedKnownState,
       latitude,
       longitude,
     });
@@ -86,7 +92,7 @@ export default function LocationPicker({ address, lga, state, onChange }: Locati
     }
     try {
       const fullAddress = landmark ? `${streetAddress}, near ${landmark}` : streetAddress;
-      const query = encodeURIComponent(`${fullAddress}, ${lga}, ${state ?? ''}, Nigeria`);
+      const query = encodeURIComponent(`${fullAddress}, ${lga ? zoneLabel(lga) : ''}, ${state ?? ''}, Nigeria`);
       const res = await fetch(
         `https://us1.locationiq.com/v1/search?key=${key}&q=${query}&format=json&limit=1&addressdetails=1`
       );
@@ -106,7 +112,7 @@ export default function LocationPicker({ address, lga, state, onChange }: Locati
       const lat = Number(result.lat);
       const lon = Number(result.lon);
       setPinCoords({ lat, lng: lon });
-      onChange({ address: fullAddress, lga, latitude: lat, longitude: lon });
+      onChange({ address: fullAddress, lga, state, latitude: lat, longitude: lon });
       setConfirmedManual(true);
     } catch {
       setGeocodeError('Location lookup failed — try again.');
@@ -201,6 +207,29 @@ export default function LocationPicker({ address, lga, state, onChange }: Locati
             />
           </div>
 
+          {!stateProp && (
+            <div>
+              <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
+                State
+              </label>
+              <select
+                value={state ?? ''}
+                onChange={(e) => {
+                  setPickedState(e.target.value);
+                  onChange({ address: streetAddress, lga: undefined, state: e.target.value });
+                  setConfirmedManual(false);
+                }}
+                className="w-full px-3 py-2.5 rounded-[9px] text-[13px] outline-none bg-white"
+                style={{ border: '1px solid var(--line)', color: 'var(--ink)' }}
+              >
+                <option value="" disabled>Select state</option>
+                {NIGERIA_STATES.map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div>
             <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
               Local Government Area
@@ -208,15 +237,15 @@ export default function LocationPicker({ address, lga, state, onChange }: Locati
             <select
               value={lga ?? ''}
               onChange={(e) => {
-                onChange({ address: streetAddress, lga: e.target.value });
+                onChange({ address: streetAddress, lga: e.target.value, state });
                 setConfirmedManual(false);
               }}
               className="w-full px-3 py-2.5 rounded-[9px] text-[13px] outline-none bg-white"
               style={{ border: '1px solid var(--line)', color: 'var(--ink)' }}
             >
               <option value="" disabled>Select LGA</option>
-              {lgasForState(state).map((name) => (
-                <option key={name} value={name}>{name}</option>
+              {lgaOptions(state).map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
           </div>
@@ -236,7 +265,7 @@ export default function LocationPicker({ address, lga, state, onChange }: Locati
             <button
               type="button"
               onClick={handleConfirmManual}
-              disabled={!streetAddress || !lga || geocoding}
+              disabled={!streetAddress || !lga || !state || geocoding}
               className="w-full py-2.5 rounded-[9px] text-[12.5px] font-semibold text-white disabled:opacity-40"
               style={{ background: 'var(--orange)' }}
             >

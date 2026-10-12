@@ -66,6 +66,9 @@ export interface Database {
           latitude: number | null;
           longitude: number | null;
           delivery_radius_km: number | null;
+          state: string;
+          vendor_type: 'restaurant' | 'home_kitchen';
+          registration_status: 'registered' | 'unregistered';
           // NOT real columns on the live table — components/home/* (out of
           // scope for this session per the handoff doc) reference these.
           // Kept optional here only so that unrelated code still compiles;
