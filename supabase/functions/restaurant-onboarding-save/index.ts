@@ -24,9 +24,16 @@ const ALLOWED_FIELDS = [
   "longitude",
   "zone",
   "delivery_radius_km",
+  "vendor_type",
+  "registration_status",
 ];
 
 const GENDERS = ["female", "male", "prefer_not_to_say"];
+const VENDOR_TYPES = ["restaurant", "home_kitchen"];
+const REGISTRATION_STATUSES = ["registered", "unregistered"];
+// CAC numbers look like RC1234567 (company), BN1234567 (business name) or
+// IT12345 (incorporated trustees). Digits only is also accepted.
+const CAC_PATTERN = /^(RC|BN|IT)?\s?-?\d{4,9}$/i;
 const MIN_AGE_YEARS = 18;
 
 function json(body: unknown, status = 200) {
@@ -72,6 +79,23 @@ Deno.serve(async (req) => {
     const patch: Record<string, unknown> = {};
     for (const key of ALLOWED_FIELDS) {
       if (key in body) patch[key] = body[key];
+    }
+
+    if ("vendor_type" in patch && !VENDOR_TYPES.includes(patch.vendor_type as string)) {
+      return json({ error: "Choose restaurant or home kitchen" }, 400);
+    }
+    if ("registration_status" in patch && !REGISTRATION_STATUSES.includes(patch.registration_status as string)) {
+      return json({ error: "Choose whether your business is registered" }, 400);
+    }
+    // Registered businesses must give a CAC number (an admin verifies it
+    // later); the number lives in the private owner-details table.
+    let cacNumber: string | null = null;
+    if (patch.registration_status === "registered") {
+      const raw = typeof body.cac_number === "string" ? body.cac_number.trim() : "";
+      if (!CAC_PATTERN.test(raw)) {
+        return json({ error: "Enter your CAC registration number (for example RC1234567 or BN1234567)" }, 400);
+      }
+      cacNumber = raw.toUpperCase().replace(/[\s-]/g, "");
     }
 
     // Private owner details (age gate, gender, acknowledgements). Validated on
@@ -141,6 +165,31 @@ Deno.serve(async (req) => {
         .from("restaurant_owner_details")
         .upsert({ restaurant_id: result.id, ...ownerDetails }, { onConflict: "restaurant_id" });
       if (detailsError) throw detailsError;
+    }
+
+    // Keep the private CAC number in step with the registration choice.
+    // Any change resets admin verification, so a number can't be swapped
+    // after it was checked.
+    if ("registration_status" in patch) {
+      if (patch.registration_status === "registered" && cacNumber) {
+        const { data: current } = await admin
+          .from("restaurant_owner_details")
+          .select("cac_number")
+          .eq("restaurant_id", result.id)
+          .maybeSingle();
+        if (current && current.cac_number !== cacNumber) {
+          const { error: cacError } = await admin
+            .from("restaurant_owner_details")
+            .update({ cac_number: cacNumber, registration_verified_at: null, registration_verified_by: null })
+            .eq("restaurant_id", result.id);
+          if (cacError) throw cacError;
+        }
+      } else if (patch.registration_status === "unregistered") {
+        await admin
+          .from("restaurant_owner_details")
+          .update({ cac_number: null, registration_verified_at: null, registration_verified_by: null })
+          .eq("restaurant_id", result.id);
+      }
     }
 
     return json({ success: true, restaurant: result });
