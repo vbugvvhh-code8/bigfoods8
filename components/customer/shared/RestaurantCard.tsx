@@ -14,7 +14,7 @@ export function RestaurantCard({restaurant: r}: RestaurantCardProps) {
         className="w-14 h-14 rounded-[10px] flex-shrink-0 bg-cover bg-center"
         style={
           r.image_url
-            ? {backgroundImage: `url(${r.image_url})`}
+            ? {backgroundImage: `url(${r.image_url}), linear-gradient(135deg, #FFE3C7, #FFD9B3)`}
             : {background: 'linear-gradient(135deg, #FFE3C7, var(--peach))'}
         }
       />

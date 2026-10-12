@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Loader2 } from 'lucide-react';
-import { stepLabel, stepPath } from '@/hooks/useOnboardingSession';
+import { stepPath } from '@/hooks/useOnboardingSession';
 import { estimateReachableRiders } from '@/lib/estimateReachableRiders';
 import useRestaurant from '@/hooks/useRestaurant';
 
@@ -51,9 +51,6 @@ export default function DeliveryZonePage() {
 
   return (
     <>
-      <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--orange)' }}>
-        {stepLabel('delivery-zone')}
-      </p>
       <h2 className="text-[20px] font-semibold mb-1.5" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
         Set your delivery zone
       </h2>

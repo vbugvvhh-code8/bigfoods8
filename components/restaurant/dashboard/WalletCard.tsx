@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Loader2, CheckCircle2, Pencil } from 'lucide-react';
 import useWallet, { MIN_WITHDRAWAL } from '@/hooks/useWallet';
-import { NIGERIAN_BANKS } from '@/lib/nigerianBanks';
+import useAcceptedBanks from '@/hooks/useAcceptedBanks';
 
 interface WalletCardProps {
   restaurantId: string;
@@ -29,6 +29,8 @@ export default function WalletCard({ restaurantId }: WalletCardProps) {
     estimateBreakdown,
   } = useWallet(restaurantId);
 
+  const { banks } = useAcceptedBanks();
+  const [accountName, setAccountName] = useState('');
   const [amount, setAmount] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -41,7 +43,7 @@ export default function WalletCard({ restaurantId }: WalletCardProps) {
   const belowMinimum = numericAmount > 0 && numericAmount < MIN_WITHDRAWAL;
   const exceedsBalance = numericAmount > 0 && estimatedBalance !== null && numericAmount > estimatedBalance;
   const canSubmit =
-    !!numericAmount && numericAmount >= MIN_WITHDRAWAL && !exceedsBalance && !hasUnpaidRequest && !!bankAccount?.verified;
+    !!numericAmount && numericAmount >= MIN_WITHDRAWAL && !exceedsBalance && !hasUnpaidRequest && !!bankAccount;
   const breakdown = numericAmount >= MIN_WITHDRAWAL ? estimateBreakdown(numericAmount) : null;
 
   async function handleRequest() {
@@ -53,15 +55,15 @@ export default function WalletCard({ restaurantId }: WalletCardProps) {
   }
 
   async function handleSaveBank() {
-    const bank = NIGERIAN_BANKS.find((b) => b.code === bankCode);
-    if (!bank || accountNumber.length < 10) return;
+    if (!bankCode || accountNumber.length < 10 || accountName.trim().length < 3) return;
     setSavingBank(true);
-    const ok = await saveBankAccount({ account_number: accountNumber, bank_code: bank.code, bank_name: bank.name });
+    const ok = await saveBankAccount({ account_number: accountNumber, bank_code: bankCode, account_name: accountName });
     setSavingBank(false);
     if (ok) {
       setEditingBank(false);
       setAccountNumber('');
       setBankCode('');
+      setAccountName('');
     }
   }
 
@@ -95,7 +97,7 @@ export default function WalletCard({ restaurantId }: WalletCardProps) {
 
         {bankAccount && !editingBank ? (
           <div className="flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--green)' }} />
+            <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: bankAccount.verified ? 'var(--green)' : 'var(--gray)' }} />
             <p className="text-[12px]" style={{ color: 'var(--ink)' }}>
               {bankAccount.bank_name} · ****{bankAccount.account_number.slice(-4)} · {bankAccount.account_name}
             </p>
@@ -103,7 +105,7 @@ export default function WalletCard({ restaurantId }: WalletCardProps) {
         ) : (
           <div className="space-y-2 mt-1.5">
             <p className="text-[11px]" style={{ color: 'var(--gray)' }}>
-              The account name must match your own profile name to be accepted.
+              Type the details exactly as your bank shows them. You can change them any time. We check them with your bank at your first withdrawal.
             </p>
             <select
               value={bankCode}
@@ -112,7 +114,7 @@ export default function WalletCard({ restaurantId }: WalletCardProps) {
               style={{ border: '1px solid var(--line)', color: 'var(--ink)' }}
             >
               <option value="" disabled>Select bank</option>
-              {NIGERIAN_BANKS.map((b) => (
+              {banks.map((b) => (
                 <option key={b.code} value={b.code}>{b.name}</option>
               ))}
             </select>
@@ -121,6 +123,13 @@ export default function WalletCard({ restaurantId }: WalletCardProps) {
               onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
               placeholder="10-digit account number"
               inputMode="numeric"
+              className="w-full px-3 py-2.5 rounded-[9px] text-[13px] outline-none"
+              style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }}
+            />
+            <input
+              value={accountName}
+              onChange={(e) => setAccountName(e.target.value)}
+              placeholder="Account name"
               className="w-full px-3 py-2.5 rounded-[9px] text-[13px] outline-none"
               style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }}
             />
@@ -136,12 +145,12 @@ export default function WalletCard({ restaurantId }: WalletCardProps) {
               )}
               <button
                 onClick={handleSaveBank}
-                disabled={!bankCode || accountNumber.length < 10 || savingBank}
+                disabled={!bankCode || accountNumber.length < 10 || accountName.trim().length < 3 || savingBank}
                 className="flex-1 py-2.5 rounded-[9px] text-[12px] font-semibold text-white disabled:opacity-40 flex items-center justify-center gap-1.5"
                 style={{ background: 'var(--orange)' }}
               >
                 {savingBank ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                Verify &amp; save
+                Save
               </button>
             </div>
           </div>
@@ -198,9 +207,9 @@ export default function WalletCard({ restaurantId }: WalletCardProps) {
             That's more than your available balance.
           </p>
         )}
-        {!bankAccount?.verified && numericAmount > 0 && (
+        {!bankAccount && numericAmount > 0 && (
           <p className="text-[11px] mt-1.5" style={{ color: 'var(--red)' }}>
-            Add a verified withdrawal account above first.
+            Add your withdrawal account above first.
           </p>
         )}
         {hasUnpaidRequest && (

@@ -1,5 +1,6 @@
 'use client';
 
+import SafeImage from '@/components/ui/SafeImage';
 import { useMemo, useState } from 'react';
 import { Plus, Pencil, Trash2, ChevronDown } from 'lucide-react';
 import useRestaurant from '@/hooks/useRestaurant';
@@ -155,8 +156,7 @@ export default function MenuBuilderPage() {
                                 style={{ border: '1px solid var(--line)' }}
                               >
                                 {item.image_url && (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
+                                  <SafeImage
                                     src={item.image_url}
                                     alt={item.name}
                                     className="w-11 h-11 rounded-[8px] object-cover flex-shrink-0"

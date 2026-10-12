@@ -6,7 +6,7 @@ import { Loader2 } from 'lucide-react';
 import PageHeader from '@/components/admin/layout/PageHeader';
 import BannerUpload from '@/components/restaurant/onboarding/BannerUpload';
 import BannerPreview from '@/components/restaurant/onboarding/BannerPreview';
-import LocationPicker from '@/components/restaurant/onboarding/LocationPicker';
+import KitchenLocationPicker from '@/components/restaurant/onboarding/KitchenLocationPicker';
 import useRestaurant from '@/hooks/useRestaurant';
 
 const ZoneRadiusMap = dynamic(() => import('@/components/restaurant/onboarding/ZoneRadiusMap'), { ssr: false });
@@ -136,20 +136,22 @@ export default function SettingsPage() {
       {/* Location */}
       <div className="p-4 rounded-[12px] space-y-3" style={{ border: '1px solid var(--line)', background: 'var(--white)' }}>
         <p className="text-[12.5px] font-semibold" style={{ color: 'var(--ink)' }}>Location</p>
-        <LocationPicker
+        <KitchenLocationPicker
           address={address}
           lga={lga}
           state={restaurant?.state ?? undefined}
+          latitude={latitude}
+          longitude={longitude}
           onChange={(v) => {
-            setAddress(v.address);
-            if (v.lga) setLga(v.lga);
-            if (v.latitude) setLatitude(v.latitude);
-            if (v.longitude) setLongitude(v.longitude);
+            setAddress(v.address ?? '');
+            setLga(v.lga ?? '');
+            setLatitude(v.latitude);
+            setLongitude(v.longitude);
           }}
         />
         <button
           onClick={() => handleSave('location', { address, zone: lga, latitude, longitude })}
-          disabled={saving === 'location' || !address || !lga || !latitude || !longitude}
+          disabled={saving === 'location' || address.trim().length < 8 || !lga || !latitude || !longitude}
           className="w-full py-2.5 rounded-[9px] text-[12.5px] font-semibold text-white disabled:opacity-40 flex items-center justify-center gap-2"
           style={{ background: 'var(--orange)' }}
         >

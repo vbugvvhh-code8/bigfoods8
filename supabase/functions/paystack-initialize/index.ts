@@ -16,6 +16,8 @@ const PRICING_KEY_BY_TYPE: Record<string, string> = {
   verification_fee: "verification_fee",
   rider_verification_fee: "rider_verification_fee",
 };
+const SEATS_PER_STATE = 1000;
+
 const ACTOR_BY_TYPE: Record<string, "restaurant" | "rider"> = {
   verification_fee: "restaurant",
   promotion: "restaurant",
@@ -77,7 +79,7 @@ Deno.serve(async (req) => {
     if (actor === "restaurant") {
       const { data: restaurant, error: restaurantError } = await admin
         .from("restaurants")
-        .select("id, address, latitude, longitude")
+        .select("id, state, address, latitude, longitude")
         .eq("owner_id", user.id)
         .maybeSingle();
       if (restaurantError || !restaurant) {
@@ -104,6 +106,19 @@ Deno.serve(async (req) => {
           .eq("restaurant_id", restaurant.id)
           .maybeSingle();
         if (!bankAccount) return json({ error: "Add your bank details before paying" }, 400);
+
+        // Only 1,000 paid sellers per state. Re-checked here so it cannot be
+        // skipped from the browser. (A burst of simultaneous payers could
+        // overshoot by a few; paystack-verify is the final gate.)
+        const { count: taken } = await admin
+          .from("transactions")
+          .select("id, restaurants!inner(state)", { count: "exact", head: true })
+          .eq("type", "onboarding_plan")
+          .eq("status", "success")
+          .eq("restaurants.state", restaurant.state);
+        if ((taken ?? 0) >= SEATS_PER_STATE) {
+          return json({ error: `All ${SEATS_PER_STATE.toLocaleString()} seller places in ${restaurant.state} are taken. You can buy an existing account from a seller who wants to sell.` }, 409);
+        }
       }
     } else {
       const { data: rider, error: riderError } = await admin

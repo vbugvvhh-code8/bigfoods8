@@ -5,6 +5,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const PAYSTACK_SECRET_KEY = Deno.env.get("PAYSTACK_SECRET_KEY");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,6 +18,18 @@ const SUPPORT_ADDRESS = "support@bigfoods.app";
 const MIN_WITHDRAWAL = 10000;
 const FEE_RATE = 0.05;
 const DEFAULT_UNREGISTERED_CAP = 10_000_000;
+
+function nameTokens(name: string): string[] {
+  return name.toLowerCase().replace(/[^a-z\s]/g, "").split(/\s+/).filter(Boolean);
+}
+// Names appear in different orders / with extra middle names across banks, so
+// require most of the shorter name's words to appear in the longer one.
+function namesLikelyMatch(a: string, b: string): boolean {
+  const ta = nameTokens(a), tb = nameTokens(b);
+  if (!ta.length || !tb.length) return false;
+  const [short, long] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
+  return short.filter((t) => long.includes(t)).length / short.length >= 0.6;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -53,15 +66,32 @@ Deno.serve(async (req) => {
       return json({ error: "No restaurant found for this account" }, 400);
     }
 
-    // A withdrawal destination must exist and be verified before any request
-    // can be made — no verified account, no withdrawal, full stop.
+    // Bank details are saved as typed. They are checked with the bank here, at
+    // withdrawal time, so a typo is caught before any money moves.
     const { data: bankAccount } = await admin
       .from("restaurant_bank_accounts")
       .select("*")
       .eq("restaurant_id", restaurant.id)
       .maybeSingle();
-    if (!bankAccount || !bankAccount.verified) {
-      return json({ error: "Add and verify a withdrawal account first" }, 400);
+    if (!bankAccount) {
+      return json({ error: "Add your bank details in Settings before withdrawing" }, 400);
+    }
+    if (!bankAccount.verified) {
+      if (!PAYSTACK_SECRET_KEY) return json({ error: "Withdrawals aren't available yet. Try again shortly." }, 502);
+      const res = await fetch(
+        `https://api.paystack.co/bank/resolve?account_number=${encodeURIComponent(bankAccount.account_number)}&bank_code=${encodeURIComponent(bankAccount.bank_code)}`,
+        { headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` } }
+      );
+      const info = await res.json().catch(() => ({}));
+      if (!res.ok || !info.status) {
+        return json({ error: "Your bank could not find this account. Check the bank and account number in Settings." }, 400);
+      }
+      if (!namesLikelyMatch(info.data.account_name, bankAccount.account_name)) {
+        return json({ error: `Your bank shows this account as "${info.data.account_name}", which does not match the name you entered. Fix it in Settings.` }, 400);
+      }
+      await admin.from("restaurant_bank_accounts").update({ verified: true, account_name: info.data.account_name }).eq("restaurant_id", restaurant.id);
+      bankAccount.verified = true;
+      bankAccount.account_name = info.data.account_name;
     }
 
     const { data: unpaid } = await admin

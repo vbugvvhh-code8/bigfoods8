@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 export type OnboardingStep =
+  | 'agreement'
   | 'seller-info'
   | 'restaurant-info'
   | 'location'
@@ -12,6 +13,7 @@ export type OnboardingStep =
   | 'menu';
 
 export const ONBOARDING_STEPS: { id: OnboardingStep; label: string; path: string }[] = [
+  { id: 'agreement', label: 'Agreement', path: '/restaurant-portal/onboarding/agreement' },
   { id: 'seller-info', label: 'Seller', path: '/restaurant-portal/onboarding/seller-info' },
   { id: 'restaurant-info', label: 'Business', path: '/restaurant-portal/onboarding/restaurant-info' },
   { id: 'location', label: 'Location', path: '/restaurant-portal/onboarding/location' },
@@ -26,9 +28,15 @@ export function stepPath(id: OnboardingStep): string {
   return ONBOARDING_STEPS.find((s) => s.id === id)!.path;
 }
 
-/** "Step 3 of 7" label for a step. */
+/** "Step 3 of 8" label for a step. */
 export function stepLabel(id: OnboardingStep): string {
   return `Step ${ONBOARDING_STEPS.findIndex((s) => s.id === id) + 1} of ${ONBOARDING_STEPS.length}`;
+}
+
+/** The step before this one, or null for the first step. */
+export function previousStep(id: OnboardingStep) {
+  const i = ONBOARDING_STEPS.findIndex((s) => s.id === id);
+  return i > 0 ? ONBOARDING_STEPS[i - 1] : null;
 }
 
 export interface OnboardingDraft {
@@ -45,6 +53,8 @@ export interface OnboardingDraft {
   longitude?: number;
   lga?: string;
   radiusKm?: number;
+  // Set on the agreement screen, before signup.
+  agreementReadAt?: string;
   // Seller details (step 1). Gender and date of birth are private — they are
   // sent to the server with the restaurant and never shown to customers.
   state?: string;

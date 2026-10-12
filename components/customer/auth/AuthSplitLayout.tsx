@@ -1,4 +1,5 @@
 import type {ReactNode} from 'react';
+import SafeImage from '@/components/ui/SafeImage';
 
 interface AuthSplitLayoutProps {
   imageUrl: string;
@@ -13,19 +14,17 @@ interface AuthSplitLayoutProps {
 export default function AuthSplitLayout({imageUrl, children}: AuthSplitLayoutProps) {
   return (
     <div className="relative min-h-screen lg:grid lg:grid-cols-2">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <SafeImage
         src={imageUrl}
         alt=""
-        aria-hidden="true"
+        loading="eager"
         className="fixed inset-0 h-full w-full object-cover opacity-[0.13] pointer-events-none lg:hidden"
       />
 
       <div className="relative z-10 flex items-center justify-center">{children}</div>
 
       <div className="relative hidden lg:block" aria-hidden="true">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <SafeImage src={imageUrl} alt="" loading="eager" className="absolute inset-0 h-full w-full object-cover" />
       </div>
     </div>
   );

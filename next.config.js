@@ -4,6 +4,10 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   images: { unoptimized: true },
+  async redirects() {
+    // bigfoods.app opens on the restaurant page.
+    return [{ source: '/', destination: '/restaurant', permanent: false }];
+  },
 };
 
 module.exports = nextConfig;

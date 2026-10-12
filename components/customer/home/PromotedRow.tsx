@@ -22,7 +22,7 @@ export function PromotedRow({restaurants}: PromotedRowProps) {
               className="w-[150px] h-[100px] rounded-xl relative overflow-hidden mb-2 bg-cover bg-center"
               style={
                 r.image_url
-                  ? {backgroundImage: `url(${r.image_url})`}
+                  ? {backgroundImage: `url(${r.image_url}), linear-gradient(135deg, #FFE3C7, #FFD9B3)`}
                   : {background: 'linear-gradient(135deg, var(--peach), #FFD9B3)'}
               }
             >

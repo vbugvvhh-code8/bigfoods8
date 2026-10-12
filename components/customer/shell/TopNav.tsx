@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
 import {Home, ClipboardList, User, MapPin} from 'lucide-react';
+import SafeImage from '@/components/ui/SafeImage';
 import {useGeolocation} from '@/hooks/useGeolocation';
 import {useEffect} from 'react';
 
@@ -30,7 +31,7 @@ function MobileTopBar() {
       <Link href="/order" className="flex items-center gap-2">
         <div className="w-6 h-6 rounded-md overflow-hidden flex-shrink-0" style={{background: 'var(--orange)'}}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={LOGO_URL} alt="BigFoods" className="w-full h-full object-cover" />
+          <SafeImage src={LOGO_URL} alt="BigFoods" className="w-full h-full object-cover" />
         </div>
         <span className="font-display font-semibold text-[15px]" style={{color: 'var(--ink)'}}>
           BigFoods
@@ -62,7 +63,7 @@ export function TopNav() {
         <Link href="/order" className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0" style={{background: 'var(--orange)'}}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={LOGO_URL} alt="BigFoods" className="w-full h-full object-cover" />
+            <SafeImage src={LOGO_URL} alt="BigFoods" className="w-full h-full object-cover" />
           </div>
           <span className="font-display font-semibold text-[16px]" style={{color: 'var(--ink)'}}>
             BigFoods

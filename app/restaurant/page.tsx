@@ -91,7 +91,7 @@ export default function RestaurantLandingPage() {
       >
         <div className={`${WRAP} flex items-center justify-between h-14`}>
           <Link
-            href="/"
+            href="/restaurant"
             className="flex items-center gap-2.5 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4"
             style={{ outlineColor: 'var(--orange)' }}
           >
@@ -427,7 +427,7 @@ function Hero() {
 
         <div className="mt-6 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5">
           <Link
-            href="/restaurant-portal/onboarding/restaurant-info"
+            href="/restaurant-portal/onboarding/agreement"
             className="px-7 py-3.5 rounded-xl text-white font-semibold text-[14px] text-center transition-transform active:scale-[0.98] hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{
               background: 'var(--orange)',

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, Loader2 } from 'lucide-react';
-import useOnboardingSession, { stepLabel, stepPath } from '@/hooks/useOnboardingSession';
+import useOnboardingSession, { stepPath } from '@/hooks/useOnboardingSession';
 import useAcceptedBanks from '@/hooks/useAcceptedBanks';
 import getBrowserSupabase from '@/lib/supabase/client';
 import { extractEdgeFunctionError } from '@/lib/extractEdgeFunctionError';
@@ -22,6 +22,7 @@ export default function BankPage() {
 
   const [bankCode, setBankCode] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
+  const [accountName, setAccountName] = useState('');
   const [saved, setSaved] = useState<SavedAccount | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,17 +61,17 @@ export default function BankPage() {
     );
   }
 
-  const numberValid = /^\d{10}$/.test(accountNumber);
+  const numberValid = /^\d{10}$/.test(accountNumber) && accountName.trim().length >= 3;
 
   async function handleVerify() {
     setSaving(true);
     setError(null);
     try {
       const { data, error: fnError } = await supabase.functions.invoke('restaurant-save-bank-account', {
-        body: { account_number: accountNumber, bank_code: bankCode },
+        body: { account_number: accountNumber, bank_code: bankCode, account_name: accountName },
       });
       if (fnError) {
-        setError(await extractEdgeFunctionError(fnError, 'Could not verify this account.'));
+        setError(await extractEdgeFunctionError(fnError, 'Could not save these details.'));
         return;
       }
       if (data?.error) {
@@ -79,7 +80,7 @@ export default function BankPage() {
       }
       setSaved(data.bankAccount as SavedAccount);
     } catch (e: any) {
-      setError(e?.message ?? 'Could not verify this account.');
+      setError(e?.message ?? 'Could not save these details.');
     } finally {
       setSaving(false);
     }
@@ -87,20 +88,17 @@ export default function BankPage() {
 
   return (
     <>
-      <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--orange)' }}>
-        {stepLabel('bank')}
-      </p>
       <h2 className="text-[20px] font-semibold mb-1.5" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
         Where should we pay you?
       </h2>
       <p className="text-[12.5px] mb-5" style={{ color: 'var(--gray)' }}>
-        The account must be in your own name. We check it with your bank.
+        Type your bank details as they appear on your account. You can change them any time in Settings.
       </p>
 
       {saved ? (
         <div className="p-4 rounded-[12px] mb-5" style={{ border: '1px solid var(--line)' }}>
           <div className="flex items-center gap-1.5 text-[12.5px] mb-2" style={{ color: 'var(--green)' }}>
-            <CheckCircle2 className="w-4 h-4" /> Account verified
+            <CheckCircle2 className="w-4 h-4" /> Details saved
           </div>
           <p className="text-[13.5px] font-semibold">{saved.account_name}</p>
           <p className="text-[12px]" style={{ color: 'var(--gray)' }}>
@@ -153,6 +151,20 @@ export default function BankPage() {
             />
           </div>
 
+          <div className="mb-3.5">
+            <label htmlFor="acctname" className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
+              Account name
+            </label>
+            <input
+              id="acctname"
+              value={accountName}
+              onChange={(e) => setAccountName(e.target.value)}
+              placeholder="Name on the account"
+              className="w-full px-3 py-2.5 rounded-[9px] text-[13px] outline-none"
+              style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }}
+            />
+          </div>
+
           {error && (
             <p className="text-[11.5px] mb-3" style={{ color: 'var(--red)' }} role="alert">
               {error}
@@ -167,7 +179,7 @@ export default function BankPage() {
             style={{ background: 'var(--ink)' }}
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            Verify account
+            Save bank details
           </button>
         </>
       )}

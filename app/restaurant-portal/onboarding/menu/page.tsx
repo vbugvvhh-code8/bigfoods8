@@ -1,9 +1,9 @@
 'use client';
 
+import SafeImage from '@/components/ui/SafeImage';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, X, ImagePlus } from 'lucide-react';
-import { stepLabel } from '@/hooks/useOnboardingSession';
 import { useMenuItems } from '@/hooks/useMenuItems';
 import useRestaurant from '@/hooks/useRestaurant';
 import getBrowserSupabase from '@/lib/supabase/client';
@@ -84,9 +84,6 @@ export default function MenuStepPage() {
 
   return (
     <>
-      <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--orange)' }}>
-        {stepLabel('menu')}
-      </p>
       <h2 className="text-[20px] font-semibold mb-1.5" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
         Add your first menu item
       </h2>
@@ -104,8 +101,7 @@ export default function MenuStepPage() {
               style={{ border: '1px solid var(--line)' }}
             >
               {item.image_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.image_url} alt={item.name} className="w-11 h-11 rounded-[8px] object-cover flex-shrink-0" />
+                <SafeImage src={item.image_url} alt={item.name} className="w-11 h-11 rounded-[8px] object-cover flex-shrink-0" />
               )}
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-semibold truncate" style={{ color: 'var(--ink)' }}>

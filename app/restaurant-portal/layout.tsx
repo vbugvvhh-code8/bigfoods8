@@ -1,13 +1,13 @@
-import { RiderServiceWorkerRegister } from '@/components/rider/shell/ServiceWorkerRegister';
+import { RestaurantServiceWorkerRegister } from '@/components/restaurant/shell/ServiceWorkerRegister';
 
 export const metadata = {
-  manifest: '/rider-manifest.webmanifest',
+  manifest: '/restaurant-manifest.webmanifest',
 };
 
-export default function RiderPortalLayout({ children }: { children: React.ReactNode }) {
+export default function RestaurantPortalLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <RiderServiceWorkerRegister />
+      <RestaurantServiceWorkerRegister />
       {children}
     </>
   );

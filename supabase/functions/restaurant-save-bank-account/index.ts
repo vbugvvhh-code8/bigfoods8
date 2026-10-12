@@ -4,7 +4,6 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const PAYSTACK_SECRET_KEY = Deno.env.get("PAYSTACK_SECRET_KEY");
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
 const corsHeaders = {
@@ -15,28 +14,6 @@ const corsHeaders = {
 
 const FROM_ADDRESS = "BigFoods <onboarding@opticsview.store>";
 const SUPPORT_ADDRESS = "support@bigfoods.app";
-
-function normalizeName(name: string): string[] {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z\s]/g, "")
-    .split(/\s+/)
-    .filter(Boolean);
-}
-
-// Real African names commonly appear in different orders/with different
-// middle names across a bank account vs a profile ("Ngozi Chidinma Eze" vs
-// "Eze Ngozi") — an exact string match would reject a lot of legitimate
-// matches. Instead: require most of the shorter name's tokens to appear
-// somewhere in the longer name.
-function namesLikelyMatch(a: string, b: string): boolean {
-  const tokensA = normalizeName(a);
-  const tokensB = normalizeName(b);
-  if (tokensA.length === 0 || tokensB.length === 0) return false;
-  const [shorter, longer] = tokensA.length <= tokensB.length ? [tokensA, tokensB] : [tokensB, tokensA];
-  const overlap = shorter.filter((t) => longer.includes(t)).length;
-  return overlap / shorter.length >= 0.6;
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -50,9 +27,13 @@ Deno.serve(async (req) => {
     const { data: { user }, error: userError } = await userClient.auth.getUser();
     if (userError || !user) return json({ error: "Not authenticated" }, 401);
 
-    const { account_number, bank_code } = await req.json();
+    const { account_number, bank_code, account_name } = await req.json();
     if (!account_number || !bank_code) {
       return json({ error: "Account number and bank are required" }, 400);
+    }
+    const accountName = String(account_name ?? "").replace(/\s+/g, " ").trim();
+    if (accountName.length < 3 || accountName.length > 80) {
+      return json({ error: "Enter the account name exactly as your bank shows it" }, 400);
     }
     if (!/^\d{10}$/.test(String(account_number))) {
       return json({ error: "Account number must be 10 digits" }, 400);
@@ -74,42 +55,16 @@ Deno.serve(async (req) => {
     const { data: restaurant } = await admin.from("restaurants").select("id").eq("owner_id", user.id).maybeSingle();
     if (!restaurant) return json({ error: "No restaurant found for this account" }, 400);
 
-    const { data: profile } = await admin.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
-    if (!profile?.full_name) {
-      return json({ error: "Add your full name to your profile before adding a withdrawal account" }, 400);
-    }
-
-    if (!PAYSTACK_SECRET_KEY) {
-      return json({ error: "Payments aren't configured yet." }, 502);
-    }
-
-    const resolveRes = await fetch(
-      `https://api.paystack.co/bank/resolve?account_number=${encodeURIComponent(account_number)}&bank_code=${encodeURIComponent(bank_code)}`,
-      { headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` } }
-    );
-    const resolveData = await resolveRes.json();
-    if (!resolveRes.ok || !resolveData.status) {
-      return json({ error: resolveData.message ?? "Could not verify that account number" }, 400);
-    }
-
-    const resolvedName: string = resolveData.data.account_name;
-    if (!namesLikelyMatch(resolvedName, profile.full_name)) {
-      return json(
-        { error: `The account name "${resolvedName}" doesn't match your profile name. The withdrawal account must be in your own name.` },
-        400
-      );
-    }
-
     const { data: saved, error: upsertError } = await admin
       .from("restaurant_bank_accounts")
       .upsert(
         {
           restaurant_id: restaurant.id,
-          account_name: resolvedName,
+          account_name: accountName,
           account_number,
           bank_name,
           bank_code,
-          verified: true,
+          verified: false, // checked with the bank at the first withdrawal
           updated_at: new Date().toISOString(),
         },
         { onConflict: "restaurant_id" }
@@ -129,9 +84,9 @@ Deno.serve(async (req) => {
           subject: "Your withdrawal account was updated",
           html: buildNoticeEmailHtml(
             "Withdrawal account updated",
-            `Your withdrawal account has just been updated to ${bank_name}, account ending in ${String(account_number).slice(-4)} (${resolvedName}). If this wasn't you, contact us immediately.`
+            `Your withdrawal account has just been updated to ${bank_name}, account ending in ${String(account_number).slice(-4)} (${accountName}). If this wasn't you, contact us immediately.`
           ),
-          text: `Your withdrawal account has just been updated to ${bank_name}, account ending in ${String(account_number).slice(-4)} (${resolvedName}).\n\nIf this wasn't you, contact us immediately at ${SUPPORT_ADDRESS}.\n\nBigFoods`,
+          text: `Your withdrawal account has just been updated to ${bank_name}, account ending in ${String(account_number).slice(-4)} (${accountName}).\n\nIf this wasn't you, contact us immediately at ${SUPPORT_ADDRESS}.\n\nBigFoods`,
         }),
       }).catch((e) => console.error("RESEND_SEND_FAILED", e));
     }

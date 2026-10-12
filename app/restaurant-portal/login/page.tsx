@@ -126,7 +126,7 @@ export default function RestaurantLoginPage() {
 
       <p className="text-[12.5px] text-center mt-5" style={{ color: 'var(--gray)' }}>
         New to BigFoods?{' '}
-        <Link href="/restaurant-portal/onboarding/seller-info" className="font-semibold" style={{ color: 'var(--orange)' }}>
+        <Link href="/restaurant-portal/onboarding/agreement" className="font-semibold" style={{ color: 'var(--orange)' }}>
           Register your restaurant
         </Link>
       </p>

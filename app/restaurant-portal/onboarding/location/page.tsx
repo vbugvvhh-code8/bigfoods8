@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
-import LocationPicker from '@/components/restaurant/onboarding/LocationPicker';
-import useOnboardingSession, { stepLabel, stepPath } from '@/hooks/useOnboardingSession';
+import KitchenLocationPicker from '@/components/restaurant/onboarding/KitchenLocationPicker';
+import useOnboardingSession, { stepPath } from '@/hooks/useOnboardingSession';
 import useRestaurant from '@/hooks/useRestaurant';
 
 export default function LocationPage() {
@@ -21,7 +21,7 @@ export default function LocationPage() {
     );
   }
 
-  const canContinue = !!(draft.address && draft.lga && draft.latitude && draft.longitude);
+  const canContinue = !!(draft.address && draft.address.trim().length >= 8 && draft.lga && draft.latitude && draft.longitude);
 
   async function handleContinue() {
     setSaving(true);
@@ -38,20 +38,19 @@ export default function LocationPage() {
 
   return (
     <>
-      <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--orange)' }}>
-        {stepLabel('location')}
-      </p>
       <h2 className="text-[20px] font-semibold mb-1.5" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
         Where's your kitchen?
       </h2>
       <p className="text-[12.5px] mb-5" style={{ color: 'var(--gray)' }}>
-        Riders use this to find you. You can fine-tune the pin later.
+        We need your GPS pin and your written address. You can change both later in Settings.
       </p>
 
-      <LocationPicker
+      <KitchenLocationPicker
         address={draft.address}
         lga={draft.lga}
         state={draft.state}
+        latitude={draft.latitude}
+        longitude={draft.longitude}
         onChange={({ address, lga, latitude, longitude }) => updateDraft({ address, lga, latitude, longitude })}
       />
 

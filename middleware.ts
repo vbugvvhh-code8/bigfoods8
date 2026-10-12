@@ -16,12 +16,14 @@ const RIDER_DASHBOARD_BASE = '/rider-portal/dashboard';
 // Edge runtime outside React, so it can't safely import it. Keep this order
 // in sync if the onboarding step sequence ever changes.
 const ONBOARDING_PATH_ORDER = [
+  '/restaurant-portal/onboarding/agreement',
   '/restaurant-portal/onboarding/seller-info',
   '/restaurant-portal/onboarding/restaurant-info',
   '/restaurant-portal/onboarding/location',
+  '/restaurant-portal/onboarding/bank',
+  '/restaurant-portal/onboarding/payment',
   '/restaurant-portal/onboarding/delivery-zone',
   '/restaurant-portal/onboarding/menu',
-  '/restaurant-portal/onboarding/payment',
 ];
 
 export async function middleware(req: NextRequest) {
@@ -85,10 +87,11 @@ export async function middleware(req: NextRequest) {
     }
 
     if (isRestaurantOnboardingRoute) {
-      // seller-info is the actual entry point — email OTP verification
+      // The agreement and seller-info steps are the entry points — email OTP verification
       // inside it is what creates the session in the first place, so it
       // must stay reachable before any auth exists.
-      if ((userError || !user) && pathname !== '/restaurant-portal/onboarding/seller-info') {
+      const PUBLIC_STEPS = ['/restaurant-portal/onboarding/agreement', '/restaurant-portal/onboarding/seller-info'];
+      if ((userError || !user) && !PUBLIC_STEPS.includes(pathname)) {
         return NextResponse.redirect(new URL('/restaurant-portal/onboarding/seller-info', req.url));
       }
       if (userError || !user) {

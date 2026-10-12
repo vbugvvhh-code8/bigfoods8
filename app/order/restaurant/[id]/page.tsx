@@ -53,7 +53,7 @@ export default function RestaurantMenuPage() {
             className="h-[110px] rounded-xl mb-3 bg-cover bg-center"
             style={
               restaurant.image_url
-                ? {backgroundImage: `url(${restaurant.image_url})`}
+                ? {backgroundImage: `url(${restaurant.image_url}), linear-gradient(135deg, #FFE3C7, #FFD9B3)`}
                 : {background: 'linear-gradient(135deg, #FFD9B3, var(--peach))'}
             }
           />

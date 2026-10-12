@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import EmailVerifyField from '@/components/restaurant/onboarding/EmailVerifyField';
-import useOnboardingSession, { stepLabel, stepPath } from '@/hooks/useOnboardingSession';
+import useOnboardingSession, { stepPath } from '@/hooks/useOnboardingSession';
 import { NIGERIA_STATES, lgaOptions } from '@/lib/nigeriaLocations';
 import { latestAllowedBirthDate, isAtLeast18 } from '@/lib/age';
 import getBrowserSupabase from '@/lib/supabase/client';
@@ -19,6 +19,14 @@ export default function SellerInfoPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  // The agreement is its own screen before signup; nobody skips it.
+  useEffect(() => {
+    if (hydrated && !(draft.termsAccepted && draft.seriousBusinessAck && draft.warningsAck)) {
+      router.replace(stepPath('agreement'));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
 
   if (!hydrated) {
     return (
@@ -39,10 +47,7 @@ export default function SellerInfoPage() {
     draft.state &&
     draft.lga &&
     draft.gender &&
-    dobOk &&
-    draft.termsAccepted &&
-    draft.seriousBusinessAck &&
-    draft.warningsAck
+    dobOk
   );
 
   async function handleSetPassword() {
@@ -70,9 +75,6 @@ export default function SellerInfoPage() {
 
   return (
     <>
-      <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--orange)' }}>
-        {stepLabel('seller-info')}
-      </p>
       <h2 className="text-[20px] font-semibold mb-1.5" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
         Tell us about yourself
       </h2>
@@ -284,25 +286,6 @@ export default function SellerInfoPage() {
         Gender and date of birth stay private. Customers never see them.
       </p>
 
-      <fieldset className="mb-5 space-y-2.5">
-        <legend className="sr-only">Agreements</legend>
-        {[
-          ['serious', 'seriousBusinessAck', 'I am starting a serious food business, not testing or playing around.'],
-          ['warnings', 'warningsAck', 'I understand that fake orders, unsafe food and late deliveries can get my account suspended.'],
-          ['terms', 'termsAccepted', 'I accept the BigFoods terms for sellers.'],
-        ].map(([id, key, text]) => (
-          <label key={id} htmlFor={`ack-${id}`} className="flex items-start gap-2.5 text-[12px] cursor-pointer" style={{ color: 'var(--ink)' }}>
-            <input
-              id={`ack-${id}`}
-              type="checkbox"
-              checked={!!(draft as any)[key]}
-              onChange={(e) => updateDraft({ [key]: e.target.checked } as any)}
-              className="mt-0.5 w-4 h-4 flex-shrink-0 accent-[var(--orange)]"
-            />
-            <span>{text}</span>
-          </label>
-        ))}
-      </fieldset>
 
       <button
         onClick={handleContinue}

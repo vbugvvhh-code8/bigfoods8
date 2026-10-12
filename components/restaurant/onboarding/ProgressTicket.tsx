@@ -1,13 +1,14 @@
 'use client';
 
-import { User, Store, MapPin, Truck, UtensilsCrossed, CreditCard, Landmark } from 'lucide-react';
-import { ONBOARDING_STEPS, OnboardingStep } from '@/hooks/useOnboardingSession';
+import { User, Store, MapPin, Truck, UtensilsCrossed, CreditCard, Landmark, FileText } from 'lucide-react';
+import { ONBOARDING_STEPS, OnboardingStep, stepLabel } from '@/hooks/useOnboardingSession';
 
 interface ProgressTicketProps {
   currentStep: OnboardingStep;
 }
 
 const STEP_ICONS: Record<OnboardingStep, typeof User> = {
+  agreement: FileText,
   'seller-info': User,
   'restaurant-info': Store,
   location: MapPin,
@@ -25,6 +26,13 @@ export default function ProgressTicket({ currentStep }: ProgressTicketProps) {
       className="rounded-t-[10px] px-4 sm:px-5 pt-4 pb-3 relative"
       style={{ background: 'var(--white)', border: '1px solid var(--line)', borderBottom: 'none' }}
     >
+      <p
+        className="text-[11px] font-semibold uppercase tracking-wide mb-3 text-center"
+        style={{ color: 'var(--orange)' }}
+        aria-live="polite"
+      >
+        {stepLabel(currentStep)} · {ONBOARDING_STEPS[currentIndex]?.label}
+      </p>
       <div className="flex">
         {ONBOARDING_STEPS.map((s, i) => {
           const Icon = STEP_ICONS[s.id];

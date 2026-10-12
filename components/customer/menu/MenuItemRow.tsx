@@ -18,7 +18,7 @@ export function MenuItemRow({item, restaurant}: MenuItemRowProps) {
     <div className="flex gap-3 items-center py-3">
       <div
         className="w-[50px] h-[50px] rounded-lg flex-shrink-0 bg-cover bg-center"
-        style={item.image_url ? {backgroundImage: `url(${item.image_url})`} : {background: 'var(--peach)'}}
+        style={item.image_url ? {backgroundImage: `url(${item.image_url}), linear-gradient(135deg, #FFE3C7, #FFD9B3)`} : {background: 'var(--peach)'}}
       />
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-[12.5px]" style={{color: 'var(--ink)'}}>

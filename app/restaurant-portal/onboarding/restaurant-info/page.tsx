@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import BannerUpload from '@/components/restaurant/onboarding/BannerUpload';
 import BannerPreview from '@/components/restaurant/onboarding/BannerPreview';
-import useOnboardingSession, { stepLabel, stepPath } from '@/hooks/useOnboardingSession';
+import useOnboardingSession, { stepPath } from '@/hooks/useOnboardingSession';
 import useRestaurant from '@/hooks/useRestaurant';
 
 // Reusing the same category list customers filter by on the home page, so a
@@ -61,9 +61,6 @@ export default function RestaurantInfoPage() {
 
   return (
     <>
-      <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--orange)' }}>
-        {stepLabel('restaurant-info')}
-      </p>
       <h2 className="text-[20px] font-semibold mb-1.5" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
         Tell us about your kitchen
       </h2>

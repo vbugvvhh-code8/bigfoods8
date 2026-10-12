@@ -115,10 +115,17 @@ export default function PaymentStep() {
 
   return (
     <>
-      <p className="text-[12.5px] mb-4" style={{ color: 'var(--gray)' }}>
-        Pick a plan. It covers your onboarding and includes free ads, so customers see you first. Ads start on{' '}
-        {launchLabel}, so you lose no time by paying early.
+      <p className="text-[12.5px] mb-3" style={{ color: 'var(--gray)' }}>
+        Pick a plan. It covers your onboarding and includes free ads, so customers see you first.
       </p>
+      <div className="p-3.5 rounded-[10px] mb-4" style={{ background: 'var(--peach)' }}>
+        <p className="text-[12px] font-semibold mb-1">Why we ask you to pay</p>
+        <p className="text-[12px] leading-relaxed" style={{ color: 'var(--ink)' }}>
+          This payment helps us keep out time-wasters and accept only serious restaurants and cooks. We take just{' '}
+          <strong>1,000 sellers per state</strong>. After that, nobody new can join in that state, and the only way in
+          is to buy an account from a seller who wants to sell. That makes your account an asset.
+        </p>
+      </div>
 
       <div role="radiogroup" aria-label="Plan" className="space-y-2.5 mb-5">
         {options.map((o) => {
@@ -179,6 +186,10 @@ export default function PaymentStep() {
         {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
         Pay and continue
       </button>
+      <p className="text-[11.5px] text-center mt-3" style={{ color: 'var(--gray)' }}>
+        BigFoods opens to customers on <strong>{launchLabel}</strong>. Your free ads start that day, so paying early
+        costs you nothing.
+      </p>
     </>
   );
 }

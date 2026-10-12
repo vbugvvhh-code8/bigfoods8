@@ -80,7 +80,7 @@ export default function useWallet(restaurantId?: string) {
   );
 
   const saveBankAccount = useCallback(
-    async (account: { account_number: string; bank_code: string; bank_name: string }) => {
+    async (account: { account_number: string; bank_code: string; account_name: string }) => {
       setError(null);
       const { data, error: fnError } = await supabase.functions.invoke('restaurant-save-bank-account', {
         body: account,
