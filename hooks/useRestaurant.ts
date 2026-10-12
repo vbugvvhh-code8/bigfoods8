@@ -12,6 +12,7 @@ export interface RestaurantSaveFields {
   latitude?: number;
   longitude?: number;
   zone?: string;
+  state?: string;
   delivery_radius_km?: number;
   vendor_type?: 'restaurant' | 'home_kitchen';
   registration_status?: 'registered' | 'unregistered';

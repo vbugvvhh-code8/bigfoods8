@@ -28,6 +28,7 @@ export default function LocationPage() {
     const result = await save({
       address: draft.address,
       zone: draft.lga,
+      state: draft.state,
       latitude: draft.latitude,
       longitude: draft.longitude,
     });
@@ -50,6 +51,7 @@ export default function LocationPage() {
       <LocationPicker
         address={draft.address}
         lga={draft.lga}
+        state={draft.state}
         onChange={({ address, lga, latitude, longitude }) => updateDraft({ address, lga, latitude, longitude })}
       />
 

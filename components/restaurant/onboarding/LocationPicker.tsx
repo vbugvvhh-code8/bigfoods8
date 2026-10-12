@@ -4,7 +4,7 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { MapPin, Loader2, AlertCircle } from 'lucide-react';
 import { useGeolocation } from '@/hooks/useGeolocation';
-import { ANAMBRA_LGAS, ANAMBRA_STATE_CENTER } from '@/lib/anambraLgas';
+import { lgasForState, sameState } from '@/lib/nigeriaLocations';
 
 // Leaflet touches `window`, so it can't render during SSR.
 const LocationMapPicker = dynamic(() => import('@/components/restaurant/onboarding/LocationMapPicker'), {
@@ -14,21 +14,25 @@ const LocationMapPicker = dynamic(() => import('@/components/restaurant/onboardi
 interface LocationPickerProps {
   address?: string;
   lga?: string;
+  /** State chosen in step 1; the pin and address must be inside it. */
+  state?: string;
   onChange: (value: { address: string; lga?: string; latitude?: number; longitude?: number }) => void;
 }
 
-export default function LocationPicker({ address, lga, onChange }: LocationPickerProps) {
+export default function LocationPicker({ address, lga, state, onChange }: LocationPickerProps) {
   const {
     latitude,
     longitude,
     address: detectedAddress,
-    outsideServiceArea: autoOutsideServiceArea,
+    state: detectedState,
     lgaGuess,
     error,
     isLoading,
     requestLocation,
     reset,
   } = useGeolocation();
+  const stateLabel = state ?? 'your state';
+  const autoOutsideServiceArea = !sameState(detectedState, state);
 
   const [manualMode, setManualMode] = useState(false);
   const [streetAddress, setStreetAddress] = useState(address ?? '');
@@ -46,7 +50,7 @@ export default function LocationPicker({ address, lga, onChange }: LocationPicke
   }
 
   // Hand the result up once we have coordinates that are actually inside
-  // Anambra — outside-service-area detections are surfaced as a hard block
+  // the chosen state — outside-state detections are surfaced as a hard block
   // instead, never silently passed through.
   if (latitude && longitude && latitude !== confirmedAutoLat && !autoOutsideServiceArea) {
     setConfirmedAutoLat(latitude);
@@ -82,7 +86,7 @@ export default function LocationPicker({ address, lga, onChange }: LocationPicke
     }
     try {
       const fullAddress = landmark ? `${streetAddress}, near ${landmark}` : streetAddress;
-      const query = encodeURIComponent(`${fullAddress}, ${lga}, Anambra, Nigeria`);
+      const query = encodeURIComponent(`${fullAddress}, ${lga}, ${state ?? ''}, Nigeria`);
       const res = await fetch(
         `https://us1.locationiq.com/v1/search?key=${key}&q=${query}&format=json&limit=1&addressdetails=1`
       );
@@ -93,8 +97,8 @@ export default function LocationPicker({ address, lga, onChange }: LocationPicke
         return;
       }
       const result = data[0];
-      const detectedState: string | undefined = result.address?.state;
-      if (detectedState && !detectedState.toLowerCase().includes('anambra')) {
+      const geocodedState: string | undefined = result.address?.state;
+      if (!sameState(geocodedState, state)) {
         setManualOutsideServiceArea(true);
         setGeocoding(false);
         return;
@@ -135,8 +139,8 @@ export default function LocationPicker({ address, lga, onChange }: LocationPicke
         <div className="mt-3 p-3 rounded-[9px] flex gap-2" style={{ background: '#FEF2F2' }}>
           <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--red)' }} />
           <p className="text-[12px]" style={{ color: 'var(--red)' }}>
-            That location looks like it's outside Anambra. BigFoods only operates within Anambra State right now,
-            so we can't continue with this location.
+            That location looks like it's outside {stateLabel}. Pick the state where your kitchen is, or move the
+            pin, then try again.
           </p>
         </div>
       )}
@@ -211,7 +215,7 @@ export default function LocationPicker({ address, lga, onChange }: LocationPicke
               style={{ border: '1px solid var(--line)', color: 'var(--ink)' }}
             >
               <option value="" disabled>Select LGA</option>
-              {ANAMBRA_LGAS.map((name) => (
+              {lgasForState(state).map((name) => (
                 <option key={name} value={name}>{name}</option>
               ))}
             </select>
@@ -221,7 +225,7 @@ export default function LocationPicker({ address, lga, onChange }: LocationPicke
             <div className="p-3 rounded-[9px] flex gap-2" style={{ background: '#FEF2F2' }}>
               <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--red)' }} />
               <p className="text-[12px]" style={{ color: 'var(--red)' }}>
-                That address looks like it's outside Anambra. BigFoods only operates within Anambra State right now.
+                That address looks like it's outside {stateLabel}. Check the state and LGA you chose, or add a landmark.
               </p>
             </div>
           )}

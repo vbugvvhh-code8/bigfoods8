@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import EmailVerifyField from '@/components/restaurant/onboarding/EmailVerifyField';
 import useOnboardingSession, { stepLabel, stepPath } from '@/hooks/useOnboardingSession';
-import { ANAMBRA_LGAS } from '@/lib/anambraLgas';
+import { NIGERIA_STATES, lgasForState } from '@/lib/nigeriaLocations';
 import { latestAllowedBirthDate, isAtLeast18 } from '@/lib/age';
 import getBrowserSupabase from '@/lib/supabase/client';
 
@@ -36,6 +36,7 @@ export default function SellerInfoPage() {
     draft.phone &&
     draft.emailVerified &&
     draft.passwordSet &&
+    draft.state &&
     draft.lga &&
     draft.gender &&
     dobOk &&
@@ -206,16 +207,18 @@ export default function SellerInfoPage() {
           </label>
           <select
             id="state"
-            value="Anambra"
-            disabled
+            value={draft.state ?? ''}
+            onChange={(e) => updateDraft({ state: e.target.value, lga: undefined })}
             className="w-full px-3 py-2.5 rounded-[9px] text-[13px] outline-none"
-            style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--peach)' }}
+            style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }}
           >
-            <option value="Anambra">Anambra</option>
+            <option value="">Select state</option>
+            {NIGERIA_STATES.map((st) => (
+              <option key={st} value={st}>
+                {st}
+              </option>
+            ))}
           </select>
-          <p className="text-[10.5px] mt-1" style={{ color: 'var(--gray)' }}>
-            More states soon.
-          </p>
         </div>
         <div>
           <label htmlFor="lga" className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
@@ -224,12 +227,13 @@ export default function SellerInfoPage() {
           <select
             id="lga"
             value={draft.lga ?? ''}
-            onChange={(e) => updateDraft({ lga: e.target.value, state: 'Anambra' })}
+            onChange={(e) => updateDraft({ lga: e.target.value })}
+            disabled={!draft.state}
             className="w-full px-3 py-2.5 rounded-[9px] text-[13px] outline-none"
             style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }}
           >
-            <option value="">Select LGA</option>
-            {ANAMBRA_LGAS.map((l) => (
+            <option value="">{draft.state ? 'Select LGA' : 'Choose a state first'}</option>
+            {lgasForState(draft.state).map((l) => (
               <option key={l} value={l}>
                 {l}
               </option>

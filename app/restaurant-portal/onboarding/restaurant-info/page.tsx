@@ -42,6 +42,7 @@ export default function RestaurantInfoPage() {
       name: draft.restaurantName,
       category: draft.category,
       image_url: draft.bannerUrl,
+      state: draft.state,
       vendor_type: draft.vendorType,
       registration_status: draft.registrationStatus,
       ...(registered ? { cac_number: draft.cacNumber } : {}),

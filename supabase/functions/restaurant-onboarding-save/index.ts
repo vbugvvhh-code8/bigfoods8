@@ -26,6 +26,14 @@ const ALLOWED_FIELDS = [
   "delivery_radius_km",
   "vendor_type",
   "registration_status",
+  "state",
+];
+
+const STATES = [
+  "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno", "Cross River", "Delta",
+  "Ebonyi", "Edo", "Ekiti", "Enugu", "Gombe", "Imo", "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi",
+  "Kwara", "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", "Sokoto",
+  "Taraba", "Yobe", "Zamfara", "Federal Capital Territory",
 ];
 
 const GENDERS = ["female", "male", "prefer_not_to_say"];
@@ -81,6 +89,9 @@ Deno.serve(async (req) => {
       if (key in body) patch[key] = body[key];
     }
 
+    if ("state" in patch && !STATES.includes(patch.state as string)) {
+      return json({ error: "Choose your state" }, 400);
+    }
     if ("vendor_type" in patch && !VENDOR_TYPES.includes(patch.vendor_type as string)) {
       return json({ error: "Choose restaurant or home kitchen" }, 400);
     }
@@ -151,6 +162,7 @@ Deno.serve(async (req) => {
       if (!patch.name) {
         return json({ error: "Restaurant name is required to create the record" }, 400);
       }
+      if (!patch.state) return json({ error: "Choose your state" }, 400);
       const { data, error } = await admin
         .from("restaurants")
         .insert({ ...patch, owner_id: user.id })
