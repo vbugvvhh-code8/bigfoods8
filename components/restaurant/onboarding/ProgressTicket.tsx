@@ -1,6 +1,6 @@
 'use client';
 
-import { User, Store, MapPin, Truck, UtensilsCrossed, CreditCard } from 'lucide-react';
+import { User, Store, MapPin, Truck, UtensilsCrossed, CreditCard, Landmark } from 'lucide-react';
 import { ONBOARDING_STEPS, OnboardingStep } from '@/hooks/useOnboardingSession';
 
 interface ProgressTicketProps {
@@ -11,9 +11,10 @@ const STEP_ICONS: Record<OnboardingStep, typeof User> = {
   'seller-info': User,
   'restaurant-info': Store,
   location: MapPin,
+  bank: Landmark,
+  payment: CreditCard,
   'delivery-zone': Truck,
   menu: UtensilsCrossed,
-  payment: CreditCard,
 };
 
 export default function ProgressTicket({ currentStep }: ProgressTicketProps) {

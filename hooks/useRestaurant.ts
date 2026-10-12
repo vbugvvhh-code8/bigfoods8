@@ -13,6 +13,18 @@ export interface RestaurantSaveFields {
   longitude?: number;
   zone?: string;
   delivery_radius_km?: number;
+  vendor_type?: 'restaurant' | 'home_kitchen';
+  registration_status?: 'registered' | 'unregistered';
+  /** Required by the server when registration_status is 'registered'. */
+  cac_number?: string;
+  /** Private seller details; the server enforces the 18+ rule. */
+  ownerDetails?: {
+    date_of_birth: string;
+    gender: string;
+    terms_accepted: boolean;
+    serious_business_ack: boolean;
+    warnings_ack: boolean;
+  };
 }
 
 export default function useRestaurant() {

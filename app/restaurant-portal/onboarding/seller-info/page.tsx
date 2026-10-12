@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import EmailVerifyField from '@/components/restaurant/onboarding/EmailVerifyField';
-import useOnboardingSession, { ONBOARDING_STEPS } from '@/hooks/useOnboardingSession';
+import useOnboardingSession, { stepLabel, stepPath } from '@/hooks/useOnboardingSession';
+import { ANAMBRA_LGAS } from '@/lib/anambraLgas';
+import { latestAllowedBirthDate, isAtLeast18 } from '@/lib/age';
 import getBrowserSupabase from '@/lib/supabase/client';
 
 export default function SellerInfoPage() {
@@ -28,7 +30,19 @@ export default function SellerInfoPage() {
 
   const passwordValid = password.length >= 8;
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
-  const canContinue = !!(draft.fullName && draft.phone && draft.emailVerified && draft.passwordSet);
+  const dobOk = !!draft.dateOfBirth && isAtLeast18(draft.dateOfBirth);
+  const canContinue = !!(
+    draft.fullName &&
+    draft.phone &&
+    draft.emailVerified &&
+    draft.passwordSet &&
+    draft.lga &&
+    draft.gender &&
+    dobOk &&
+    draft.termsAccepted &&
+    draft.seriousBusinessAck &&
+    draft.warningsAck
+  );
 
   async function handleSetPassword() {
     if (!passwordValid || !passwordsMatch) return;
@@ -50,13 +64,13 @@ export default function SellerInfoPage() {
   }
 
   function handleContinue() {
-    router.push(ONBOARDING_STEPS[1].path);
+    router.push(stepPath('restaurant-info'));
   }
 
   return (
     <>
       <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--orange)' }}>
-        Step 1 of 5
+        {stepLabel('seller-info')}
       </p>
       <h2 className="text-[20px] font-semibold mb-1.5" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
         Tell us about yourself
@@ -183,6 +197,108 @@ export default function SellerInfoPage() {
           )}
         </div>
       )}
+
+
+      <div className="grid grid-cols-2 gap-3 mb-3.5">
+        <div>
+          <label htmlFor="state" className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
+            State
+          </label>
+          <select
+            id="state"
+            value="Anambra"
+            disabled
+            className="w-full px-3 py-2.5 rounded-[9px] text-[13px] outline-none"
+            style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--peach)' }}
+          >
+            <option value="Anambra">Anambra</option>
+          </select>
+          <p className="text-[10.5px] mt-1" style={{ color: 'var(--gray)' }}>
+            More states soon.
+          </p>
+        </div>
+        <div>
+          <label htmlFor="lga" className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
+            Local government area
+          </label>
+          <select
+            id="lga"
+            value={draft.lga ?? ''}
+            onChange={(e) => updateDraft({ lga: e.target.value, state: 'Anambra' })}
+            className="w-full px-3 py-2.5 rounded-[9px] text-[13px] outline-none"
+            style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }}
+          >
+            <option value="">Select LGA</option>
+            {ANAMBRA_LGAS.map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mb-3.5">
+        <div>
+          <label htmlFor="gender" className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
+            Gender
+          </label>
+          <select
+            id="gender"
+            value={draft.gender ?? ''}
+            onChange={(e) => updateDraft({ gender: e.target.value as any })}
+            className="w-full px-3 py-2.5 rounded-[9px] text-[13px] outline-none"
+            style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }}
+          >
+            <option value="">Select</option>
+            <option value="female">Female</option>
+            <option value="male">Male</option>
+            <option value="prefer_not_to_say">Prefer not to say</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="dob" className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
+            Date of birth
+          </label>
+          <input
+            id="dob"
+            type="date"
+            value={draft.dateOfBirth ?? ''}
+            max={latestAllowedBirthDate()}
+            onChange={(e) => updateDraft({ dateOfBirth: e.target.value })}
+            className="w-full px-3 py-2.5 rounded-[9px] text-[13px] outline-none"
+            style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }}
+          />
+        </div>
+      </div>
+      {draft.dateOfBirth && !dobOk && (
+        <p className="text-[11px] mb-3" style={{ color: 'var(--red)' }} role="alert">
+          You must be 18 or older to sell on BigFoods.
+        </p>
+      )}
+      <p className="text-[10.5px] mb-4" style={{ color: 'var(--gray)' }}>
+        Gender and date of birth stay private. Customers never see them.
+      </p>
+
+      <fieldset className="mb-5 space-y-2.5">
+        <legend className="sr-only">Agreements</legend>
+        {[
+          ['serious', 'seriousBusinessAck', 'I am starting a serious food business, not testing or playing around.'],
+          ['warnings', 'warningsAck', 'I understand that fake orders, unsafe food and late deliveries can get my account suspended.'],
+          ['terms', 'termsAccepted', 'I accept the BigFoods terms for sellers.'],
+        ].map(([id, key, text]) => (
+          <label key={id} htmlFor={`ack-${id}`} className="flex items-start gap-2.5 text-[12px] cursor-pointer" style={{ color: 'var(--ink)' }}>
+            <input
+              id={`ack-${id}`}
+              type="checkbox"
+              checked={!!(draft as any)[key]}
+              onChange={(e) => updateDraft({ [key]: e.target.checked } as any)}
+              className="mt-0.5 w-4 h-4 flex-shrink-0 accent-[var(--orange)]"
+            />
+            <span>{text}</span>
+          </label>
+        ))}
+      </fieldset>
 
       <button
         onClick={handleContinue}

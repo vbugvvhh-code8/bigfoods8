@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, X, ImagePlus } from 'lucide-react';
-import { ONBOARDING_STEPS } from '@/hooks/useOnboardingSession';
+import { stepLabel } from '@/hooks/useOnboardingSession';
 import { useMenuItems } from '@/hooks/useMenuItems';
 import useRestaurant from '@/hooks/useRestaurant';
 import getBrowserSupabase from '@/lib/supabase/client';
@@ -71,7 +71,7 @@ export default function MenuStepPage() {
   }
 
   function handleContinue() {
-    router.push(ONBOARDING_STEPS[5].path); // payment
+    router.push('/restaurant-portal/dashboard');
   }
 
   if (restaurantLoading) {
@@ -85,7 +85,7 @@ export default function MenuStepPage() {
   return (
     <>
       <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--orange)' }}>
-        Step 5 of 6
+        {stepLabel('menu')}
       </p>
       <h2 className="text-[20px] font-semibold mb-1.5" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
         Add your first menu item

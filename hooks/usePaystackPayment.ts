@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import getBrowserSupabase from '@/lib/supabase/client';
 import { extractEdgeFunctionError } from '@/lib/extractEdgeFunctionError';
 
-type PaymentType = 'verification_fee' | 'promotion' | 'rider_verification_fee';
+type PaymentType = 'verification_fee' | 'promotion' | 'onboarding_plan' | 'rider_verification_fee';
 type Status = 'idle' | 'starting' | 'redirecting' | 'verifying' | 'success' | 'error';
 
 export default function usePaystackPayment() {

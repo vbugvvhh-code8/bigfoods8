@@ -6,18 +6,30 @@ export type OnboardingStep =
   | 'seller-info'
   | 'restaurant-info'
   | 'location'
+  | 'bank'
+  | 'payment'
   | 'delivery-zone'
-  | 'menu'
-  | 'payment';
+  | 'menu';
 
 export const ONBOARDING_STEPS: { id: OnboardingStep; label: string; path: string }[] = [
   { id: 'seller-info', label: 'Seller', path: '/restaurant-portal/onboarding/seller-info' },
   { id: 'restaurant-info', label: 'Business', path: '/restaurant-portal/onboarding/restaurant-info' },
   { id: 'location', label: 'Location', path: '/restaurant-portal/onboarding/location' },
+  { id: 'bank', label: 'Bank', path: '/restaurant-portal/onboarding/bank' },
+  { id: 'payment', label: 'Plan', path: '/restaurant-portal/onboarding/payment' },
   { id: 'delivery-zone', label: 'Delivery', path: '/restaurant-portal/onboarding/delivery-zone' },
   { id: 'menu', label: 'Menu', path: '/restaurant-portal/onboarding/menu' },
-  { id: 'payment', label: 'Payment', path: '/restaurant-portal/onboarding/payment' },
 ];
+
+/** Path of a step by id, so pages don't depend on array positions. */
+export function stepPath(id: OnboardingStep): string {
+  return ONBOARDING_STEPS.find((s) => s.id === id)!.path;
+}
+
+/** "Step 3 of 7" label for a step. */
+export function stepLabel(id: OnboardingStep): string {
+  return `Step ${ONBOARDING_STEPS.findIndex((s) => s.id === id) + 1} of ${ONBOARDING_STEPS.length}`;
+}
 
 export interface OnboardingDraft {
   fullName?: string;
@@ -33,6 +45,18 @@ export interface OnboardingDraft {
   longitude?: number;
   lga?: string;
   radiusKm?: number;
+  // Seller details (step 1). Gender and date of birth are private — they are
+  // sent to the server with the restaurant and never shown to customers.
+  state?: string;
+  gender?: 'female' | 'male' | 'prefer_not_to_say';
+  dateOfBirth?: string; // YYYY-MM-DD
+  termsAccepted?: boolean;
+  seriousBusinessAck?: boolean;
+  warningsAck?: boolean;
+  // Business type (step 2)
+  vendorType?: 'restaurant' | 'home_kitchen';
+  registrationStatus?: 'registered' | 'unregistered';
+  cacNumber?: string;
 }
 
 export interface EmailVerificationState {

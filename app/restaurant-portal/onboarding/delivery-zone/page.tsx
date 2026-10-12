@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Loader2 } from 'lucide-react';
-import { ONBOARDING_STEPS } from '@/hooks/useOnboardingSession';
+import { stepLabel, stepPath } from '@/hooks/useOnboardingSession';
 import { estimateReachableRiders } from '@/lib/estimateReachableRiders';
 import useRestaurant from '@/hooks/useRestaurant';
 
@@ -46,13 +46,13 @@ export default function DeliveryZonePage() {
     setSaving(true);
     const result = await save({ delivery_radius_km: effectiveRadius });
     setSaving(false);
-    if (result) router.push(ONBOARDING_STEPS[4].path);
+    if (result) router.push(stepPath('menu'));
   }
 
   return (
     <>
       <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--orange)' }}>
-        Step 4 of 6
+        {stepLabel('delivery-zone')}
       </p>
       <h2 className="text-[20px] font-semibold mb-1.5" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
         Set your delivery zone

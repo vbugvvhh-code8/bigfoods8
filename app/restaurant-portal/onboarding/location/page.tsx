@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import LocationPicker from '@/components/restaurant/onboarding/LocationPicker';
-import useOnboardingSession, { ONBOARDING_STEPS } from '@/hooks/useOnboardingSession';
+import useOnboardingSession, { stepLabel, stepPath } from '@/hooks/useOnboardingSession';
 import useRestaurant from '@/hooks/useRestaurant';
 
 export default function LocationPage() {
@@ -32,13 +32,13 @@ export default function LocationPage() {
       longitude: draft.longitude,
     });
     setSaving(false);
-    if (result) router.push(ONBOARDING_STEPS[3].path);
+    if (result) router.push(stepPath('bank'));
   }
 
   return (
     <>
       <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--orange)' }}>
-        Step 3 of 6
+        {stepLabel('location')}
       </p>
       <h2 className="text-[20px] font-semibold mb-1.5" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
         Where's your kitchen?
