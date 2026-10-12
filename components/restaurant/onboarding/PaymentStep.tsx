@@ -121,8 +121,8 @@ export default function PaymentStep() {
       <div className="p-3.5 rounded-[10px] mb-4" style={{ background: 'var(--peach)' }}>
         <p className="text-[12px] font-semibold mb-1">Why we ask you to pay</p>
         <p className="text-[12px] leading-relaxed" style={{ color: 'var(--ink)' }}>
-          This payment helps us keep out time-wasters and accept only serious restaurants and cooks. We take just{' '}
-          <strong>1,000 sellers per state</strong>. After that, nobody new can join in that state, and the only way in
+          This payment helps us keep out time-wasters and accept only serious restaurants and cooks. We aim for about{' '}
+          <strong>1,000 sellers per state</strong>. Once a state is full we may close it, nobody new can join, and the only way in
           is to buy an account from a seller who wants to sell. That makes your account an asset.
         </p>
       </div>

@@ -17,10 +17,10 @@ const launchLabel = PUBLIC_LAUNCH_DATE.toLocaleDateString('en-NG', {
 
 const SECTIONS: { title: string; body: string[] }[] = [
   {
-    title: '1. Only 1,000 sellers per state',
+    title: '1. About 1,000 sellers per state',
     body: [
-      `BigFoods accepts a maximum of ${SEATS_PER_STATE.toLocaleString()} restaurants and home cooks in each state. Your paid onboarding fee secures one of those places in your state.`,
-      'Once a state is full, nobody else can register there. The only way in after that is to take over an existing account from a seller who is willing to sell it, and BigFoods must approve every transfer. This makes your place on BigFoods a valuable asset, so protect it.',
+      `BigFoods aims to work with about ${SEATS_PER_STATE.toLocaleString()} restaurants and home cooks in each state. Your paid onboarding fee secures your place in your state.`,
+      'Once a state is full, BigFoods may close registration there, and nobody else can register. The only way in after that is to take over an existing account from a seller who is willing to sell it, and BigFoods must approve every transfer. This makes your place on BigFoods a valuable asset, so protect it.',
       'The fee is also how we keep out people who are not serious. We want sellers who will cook properly, deliver on time and stay.',
     ],
   },
@@ -142,10 +142,10 @@ export default function AgreementPage() {
         role="note"
       >
         <p className="text-[13px] font-semibold mb-1" style={{ color: 'var(--ink)' }}>
-          Only {SEATS_PER_STATE.toLocaleString()} sellers per state
+          About {SEATS_PER_STATE.toLocaleString()} sellers per state
         </p>
         <p className="text-[12.5px]" style={{ color: 'var(--ink)' }}>
-          When your state reaches {SEATS_PER_STATE.toLocaleString()} restaurants and cooks, registration closes. After
+          When your state reaches about {SEATS_PER_STATE.toLocaleString()} restaurants and cooks, we may close registration. After
           that, the only way in is to buy an existing account from a seller.
         </p>
       </div>
@@ -181,7 +181,7 @@ export default function AgreementPage() {
             'b',
             'I have read and understood the rules on cleanliness, honest ingredients and the legal action BigFoods can take if my food is defective or tampered with.',
           ],
-          [terms, setTerms, 'c', 'I accept the BigFoods terms for sellers, including the 1,000-per-state limit.'],
+          [terms, setTerms, 'c', 'I accept the BigFoods terms for sellers, including that registration can close once a state is full.'],
         ].map(([value, setter, id, text]) => (
           <label
             key={id as string}

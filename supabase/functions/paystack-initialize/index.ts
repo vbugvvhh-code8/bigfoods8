@@ -16,7 +16,6 @@ const PRICING_KEY_BY_TYPE: Record<string, string> = {
   verification_fee: "verification_fee",
   rider_verification_fee: "rider_verification_fee",
 };
-const SEATS_PER_STATE = 1000;
 
 const ACTOR_BY_TYPE: Record<string, "restaurant" | "rider"> = {
   verification_fee: "restaurant",
@@ -107,17 +106,15 @@ Deno.serve(async (req) => {
           .maybeSingle();
         if (!bankAccount) return json({ error: "Add your bank details before paying" }, 400);
 
-        // Only 1,000 paid sellers per state. Re-checked here so it cannot be
-        // skipped from the browser. (A burst of simultaneous payers could
-        // overshoot by a few; paystack-verify is the final gate.)
-        const { count: taken } = await admin
-          .from("transactions")
-          .select("id, restaurants!inner(state)", { count: "exact", head: true })
-          .eq("type", "onboarding_plan")
-          .eq("status", "success")
-          .eq("restaurants.state", restaurant.state);
-        if ((taken ?? 0) >= SEATS_PER_STATE) {
-          return json({ error: `All ${SEATS_PER_STATE.toLocaleString()} seller places in ${restaurant.state} are taken. You can buy an existing account from a seller who wants to sell.` }, 409);
+        // There is no automatic cap. An admin can close a state to new sellers
+        // (Seller Places in the admin area); we only honour that switch here.
+        const { data: stateRow } = await admin
+          .from("state_registration")
+          .select("accepting")
+          .eq("state", restaurant.state)
+          .maybeSingle();
+        if (stateRow && stateRow.accepting === false) {
+          return json({ error: `New seller sign-ups in ${restaurant.state} are closed. You can buy an existing account from a seller who wants to sell.` }, 409);
         }
       }
     } else {

@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { id: '/admin/dashboard', label: 'Dashboard', icon: <LayoutGrid className="w-4 h-4" /> },
   { id: '/admin/zone-map', label: 'Zone Map', icon: <MapPin className="w-4 h-4" /> },
   { id: '/admin/areas', label: 'Service Areas', icon: <MapPin className="w-4 h-4" /> },
+  { id: '/admin/seller-places', label: 'Seller Places', icon: <Users className="w-4 h-4" /> },
   { id: '/admin/dispatch', label: 'Dispatch', icon: <Route className="w-4 h-4" /> },
   { id: '/admin/users', label: 'Users', icon: <Users className="w-4 h-4" /> },
   { id: '/admin/restaurants', label: 'Restaurants', icon: <Utensils className="w-4 h-4" /> },
