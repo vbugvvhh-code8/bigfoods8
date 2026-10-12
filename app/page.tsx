@@ -292,7 +292,7 @@ export default function PortalHome() {
         </div>
 
         <footer>
-          <span>BigFoods · serving Awka, Anambra</span>
+          <span>BigFoods · delivering across Nigeria</span>
           <div className="flinks">
             <Link href="#how">How it works</Link>
             <Link href="#sellers">Sell with us</Link>

@@ -10,11 +10,11 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: 'BigFoods — Order Food in Anambra',
-  description: 'Order delicious food from local restaurants across Anambra State. Free dispatch, fast delivery.',
+  title: 'BigFoods — Order Food Across Nigeria',
+  description: 'Order delicious food from local restaurants near you across Nigeria. Free dispatch, fast delivery.',
   openGraph: {
-    title: 'BigFoods — Order Food in Anambra',
-    description: 'Order delicious food from local restaurants across Anambra State.',
+    title: 'BigFoods — Order Food Across Nigeria',
+    description: 'Order delicious food from local restaurants near you across Nigeria.',
     images: ['/og.png'],
   },
   twitter: {

@@ -28,11 +28,13 @@ export function useRestaurants(options?: {
   featuredOnly?: boolean;
   customerLat?: number;
   customerLng?: number;
+  /** Show only restaurants in this state (when the customer's state is known). */
+  customerState?: string;
 }) {
   const supabase = getBrowserSupabase();
 
   const {data, isLoading, error} = useSWR(
-    ['restaurants', options?.category, options?.featuredOnly],
+    ['restaurants', options?.category, options?.featuredOnly, options?.customerState],
     async () => {
       // Querying the base table, not `visible_restaurants` — that view only
       // exposes 8 columns (no is_featured/is_accepting_orders/lat/lng/etc),
@@ -52,6 +54,9 @@ export function useRestaurants(options?: {
       }
       if (options?.featuredOnly) {
         query = query.eq('is_featured', true);
+      }
+      if (options?.customerState) {
+        query = query.eq('state', options.customerState);
       }
 
       const {data, error} = await query;

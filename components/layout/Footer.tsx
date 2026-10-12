@@ -31,7 +31,7 @@ export default function Footer() {
               </span>
             </div>
             <p className="text-[12.5px] mt-3 max-w-[260px] leading-[1.55]" style={{ color: '#B7B0A2' }}>
-              Cook. We handle pickup, delivery, and getting you customers — across Anambra.
+              Cook. We handle pickup, delivery, and getting you customers — across Nigeria.
             </p>
           </div>
 

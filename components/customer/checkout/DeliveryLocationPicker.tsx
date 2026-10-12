@@ -4,7 +4,7 @@ import {useState} from 'react';
 import {MapPin, LocateFixed, Check, Bookmark, Pencil} from 'lucide-react';
 import {useGeolocation} from '@/hooks/useGeolocation';
 import {useSavedAddresses} from '@/hooks/useSavedAddresses';
-import {ANAMBRA_LGAS} from '@/lib/anambraLgas';
+import {NIGERIA_STATES, lgaOptions, sameState, zoneLabel} from '@/lib/nigeriaLocations';
 
 export interface DeliveryPoint {
   lat: number;
@@ -21,7 +21,7 @@ interface DeliveryLocationPickerProps {
 }
 
 export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}: DeliveryLocationPickerProps) {
-  const {latitude, longitude, isLoading, error, requestLocation} = useGeolocation();
+  const {latitude, longitude, nigerianState, isLoading, error, requestLocation} = useGeolocation();
   const {addresses, saveAddress} = useSavedAddresses();
   const [namingOpen, setNamingOpen] = useState(false);
   const [name, setName] = useState('');
@@ -31,6 +31,8 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
   const [streetAddress, setStreetAddress] = useState('');
   const [landmark, setLandmark] = useState('');
   const [lga, setLga] = useState('');
+  const [stateName, setStateName] = useState('');
+  const chosenState = stateName || nigerianState || '';
   const [geocoding, setGeocoding] = useState(false);
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
   const [outsideServiceArea, setOutsideServiceArea] = useState(false);
@@ -55,7 +57,7 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
   };
 
   async function handleConfirmManual() {
-    if (!streetAddress || !lga) return;
+    if (!streetAddress || !lga || !chosenState) return;
     setGeocoding(true);
     setGeocodeError(null);
     setOutsideServiceArea(false);
@@ -67,7 +69,7 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
     }
     try {
       const fullAddress = landmark ? `${streetAddress}, near ${landmark}` : streetAddress;
-      const query = encodeURIComponent(`${fullAddress}, ${lga}, Anambra, Nigeria`);
+      const query = encodeURIComponent(`${fullAddress}, ${zoneLabel(lga)}, ${chosenState}, Nigeria`);
       const res = await fetch(
         `https://us1.locationiq.com/v1/search?key=${key}&q=${query}&format=json&limit=1&addressdetails=1`
       );
@@ -79,7 +81,7 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
       }
       const result = data[0];
       const detectedState: string | undefined = result.address?.state;
-      if (detectedState && !detectedState.toLowerCase().includes('anambra')) {
+      if (!sameState(detectedState, chosenState)) {
         setOutsideServiceArea(true);
         setGeocoding(false);
         return;
@@ -235,6 +237,27 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
 
           <div>
             <label className="block text-[11.5px] font-medium mb-1" style={{color: 'var(--ink)'}}>
+              State
+            </label>
+            <select
+              value={chosenState}
+              onChange={(e) => {
+                setStateName(e.target.value);
+                setLga('');
+                setOutsideServiceArea(false);
+              }}
+              className="w-full px-3 py-2.5 rounded-lg text-[12.5px] outline-none bg-white"
+              style={{color: 'var(--ink)'}}
+            >
+              <option value="" disabled>Select state</option>
+              {NIGERIA_STATES.map((st) => (
+                <option key={st} value={st}>{st}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[11.5px] font-medium mb-1" style={{color: 'var(--ink)'}}>
               Local Government Area
             </label>
             <select
@@ -247,15 +270,15 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
               style={{color: 'var(--ink)'}}
             >
               <option value="" disabled>Select LGA</option>
-              {ANAMBRA_LGAS.map((n) => (
-                <option key={n} value={n}>{n}</option>
+              {lgaOptions(chosenState).map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
           </div>
 
           {outsideServiceArea && (
             <p className="text-[11.5px]" style={{color: 'var(--red, #C1453A)'}}>
-              That address looks like it's outside Anambra. BigFoods only delivers within Anambra State right now.
+              That address looks like it's outside {chosenState}. Check the state and area you chose, or add a landmark.
             </p>
           )}
           {geocodeError && (
@@ -274,7 +297,7 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
             </button>
             <button
               onClick={handleConfirmManual}
-              disabled={!streetAddress || !lga || geocoding}
+              disabled={!streetAddress || !lga || !chosenState || geocoding}
               className="flex-1 py-2.5 rounded-lg text-[12px] font-semibold text-white disabled:opacity-40"
               style={{background: 'var(--orange)'}}
             >

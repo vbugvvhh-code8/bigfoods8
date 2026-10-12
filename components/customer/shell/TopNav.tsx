@@ -16,7 +16,7 @@ const ITEMS = [
 ];
 
 function MobileTopBar() {
-  const {lgaGuess, requestLocation, isLoading} = useGeolocation();
+  const {lgaGuess, nigerianState, requestLocation, isLoading} = useGeolocation();
 
   useEffect(() => {
     requestLocation();
@@ -40,7 +40,7 @@ function MobileTopBar() {
       <div className="flex items-center gap-1 text-[11.5px]" style={{color: 'var(--gray)'}}>
         <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
         <span className="max-w-[130px] truncate">
-          {isLoading ? 'Locating…' : lgaGuess ? `${lgaGuess}, Anambra` : 'Set location'}
+          {isLoading ? 'Locating…' : lgaGuess ? (nigerianState ? `${lgaGuess}, ${nigerianState}` : lgaGuess) : 'Set location'}
         </span>
       </div>
     </header>

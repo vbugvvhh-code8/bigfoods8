@@ -13,7 +13,8 @@ import {OrderTray} from '@/components/customer/menu/OrderTray';
 export default function OrderHomePage() {
   const [category, setCategory] = useState('All');
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const {latitude, longitude, requestLocation} = useGeolocation();
+  const {latitude, longitude, nigerianState, requestLocation} = useGeolocation();
+  const customerState = nigerianState ?? undefined;
 
   useEffect(() => {
     requestLocation();
@@ -22,12 +23,14 @@ export default function OrderHomePage() {
 
   const {restaurants, isLoading, error} = useRestaurants({
     category,
+    customerState,
     customerLat: latitude ?? undefined,
     customerLng: longitude ?? undefined,
   });
-  const {restaurants: allForCategories} = useRestaurants({});
+  const {restaurants: allForCategories} = useRestaurants({customerState});
   const {restaurants: promoted} = useRestaurants({
     featuredOnly: true,
+    customerState,
     customerLat: latitude ?? undefined,
     customerLng: longitude ?? undefined,
   });

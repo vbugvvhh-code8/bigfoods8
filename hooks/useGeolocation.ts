@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { matchNigerianState } from '@/lib/nigeriaLocations';
 
 interface LocationState {
   latitude: number | null;
   longitude: number | null;
   address: string | null;
   state: string | null; // reverse-geocoded administrative state, e.g. "Anambra"
+  nigerianState: string | null; // that state matched to our list, null if unknown or outside Nigeria
   lgaGuess: string | null; // best-effort LGA match — always let the user confirm/override
   outsideServiceArea: boolean;
   error: string | null;
@@ -18,6 +20,7 @@ const INITIAL_STATE: LocationState = {
   longitude: null,
   address: null,
   state: null,
+  nigerianState: null,
   lgaGuess: null,
   outsideServiceArea: false,
   error: null,
@@ -67,13 +70,17 @@ export function useGeolocation() {
           }
         }
 
-        const outsideServiceArea = !!detectedState && !detectedState.toLowerCase().includes('anambra');
+        // BigFoods serves Nigeria nationwide: "outside" now means a place we can't match
+        // to any Nigerian state. Which areas actually have riders is decided per LGA.
+        const nigerianState = matchNigerianState(detectedState) ?? null;
+        const outsideServiceArea = !!detectedState && !nigerianState;
 
         setState({
           latitude,
           longitude,
           address,
           state: detectedState,
+          nigerianState,
           lgaGuess,
           outsideServiceArea,
           isLoading: false,

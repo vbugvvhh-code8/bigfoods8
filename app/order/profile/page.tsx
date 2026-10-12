@@ -5,7 +5,7 @@ import {useRouter} from 'next/navigation';
 import {LogOut, User} from 'lucide-react';
 import {useMyProfile} from '@/hooks/useMyProfile';
 import {useCart} from '@/hooks/useCart';
-import useActiveLocations from '@/hooks/useActiveLocations';
+import {NIGERIA_STATES, lgaOptions, stateOfZone} from '@/lib/nigeriaLocations';
 import {AuthGate} from '@/components/customer/shell/AuthGate';
 import {SavedAddressesList} from '@/components/customer/orders/SavedAddressesList';
 
@@ -13,11 +13,11 @@ function ProfileContent() {
   const router = useRouter();
   const {profile, email, isLoading, isSaving, error, updateProfile, signOut} = useMyProfile();
   const {clearCart} = useCart();
-  const {locations} = useActiveLocations();
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [lga, setLga] = useState('');
+  const [stateName, setStateName] = useState('');
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -25,12 +25,13 @@ function ProfileContent() {
       setFullName(profile.full_name ?? '');
       setPhone(profile.phone ?? '');
       setLga(profile.lga ?? '');
+      setStateName(profile.state ?? stateOfZone(profile.lga) ?? '');
     }
   }, [profile]);
 
   const handleSave = async () => {
     setSaved(false);
-    const ok = await updateProfile({full_name: fullName || null, phone: phone || null, lga: lga || null, state: lga ? 'Anambra' : null});
+    const ok = await updateProfile({full_name: fullName || null, phone: phone || null, lga: lga || null, state: lga ? stateName || null : null});
     if (ok) {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -96,19 +97,42 @@ function ProfileContent() {
         style={{background: 'var(--peach)', color: 'var(--ink)'}}
       />
 
-      <label className="block text-[11.5px] font-semibold mb-1.5" style={{color: 'var(--gray)'}}>
-        Local government area
+      <label htmlFor="profile-state" className="block text-[11.5px] font-semibold mb-1.5" style={{color: 'var(--gray)'}}>
+        State
       </label>
       <select
-        value={lga}
-        onChange={(e) => setLga(e.target.value)}
+        id="profile-state"
+        value={stateName}
+        onChange={(e) => {
+          setStateName(e.target.value);
+          setLga('');
+        }}
         className="w-full rounded-xl px-3.5 py-2.5 text-[13px] outline-none mb-4"
         style={{background: 'var(--peach)', color: 'var(--ink)'}}
       >
-        <option value="">Select an area</option>
-        {locations.map((l) => (
-          <option key={l.lga} value={l.lga}>
-            {l.lga}
+        <option value="">Select your state</option>
+        {NIGERIA_STATES.map((st) => (
+          <option key={st} value={st}>
+            {st}
+          </option>
+        ))}
+      </select>
+
+      <label htmlFor="profile-lga" className="block text-[11.5px] font-semibold mb-1.5" style={{color: 'var(--gray)'}}>
+        Local government area
+      </label>
+      <select
+        id="profile-lga"
+        value={lga}
+        onChange={(e) => setLga(e.target.value)}
+        disabled={!stateName}
+        className="w-full rounded-xl px-3.5 py-2.5 text-[13px] outline-none mb-4 disabled:opacity-60"
+        style={{background: 'var(--peach)', color: 'var(--ink)'}}
+      >
+        <option value="">{stateName ? 'Select an area' : 'Choose a state first'}</option>
+        {lgaOptions(stateName).map((l) => (
+          <option key={l.value} value={l.value}>
+            {l.label}
           </option>
         ))}
       </select>

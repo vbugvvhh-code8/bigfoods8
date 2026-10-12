@@ -34,7 +34,7 @@ export default function ZoneMapView({ zones = [], loading = false, error }: any)
           Zone Map
         </h1>
         <p className="text-[11.5px] mt-0.5" style={{ color: 'var(--gray)' }}>
-          Restaurant and rider density across Anambra State
+          Restaurant and rider density across Nigeria
         </p>
       </div>
 

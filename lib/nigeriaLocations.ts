@@ -91,3 +91,12 @@ export function sameState(detected: string | null | undefined, chosen: string | 
   const norm = (s: string) => s.toLowerCase().replace(/ state$/, '').replace('federal capital territory', 'abuja').trim();
   return norm(detected) === norm(chosen) || norm(detected).includes(norm(chosen)) || norm(chosen).includes(norm(detected));
 }
+
+/** Exact match of a geocoder's state name to one of ours, or undefined (e.g. outside Nigeria). */
+export function matchNigerianState(detected?: string | null): string | undefined {
+  if (!detected) return undefined;
+  const norm = (v: string) =>
+    v.toLowerCase().replace(/ state$/, '').replace(/^fct$|^abuja$|^federal capital territory$/, 'abuja').trim();
+  const d = norm(detected);
+  return NIGERIA_STATES.find((n) => norm(n) === d);
+}
