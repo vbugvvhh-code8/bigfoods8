@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import NavItem from './NavItem';
-import { LayoutGrid, MapPin, Utensils, Bike, Settings, Menu, X, Inbox, AlertTriangle, Wallet, Banknote, Megaphone, Users, LogOut, Route } from 'lucide-react';
+import { LayoutGrid, MapPin, Utensils, Bike, Settings, Menu, X, Inbox, AlertTriangle, Wallet, Banknote, Megaphone, Users, LogOut, Route, ShieldCheck } from 'lucide-react';
 import useSession from '@/hooks/useSession';
 import getBrowserSupabase from '@/lib/supabase/client';
 
@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { id: '/admin/dispatch', label: 'Dispatch', icon: <Route className="w-4 h-4" /> },
   { id: '/admin/users', label: 'Users', icon: <Users className="w-4 h-4" /> },
   { id: '/admin/restaurants', label: 'Restaurants', icon: <Utensils className="w-4 h-4" /> },
+  { id: '/admin/registrations', label: 'CAC Checks', icon: <ShieldCheck className="w-4 h-4" /> },
   { id: '/admin/riders', label: 'Riders', icon: <Bike className="w-4 h-4" /> },
   { id: '/admin/waitlist', label: 'Waitlist', icon: <Inbox className="w-4 h-4" /> },
   { id: '/admin/disputes', label: 'Disputes', icon: <AlertTriangle className="w-4 h-4" /> },
