@@ -66,6 +66,9 @@ export default function PortalHome() {
                 <Link href="/rider-portal" className="btn-ghost sm">
                   Become a rider
                 </Link>
+                <Link href="/waitlist" className="btn-ghost sm">
+                  Request your area
+                </Link>
               </div>
 
               <Link href="/order" className="subscribe-float">
