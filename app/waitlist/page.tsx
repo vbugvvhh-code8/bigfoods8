@@ -10,7 +10,7 @@ type Intent = 'customer' | 'restaurant' | 'rider';
 export default function WaitlistPage() {
   const supabase = getBrowserSupabase();
   const states = useMemo(() => Object.keys(NIGERIA_LOCATIONS).sort(), []);
-  const [state, setState] = useState('Rivers');
+  const [state, setState] = useState('Anambra');
   const [area, setArea] = useState('');
   const [email, setEmail] = useState('');
   const [intent, setIntent] = useState<Intent>('customer');
