@@ -91,20 +91,25 @@ export default function OrderCard({
         ₦{Number(order.subtotal).toLocaleString()} · {order.delivery_address ?? 'No address on file'}
       </p>
 
-      {!order.rider && order.payment_status === 'paid' && ['placed', 'preparing'].includes(order.status) && assignmentReady && (
-        <div className="mt-2 space-y-2">
-          {assignmentMessage && <p role="status" className="text-xs" style={{ color: 'var(--red)' }}>{assignmentMessage}</p>}
-          {!assignmentMessage && !assignmentEnabled && <p role="status" className="text-xs" style={{ color: 'var(--gray)' }}>Restaurant rider assignment is currently disabled.</p>}
-          {assignmentEnabled && eligibleRiders.length > 0 && (
+      {!order.rider && order.payment_status === 'paid' && ['placed', 'preparing'].includes(order.status) && (
+        <div className="mt-2 mb-2 rounded-[9px] p-2.5 space-y-2" style={{ background: 'var(--peach)', border: '1px solid var(--line)' }}>
+          <div>
+            <p className="text-[12px] font-semibold" style={{ color: 'var(--ink)' }}>Assign a delivery rider</p>
+            <p className="text-[10.5px]" style={{ color: 'var(--gray)' }}>Choose an eligible online rider for this order before handing over the food.</p>
+          </div>
+          {!assignmentReady && <p role="status" className="text-xs" style={{ color: 'var(--gray)' }}>Loading available riders…</p>}
+          {assignmentReady && assignmentMessage && <p role="status" className="text-xs" style={{ color: 'var(--red)' }}>{assignmentMessage}</p>}
+          {assignmentReady && !assignmentMessage && !assignmentEnabled && <p role="status" className="text-xs" style={{ color: 'var(--gray)' }}>Restaurant rider assignment is currently disabled.</p>}
+          {assignmentReady && assignmentEnabled && eligibleRiders.length > 0 && (
             <div className="flex gap-2">
-              <select aria-label="Assign rider" value={selectedRider} onChange={e => setSelectedRider(e.target.value)} className="min-w-0 flex-1 rounded-lg border p-2 text-xs" style={{ borderColor: 'var(--line)' }}>
-                <option value="">Select online rider</option>
+              <select aria-label="Select delivery rider" value={selectedRider} onChange={e => setSelectedRider(e.target.value)} className="min-w-0 flex-1 rounded-lg border p-2 text-xs" style={{ borderColor: 'var(--line)', background: 'var(--white)' }}>
+                <option value="">Choose rider…</option>
                 {eligibleRiders.map(r => <option key={r.id} value={r.id}>{r.name} · {r.zone ?? 'No zone'}</option>)}
               </select>
-              <button onClick={() => void handleAssignRider()} disabled={!selectedRider || busy} className="rounded-lg px-3 py-2 text-xs font-semibold text-white disabled:opacity-40" style={{ background: 'var(--orange)' }}>Assign</button>
+              <button onClick={() => void handleAssignRider()} disabled={!selectedRider || busy} className="rounded-lg px-3 py-2 text-xs font-semibold text-white disabled:opacity-40" style={{ background: 'var(--orange)' }}>{busy ? 'Assigning…' : 'Assign rider'}</button>
             </div>
           )}
-          {assignmentEnabled && !eligibleRiders.length && !assignmentMessage && <p role="status" className="text-xs" style={{ color: 'var(--gray)' }}>No eligible online riders are currently available in this order's service area.</p>}
+          {assignmentReady && assignmentEnabled && !eligibleRiders.length && !assignmentMessage && <p role="status" className="text-xs" style={{ color: 'var(--gray)' }}>No eligible online riders are available in this order’s service area. The rider must be online, approved, waiver-complete, dispatch-enabled, and in the same service zone.</p>}
         </div>
       )}
 
