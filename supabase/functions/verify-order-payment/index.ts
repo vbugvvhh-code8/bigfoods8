@@ -100,7 +100,7 @@ async function dispatchSingleOrder(admin: ReturnType<typeof createClient>, order
   // Offers are created only after Paystack verification has succeeded. Do not
   // silently pre-assign the nearest rider: riders must accept their own offer.
   const { error } = await admin.from("orders")
-    .update({ payment_status: "paid", rider_id: null, last_dispatch_attempt_at: new Date().toISOString(), dispatch_retry_count: 0 })
+    .update({ payment_status: "paid", last_dispatch_attempt_at: new Date().toISOString(), dispatch_retry_count: 0 })
     .eq("id", orderId);
   if (error) throw error;
   await createRiderOffersForOrder(admin, orderId);
@@ -143,6 +143,9 @@ Deno.serve(async (req: Request) => {
     // Idempotent replay (customer hits back/refresh on the callback page).
     if (txn.status === "success") {
       if (txn.order_id) {
+        // Retry idempotent dispatch side effects if an earlier callback marked
+        // payment successful but failed before creating rider offers.
+        await dispatchSingleOrder(admin, txn.order_id);
         const { data: existingOrder } = await admin.from("orders").select("delivery_code").eq("id", txn.order_id).single();
         return json({ success: true, order_id: txn.order_id, delivery_code: existingOrder?.delivery_code, already_processed: true });
       }
