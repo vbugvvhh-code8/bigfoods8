@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { areAllServiceAreasActive, isCanonicalActiveServiceArea } from "../_shared/service-area.ts";
 
 const CRON_SECRET = Deno.env.get("CRON_SECRET");
 const FROM_ADDRESS = "BigFoods <onboarding@opticsview.store>";
@@ -18,6 +19,11 @@ Deno.serve(async (req) => {
   if (!CRON_SECRET || req.headers.get("x-cron-secret") !== CRON_SECRET) return json({ error: "unauthorized" }, 401);
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const { data: serviceLocations, error: serviceLocationsError } = await admin
+    .from("locations").select("state, lga, is_active");
+  if (serviceLocationsError || !serviceLocations) {
+    return json({ error: "Unable to verify service coverage" }, 503);
+  }
 
   const { data: seedSetting } = await admin.from("platform_settings").select("value").eq("key", "show_seed_data").maybeSingle();
   const includeSeed = seedSetting?.value === true || seedSetting?.value === "true" || seedSetting === null;
@@ -25,13 +31,8 @@ Deno.serve(async (req) => {
   let reassigned = 0;
   const toNotify: { id: string; retry_count: number }[] = [];
 
-  async function isActiveServiceArea(state: string | null | undefined, zone: string | null | undefined) {
-    if (!state || !zone) return false;
-    const { data, error } = await admin.from("locations").select("state, lga, is_active").eq("state", state);
-    if (error) return false;
-    return (data ?? []).some((location: any) =>
-      (zone === location.lga || zone === `${location.lga} (${location.state})`) && location.is_active
-    );
+  function isActiveServiceArea(state: string | null | undefined, zone: string | null | undefined) {
+    return isCanonicalActiveServiceArea(state, zone, serviceLocations);
   }
 
   // ---- Single (non-batched) orders ----
@@ -90,14 +91,7 @@ Deno.serve(async (req) => {
     const { data: batchRestaurants, error: batchRestaurantsError } = await admin
       .from("restaurants").select("id, state, zone").in("id", batch.route_sequence);
     if (batchRestaurantsError || !batchRestaurants || batchRestaurants.length !== new Set(batch.route_sequence).size) continue;
-    let allAreasActive = true;
-    for (const batchRestaurant of batchRestaurants) {
-      if (!(await isActiveServiceArea(batchRestaurant.state, batchRestaurant.zone))) {
-        allAreasActive = false;
-        break;
-      }
-    }
-    if (!allAreasActive) continue;
+    if (!areAllServiceAreasActive(batchRestaurants, serviceLocations)) continue;
 
     let query = admin.from("riders").select("id, lat, lng").eq("status", "online").eq("approval_status", "approved").not("lat", "is", null);
     if (firstRestaurant.zone) query = query.eq("zone", firstRestaurant.zone);
