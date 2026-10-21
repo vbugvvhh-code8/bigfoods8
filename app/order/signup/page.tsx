@@ -26,6 +26,7 @@ export default function CustomerSignupPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
   const [finishing, setFinishing] = useState(false);
+  const [continueError, setContinueError] = useState<string | null>(null);
 
   const passwordValid = password.length >= 8;
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
@@ -50,9 +51,21 @@ export default function CustomerSignupPage() {
     }
   }
 
-  function handleContinue() {
+  async function handleContinue() {
+    if (!canContinue || finishing) return;
     setFinishing(true);
-    router.push('/order');
+    setContinueError(null);
+    try {
+      const {data, error} = await supabase.auth.getSession();
+      if (error) throw error;
+      if (!data.session) {
+        throw new Error('Your account was created, but your sign-in session is missing. Please log in to continue.');
+      }
+      router.replace('/order');
+    } catch (e: any) {
+      setContinueError(e?.message ?? 'Could not finish signing in. Please log in and try again.');
+      setFinishing(false);
+    }
   }
 
   return (
@@ -186,6 +199,13 @@ export default function CustomerSignupPage() {
             </>
           )}
         </div>
+      )}
+
+      {continueError && (
+        <p role="alert" className="text-[11.5px] mb-3 p-3 rounded-[9px]" style={{background: '#FEF2F2', color: 'var(--red, #C1453A)'}}>
+          {continueError} {' '}
+          <Link href="/order/login" className="font-semibold underline">Log in</Link>
+        </p>
       )}
 
       <button
