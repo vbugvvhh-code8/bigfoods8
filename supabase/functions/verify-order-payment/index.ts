@@ -63,33 +63,47 @@ async function assignRiderToBatch(admin: ReturnType<typeof createClient>, batchI
   }
 }
 
-async function dispatchSingleOrder(admin: ReturnType<typeof createClient>, orderId: string) {
-  const { data: order } = await admin.from("orders").select("id, restaurant_id, zone, rider_id").eq("id", orderId).single();
-  if (!order || order.rider_id != null) return;
-  const { data: restaurant } = await admin.from("restaurants").select("latitude, longitude").eq("id", order.restaurant_id).single();
-  const { data: seedSetting } = await admin.from("platform_settings").select("value").eq("key", "show_seed_data").maybeSingle();
-  const includeSeed = seedSetting?.value === true || seedSetting?.value === "true" || seedSetting === null;
+async function createRiderOffersForOrder(admin: ReturnType<typeof createClient>, orderId: string) {
+  const { data: setting } = await admin.from("platform_settings").select("value")
+    .eq("key", "dispatch_rider_offers_enabled").maybeSingle();
+  const offersEnabled = setting?.value === true || setting?.value === "true" || setting == null;
+  if (!offersEnabled) return 0;
 
-  let riderQuery = admin.from("riders").select("id, lat, lng").eq("status", "online").eq("approval_status", "approved").not("lat", "is", null);
-  if (order.zone) riderQuery = riderQuery.eq("zone", order.zone);
-  if (!includeSeed) riderQuery = riderQuery.eq("is_seed_data", false);
-  const { data: candidates } = await riderQuery;
+  const { data: order, error: orderError } = await admin.from("orders")
+    .select("id, zone, rider_id, payment_status, status")
+    .eq("id", orderId).single();
+  if (orderError || !order || order.rider_id || order.payment_status !== "paid"
+    || !["placed", "preparing"].includes(order.status)) return 0;
 
-  let nearestRiderId: string | null = null;
-  if (candidates?.length && restaurant?.latitude && restaurant?.longitude) {
-    let nearestDistance = Infinity;
-    for (const r of candidates) {
-      const d = haversineKm(restaurant.latitude, restaurant.longitude, r.lat, r.lng);
-      if (d < nearestDistance) { nearestDistance = d; nearestRiderId = r.id; }
-    }
-  } else if (candidates?.length) {
-    nearestRiderId = candidates[0].id;
+  const { data: riders, error: ridersError } = await admin.from("riders")
+    .select("id")
+    .eq("status", "online")
+    .eq("approval_status", "approved")
+    .eq("verification_fee_paid", true)
+    .eq("waiver_completed", true)
+    .eq("dispatch_disabled", false)
+    .eq("zone", order.zone);
+  if (ridersError || !riders?.length) return 0;
+
+  const rows = riders.map((r: { id: string }) => ({ order_id: order.id, rider_id: r.id }));
+  const { data: inserted, error: insertError } = await admin.from("rider_order_offers")
+    .upsert(rows, { onConflict: "order_id,rider_id", ignoreDuplicates: true })
+    .select("id");
+  if (insertError) {
+    console.error("DISPATCH_OFFER_CREATE_FAILED", { orderId, message: insertError.message });
+    return 0;
   }
+  return inserted?.length ?? 0;
+}
 
-  await admin.from("orders").update({
-    payment_status: "paid", rider_id: nearestRiderId, last_dispatch_attempt_at: new Date().toISOString(),
-    dispatch_retry_count: nearestRiderId ? 0 : 1,
-  }).eq("id", orderId);
+async function dispatchSingleOrder(admin: ReturnType<typeof createClient>, orderId: string) {
+  // Offers are created only after Paystack verification has succeeded. Do not
+  // silently pre-assign the nearest rider: riders must accept their own offer.
+  const { error } = await admin.from("orders")
+    .update({ payment_status: "paid", last_dispatch_attempt_at: new Date().toISOString(), dispatch_retry_count: 0 })
+    .eq("id", orderId);
+  if (error) throw error;
+  await createRiderOffersForOrder(admin, orderId);
 }
 
 const corsHeaders = {
@@ -129,6 +143,9 @@ Deno.serve(async (req: Request) => {
     // Idempotent replay (customer hits back/refresh on the callback page).
     if (txn.status === "success") {
       if (txn.order_id) {
+        // Retry idempotent dispatch side effects if an earlier callback marked
+        // payment successful but failed before creating rider offers.
+        await dispatchSingleOrder(admin, txn.order_id);
         const { data: existingOrder } = await admin.from("orders").select("delivery_code").eq("id", txn.order_id).single();
         return json({ success: true, order_id: txn.order_id, delivery_code: existingOrder?.delivery_code, already_processed: true });
       }

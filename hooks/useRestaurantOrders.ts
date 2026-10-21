@@ -20,6 +20,8 @@ export interface OrderWithRider {
   delivery_address: string | null;
   delivery_code: string | null;
   rider_id: string | null;
+  payment_status: string | null;
+  zone: string | null;
   rider: OrderRider | null;
 }
 
@@ -36,7 +38,7 @@ export default function useRestaurantOrders(restaurantId?: string) {
     const { data } = await supabase
       .from('orders')
       .select(
-        'id, status, subtotal, delivery_fee, platform_fee, placed_at, delivered_at, delivery_address, delivery_code, rider_id, riders(name, plate_number, vehicle_type)'
+        'id, status, subtotal, delivery_fee, platform_fee, placed_at, delivered_at, delivery_address, delivery_code, rider_id, payment_status, zone, riders(name, plate_number, vehicle_type)'
       )
       .eq('restaurant_id', restaurantId)
       .order('placed_at', { ascending: false })
