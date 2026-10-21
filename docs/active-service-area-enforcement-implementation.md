@@ -2,7 +2,7 @@
 
 ## Scope
 
-This branch reconciles the exact deployed source for the three affected Edge Functions into version control and adds server-side active-area guards. These changes have **not** been deployed to Supabase.
+This branch reconciles the exact deployed source for the three affected Edge Functions into version control and adds server-side active-area guards. The three revised Edge Functions and the Vault-backed cron-secret rotation have now been deployed to the linked production Supabase project. The source remains on this branch and has not been merged into `main`.
 
 ## Changes in this branch
 
@@ -30,15 +30,19 @@ This branch reconciles the exact deployed source for the three affected Edge Fun
 - `.github/workflows/active-service-area-checks.yml`
   - Runs Deno type checks for all three functions and the shared module, plus the service-area unit tests.
 
-## Required release steps (not performed)
+## Release and verification status
 
-1. Review the branch diff and confirm the GitHub Actions Deno type-check and unit-test workflow is green.
-2. Apply the Vault-backed cron-secret migration before deploying the cron function.
-3. Pause the every-minute dispatch cron job for the short cutover window; deploy the updated function; update the job to read `x-cron-secret` from `vault.decrypted_secrets`; then reactivate the job. Do not expose or copy the Vault value into source code or the scheduler command.
-4. Verify the scheduler's next execution succeeds and that a missing/wrong header is rejected. The previous inline secret is treated as compromised and must be removed from the scheduler command.
-5. Deploy `create-order` and `rider-onboarding-save` with the shared helper included.
-6. Test: active area accepts onboarding and order creation; inactive area rejects both; duplicate LGA names resolve by state; lookup errors fail closed; dispatch retry does not assign riders in inactive areas; already-paid orders remain intact.
-7. Verify existing clients send canonical zone values and inspect the current restaurant/rider records for any invalid zone keys before production rollout.
+Completed:
+1. GitHub Actions successfully ran Deno checks for all three functions and the shared service-area module, plus the shared unit tests. Successful run: https://github.com/vbugvvhh-code8/bigfoods8/actions/runs/39614968417
+2. Applied the Vault-backed cron-secret migration to the linked Supabase project. The migration generates a new 256-bit random value in PostgreSQL Vault, updates the boolean-only verifier RPC, and restricts RPC execution to `service_role`.
+3. Paused the every-minute dispatch cron job during cutover, deployed the three revised functions, then reconfigured and reactivated the scheduler to read the new secret directly from Vault at runtime. The active cron command no longer embeds the previous secret.
+4. Verified the Vault-backed verifier accepts the stored secret, rejects a deliberately incorrect secret, and is not executable by `anon` or `authenticated`.
+5. Verified the reactivated dispatch scheduler is receiving successful HTTP responses (200, no timeout) from the deployed function.
+6. Deployed production function versions: `create-order` v8, `rider-onboarding-save` v5, and `dispatch-retry-cron` v5. The shared helper is bundled with each function.
+
+Still not covered by the above:
+- No authenticated end-to-end order creation or rider onboarding request was issued, because that would require test identities and could write real business data. CI unit tests and read-only SQL simulations cover the deterministic active/inactive and multi-restaurant rules, but do not fully substitute for endpoint-level integration testing.
+- The code remains in `fix/active-service-area-enforcement` and is not merged into `main`.
 
 ## Important data-model note
 
@@ -60,7 +64,7 @@ A read-only audit of the live database found:
 - 14 restaurant records: all 14 use canonical state/zone keys; 10 are in active service areas and 4 are in inactive areas.
 - 3 restaurants are currently accepting orders outside active coverage: Mama ngozi (Anambra / Anambra East), Bidwish Kitchen (Anambra / Anaocha), and Mma (Ebonyi / Ikwo). This branch rejects new order creation for these areas, but the existing records and accepting flags were not changed.
 - 28 rider records: 3 have a missing zone, 11 use an active area, and 14 use inactive areas. The remaining count corresponds to those three missing-zone records; no unknown or ambiguous zone strings were found in the canonical comparison.
-- No production restaurant or rider records were changed during this audit.
+- No production restaurant or rider records were changed during this audit. The new order/onboarding checks now block inactive or noncanonical areas at the endpoint.
 
 ## Validation run
 
