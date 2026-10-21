@@ -82,7 +82,7 @@ export default function AdminDispatchPage() {
     finally { setBusy(''); }
   }
 
-  const eligibleRiders = riders.filter(r => r.status === 'online' && r.approval_status === 'approved' && r.verification_fee_paid && r.waiver_completed && !r.dispatch_disabled);
+  const eligibleRiders = riders.filter(r => r.status === 'online' && r.approval_status === 'approved' && r.waiver_completed && !r.dispatch_disabled);
 
   return <div className="space-y-6">
     <PageHeader title="Dispatch" subtitle="Assign riders and control dispatch availability" />
@@ -93,7 +93,7 @@ export default function AdminDispatchPage() {
       <label className="flex items-center justify-between gap-4 text-sm"><span><strong className="block">Rider order offers</strong><span style={{ color: 'var(--gray)' }}>Pause or enable rider offer and acceptance.</span></span><input type="checkbox" checked={offersEnabled} disabled={!!busy} onChange={e => void toggleSetting('dispatch_rider_offers_enabled', e.target.checked)} /></label>
     </section>
     <section className="space-y-3">
-      <div><h2 className="font-semibold">Unassigned orders ({orders.length})</h2><p className="text-sm" style={{ color: 'var(--gray)' }}>Only paid orders can be assigned or offered. Riders must be online, approved, fee-paid, waiver-complete, enabled, and in the same zone.</p></div>
+      <div><h2 className="font-semibold">Unassigned orders ({orders.length})</h2><p className="text-sm" style={{ color: 'var(--gray)' }}>Customer checkout payment must be confirmed. Riders must be online, approved, waiver-complete, enabled, and in the same zone.</p></div>
       {loading ? <p className="py-5 text-center">Loading dispatch data…</p> : orders.length === 0 ? <p className="py-4 text-sm" style={{ color: 'var(--gray)' }}>No unassigned active orders.</p> : orders.map(order => {
         const matching = eligibleRiders.filter(r => (r.zone ?? '').trim().toLowerCase() === (order.zone ?? '').trim().toLowerCase());
         return <article key={order.id} className="rounded-xl p-4 space-y-3" style={{ border: '1px solid var(--line)' }}>
@@ -106,8 +106,8 @@ export default function AdminDispatchPage() {
       })}
     </section>
     <section className="space-y-3">
-      <div><h2 className="font-semibold">Rider dispatch access ({riders.length})</h2><p className="text-sm" style={{ color: 'var(--gray)' }}>Disable a rider here to stop them receiving or accepting offers.</p></div>
-      {riders.map(r => <div key={r.id} className="flex items-center justify-between gap-3 rounded-lg p-3" style={{ border: '1px solid var(--line)' }}><div><p className="text-sm font-medium">{r.name}</p><p className="text-xs" style={{ color: 'var(--gray)' }}>{r.zone ?? 'No zone'} · {r.status} · {r.approval_status}</p></div><button disabled={!!busy} onClick={() => void toggleRider(r)} className="rounded-lg border px-3 py-2 text-xs font-semibold">{busy === r.id ? 'Saving…' : r.dispatch_disabled ? 'Enable offers' : 'Disable offers'}</button></div>)}
+      <div><h2 className="font-semibold">Rider dispatch access ({eligibleRiders.length})</h2><p className="text-sm" style={{ color: 'var(--gray)' }}>Disable a rider here to stop them receiving or accepting offers.</p></div>
+      {eligibleRiders.map(r => <div key={r.id} className="flex items-center justify-between gap-3 rounded-lg p-3" style={{ border: '1px solid var(--line)' }}><div><p className="text-sm font-medium">{r.name}</p><p className="text-xs" style={{ color: 'var(--gray)' }}>{r.zone ?? 'No zone'} · Online · {r.approval_status}</p></div><button disabled={!!busy} onClick={() => void toggleRider(r)} className="rounded-lg border px-3 py-2 text-xs font-semibold">{busy === r.id ? 'Saving…' : r.dispatch_disabled ? 'Enable offers' : 'Disable offers'}</button></div>)}
     </section>
     <button onClick={() => void load()} className="rounded-lg border px-4 py-2 text-sm">Refresh dispatch</button>
   </div>;

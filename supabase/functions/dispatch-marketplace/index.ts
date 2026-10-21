@@ -47,7 +47,7 @@ Deno.serve(async (req: Request) => {
         .eq("profile_id", user.id).maybeSingle();
       if (riderError) return json({ error: "Could not load rider account" }, 500);
       if (rider && rider.status === "online" && rider.approval_status === "approved"
-        && rider.verification_fee_paid && rider.waiver_completed && !rider.dispatch_disabled) {
+        && rider.waiver_completed && !rider.dispatch_disabled) {
         const { data: setting } = await admin.from("platform_settings").select("value")
           .eq("key", "dispatch_rider_offers_enabled").maybeSingle();
         const enabled = setting?.value === true || setting?.value === "true" || setting == null;
