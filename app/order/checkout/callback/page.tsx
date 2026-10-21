@@ -56,6 +56,15 @@ function CallbackContent() {
           order_group_id: data.order_group_id,
           batches: data.batches,
         });
+      })
+      .catch((cause: unknown) => {
+        if (cancelled) return;
+        setStatus('failed');
+        setResult({
+          error: cause instanceof Error
+            ? cause.message
+            : 'We could not confirm the payment because the verification request failed. Please check your order status before trying payment again.',
+        });
       });
 
     return () => {
@@ -90,6 +99,7 @@ function CallbackContent() {
             {result.delivery_code}
           </p>
           <button
+            type="button"
             onClick={() => router.push(`/order/track/${result.order_id}`)}
             className="w-full mt-6 py-3 rounded-xl text-[13px] font-semibold text-white"
             style={{background: 'var(--orange)'}}
@@ -97,6 +107,7 @@ function CallbackContent() {
             Track my order
           </button>
           <button
+            type="button"
             onClick={() => router.push('/order')}
             className="w-full mt-2 py-3 rounded-xl text-[13px] font-semibold"
             style={{color: 'var(--gray)'}}
@@ -134,6 +145,7 @@ function CallbackContent() {
           </div>
 
           <button
+            type="button"
             onClick={() => router.push('/order/orders')}
             className="w-full mt-6 py-3 rounded-xl text-[13px] font-semibold text-white"
             style={{background: 'var(--orange)'}}
@@ -160,6 +172,7 @@ function CallbackContent() {
             {result.error}
           </p>
           <button
+            type="button"
             onClick={() => router.push('/order/checkout')}
             className="w-full mt-6 py-3 rounded-xl text-[13px] font-semibold text-white"
             style={{background: 'var(--orange)'}}
