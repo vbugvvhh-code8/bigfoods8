@@ -1,0 +1,42 @@
+name: Active service-area checks
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/create-order/**"
+      - "supabase/functions/rider-onboarding-save/**"
+      - "supabase/functions/dispatch-retry-cron/**"
+      - "supabase/functions/_shared/**"
+      - ".github/workflows/active-service-area-checks.yml"
+  push:
+    branches:
+      - main
+      - "fix/active-service-area-enforcement"
+    paths:
+      - "supabase/functions/create-order/**"
+      - "supabase/functions/rider-onboarding-save/**"
+      - "supabase/functions/dispatch-retry-cron/**"
+      - "supabase/functions/_shared/**"
+      - ".github/workflows/active-service-area-checks.yml"
+
+jobs:
+  deno-check:
+    name: Deno type check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Check create-order
+        run: deno check --node-modules-dir=auto supabase/functions/create-order/index.ts
+      - name: Check rider-onboarding-save
+        run: deno check --node-modules-dir=auto supabase/functions/rider-onboarding-save/index.ts
+      - name: Check dispatch-retry-cron
+        run: deno check --node-modules-dir=auto supabase/functions/dispatch-retry-cron/index.ts
+      - name: Check shared service-area module
+        run: deno check --node-modules-dir=auto supabase/functions/_shared/service-area.ts
+      - name: Test active service-area rules
+        run: deno test --node-modules-dir=auto supabase/functions/_shared/service-area.test.ts
