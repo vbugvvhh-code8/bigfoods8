@@ -13,7 +13,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function RiderDashboardPage() {
-  const { rider, setOnline } = useRider();
+  const { rider, setOnline, error } = useRider();
   const { order, loading: orderLoading } = useRiderActiveOrder(rider?.id);
   const { transactions } = useRiderWallet(rider?.id);
   const [toggling, setToggling] = useState(false);
@@ -52,6 +52,10 @@ export default function RiderDashboardPage() {
           {toggling ? '…' : online ? 'Go offline' : 'Go online'}
         </button>
       </div>
+
+      {error && (
+        <div role="alert" className="rounded-[10px] p-3 mb-4 text-[11.5px]" style={{ background: '#FEF2F2', color: 'var(--red)' }}>{error}</div>
+      )}
 
       {missingZone && (
         <div className="rounded-[10px] p-3 mb-4 text-[11.5px]" style={{ background: 'var(--peach)', color: '#6E5A46' }}>
