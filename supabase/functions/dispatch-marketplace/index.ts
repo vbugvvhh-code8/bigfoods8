@@ -40,6 +40,30 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "rider_offers") {
+      // Polling while online also discovers orders paid before this rider came online.
+      // Only the authenticated rider's own eligible offers are created here.
+      const { data: rider, error: riderError } = await admin.from("riders")
+        .select("id,zone,status,approval_status,verification_fee_paid,waiver_completed,dispatch_disabled")
+        .eq("profile_id", user.id).maybeSingle();
+      if (riderError) return json({ error: "Could not load rider account" }, 500);
+      if (rider && rider.status === "online" && rider.approval_status === "approved"
+        && rider.verification_fee_paid && rider.waiver_completed && !rider.dispatch_disabled) {
+        const { data: setting } = await admin.from("platform_settings").select("value")
+          .eq("key", "dispatch_rider_offers_enabled").maybeSingle();
+        const enabled = setting?.value === true || setting?.value === "true" || setting == null;
+        if (enabled) {
+          const { data: orders, error: ordersError } = await admin.from("orders")
+            .select("id").is("rider_id", null).eq("payment_status", "paid")
+            .in("status", ["placed", "preparing"]).eq("zone", rider.zone).limit(100);
+          if (ordersError) return json({ error: "Could not discover nearby orders" }, 500);
+          if (orders?.length) {
+            const offers = orders.map((order: { id: string }) => ({ order_id: order.id, rider_id: rider.id }));
+            const { error: offerError } = await admin.from("rider_order_offers")
+              .upsert(offers, { onConflict: "order_id,rider_id", ignoreDuplicates: true });
+            if (offerError) return json({ error: "Could not prepare rider offers" }, 500);
+          }
+        }
+      }
       const { data, error } = await userClient.rpc("rider_nearby_order_offers");
       if (error) return json({ error: "Could not load order offers" }, 500);
       return json({ offers: data ?? [] });
