@@ -36,6 +36,15 @@ interface CartContextValue {
 const CartContext = createContext<CartContextValue | null>(null);
 const STORAGE_KEY = 'bigfoods-customer-cart';
 
+function isCartItem(value: unknown): value is CartItem {
+  if (!value || typeof value !== 'object') return false;
+  const item = value as Partial<CartItem>;
+  return typeof item.id === 'string' && typeof item.name === 'string' &&
+    typeof item.price === 'number' && Number.isFinite(item.price) && item.price >= 0 &&
+    typeof item.quantity === 'number' && Number.isFinite(item.quantity) && item.quantity > 0 &&
+    typeof item.restaurantId === 'string' && typeof item.restaurantName === 'string';
+}
+
 export function CartProvider({children}: {children: ReactNode}) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -43,7 +52,15 @@ export function CartProvider({children}: {children: ReactNode}) {
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setItems(JSON.parse(raw));
+      if (raw) {
+        const parsed: unknown = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          // Ignore invalid entries instead of letting one stale item break cart totals/rendering.
+          setItems(parsed.filter(isCartItem));
+        } else {
+          window.localStorage.removeItem(STORAGE_KEY);
+        }
+      }
     } catch {
       // corrupted or unavailable storage — start with an empty cart
     }
