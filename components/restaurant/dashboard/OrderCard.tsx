@@ -71,13 +71,26 @@ export default function OrderCard({
 
   return (
     <div className="p-3.5 rounded-[12px]" style={{ border: '1px solid var(--line)', background: 'var(--white)' }}>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between gap-2 mb-2">
         <p className="text-[12.5px] font-semibold" style={{ color: 'var(--ink)' }}>
           Order #{order.id.slice(0, 8)}
         </p>
-        <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full capitalize" style={{ background: 'var(--peach)', color: status.color }}>
-          {status.label}
-        </span>
+        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+          <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full capitalize" style={{ background: 'var(--peach)', color: status.color }}>
+            {status.label}
+          </span>
+          {['placed', 'preparing'].includes(order.status) && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap" style={{
+              background: order.rider_id ? 'var(--teal)' : order.payment_status !== 'paid' ? 'var(--peach)' : assignmentReady && assignmentEnabled && !assignmentMessage && eligibleRiders.length > 0 ? 'var(--green)' : 'var(--peach)',
+              color: order.rider_id ? 'white' : order.payment_status !== 'paid' || (assignmentReady && assignmentMessage) ? 'var(--red)' : 'var(--orange)'
+            }}>
+              {order.rider_id ? 'Rider assigned' : order.payment_status !== 'paid' ? 'Payment not confirmed' : !assignmentReady ? 'Checking rider…' : assignmentMessage ? 'Check rider status' : !assignmentEnabled ? 'Assignment disabled' : eligibleRiders.length > 0 ? 'Ready to assign' : 'Waiting for rider'}
+            </span>
+          )}
+          {['delivered', 'cancelled'].includes(order.status) && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap" style={{ background: 'var(--peach)', color: 'var(--gray)' }}>Closed</span>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-1.5 mb-1" style={{ color: 'var(--gray)' }}>
@@ -90,32 +103,6 @@ export default function OrderCard({
       <p className="text-[11.5px] mb-2" style={{ color: 'var(--gray)' }}>
         ₦{Number(order.subtotal).toLocaleString()} · {order.delivery_address ?? 'No address on file'}
       </p>
-
-      {['delivered', 'cancelled'].includes(order.status) && (
-        <div className="mb-2">
-          <span className="inline-flex rounded-full px-2 py-1 text-[10.5px] font-semibold" style={{ background: 'var(--peach)', color: 'var(--gray)' }}>Order closed · {status.label}</span>
-        </div>
-      )}
-
-      {['placed', 'preparing'].includes(order.status) && (
-        <div className="mb-2">
-          {order.rider_id ? (
-            <span className="inline-flex rounded-full px-2 py-1 text-[10.5px] font-semibold" style={{ background: 'var(--teal)', color: 'white' }}>Rider assigned</span>
-          ) : order.payment_status !== 'paid' ? (
-            <span className="inline-flex rounded-full px-2 py-1 text-[10.5px] font-semibold" style={{ background: 'var(--peach)', color: 'var(--red)' }}>Payment not confirmed</span>
-          ) : !assignmentReady ? (
-            <span className="inline-flex rounded-full px-2 py-1 text-[10.5px] font-semibold" style={{ background: 'var(--peach)', color: 'var(--gray)' }}>Checking rider availability…</span>
-          ) : assignmentMessage ? (
-            <span className="inline-flex rounded-full px-2 py-1 text-[10.5px] font-semibold" style={{ background: 'var(--peach)', color: 'var(--red)' }}>Rider availability error</span>
-          ) : !assignmentEnabled ? (
-            <span className="inline-flex rounded-full px-2 py-1 text-[10.5px] font-semibold" style={{ background: 'var(--peach)', color: 'var(--gray)' }}>Assignment disabled</span>
-          ) : eligibleRiders.length > 0 ? (
-            <span className="inline-flex rounded-full px-2 py-1 text-[10.5px] font-semibold" style={{ background: 'var(--green)', color: 'white' }}>Ready to assign</span>
-          ) : (
-            <span className="inline-flex rounded-full px-2 py-1 text-[10.5px] font-semibold" style={{ background: 'var(--peach)', color: 'var(--orange)' }}>Waiting for eligible rider</span>
-          )}
-        </div>
-      )}
 
       {!order.rider_id && order.payment_status === 'paid' && ['placed', 'preparing'].includes(order.status) && (
         <div className="mt-2 mb-2 rounded-[9px] p-2.5 space-y-2" style={{ background: 'var(--peach)', border: '1px solid var(--line)' }}>
