@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { areAllServiceAreasActive, isCanonicalActiveServiceArea } from "../_shared/service-area.ts";
+import { areAllServiceAreasActive, isCanonicalActiveServiceArea, type ServiceLocation } from "../_shared/service-area.ts";
 
 const CRON_SECRET = Deno.env.get("CRON_SECRET");
 const FROM_ADDRESS = "BigFoods <onboarding@opticsview.store>";
@@ -24,6 +24,7 @@ Deno.serve(async (req) => {
   if (serviceLocationsError || !serviceLocations) {
     return json({ error: "Unable to verify service coverage" }, 503);
   }
+  const verifiedServiceLocations = serviceLocations as ServiceLocation[];
 
   const { data: seedSetting } = await admin.from("platform_settings").select("value").eq("key", "show_seed_data").maybeSingle();
   const includeSeed = seedSetting?.value === true || seedSetting?.value === "true" || seedSetting === null;
@@ -32,7 +33,7 @@ Deno.serve(async (req) => {
   const toNotify: { id: string; retry_count: number }[] = [];
 
   function isActiveServiceArea(state: string | null | undefined, zone: string | null | undefined) {
-    return isCanonicalActiveServiceArea(state, zone, serviceLocations);
+    return isCanonicalActiveServiceArea(state, zone, verifiedServiceLocations);
   }
 
   // ---- Single (non-batched) orders ----
@@ -91,7 +92,7 @@ Deno.serve(async (req) => {
     const { data: batchRestaurants, error: batchRestaurantsError } = await admin
       .from("restaurants").select("id, state, zone").in("id", batch.route_sequence);
     if (batchRestaurantsError || !batchRestaurants || batchRestaurants.length !== new Set(batch.route_sequence).size) continue;
-    if (!areAllServiceAreasActive(batchRestaurants, serviceLocations)) continue;
+    if (!areAllServiceAreasActive(batchRestaurants, verifiedServiceLocations)) continue;
 
     let query = admin.from("riders").select("id, lat, lng").eq("status", "online").eq("approval_status", "approved").not("lat", "is", null);
     if (firstRestaurant.zone) query = query.eq("zone", firstRestaurant.zone);
@@ -125,7 +126,7 @@ Deno.serve(async (req) => {
   return json({ success: true, reassigned, notified: toNotify.length });
 });
 
-async function notifyAdmins(admin: ReturnType<typeof createClient>, items: { id: string; retry_count: number }[]) {
+async function notifyAdmins(admin: any, items: { id: string; retry_count: number }[]) {
   try {
     const { data: admins } = await admin.from("profiles").select("id").eq("role", "admin");
     if (!admins?.length) return;
