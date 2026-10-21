@@ -26,6 +26,7 @@ export function CartSummary({restaurantId}: CartSummaryProps) {
           </div>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => updateQuantity(item.id, item.quantity - 1)}
               className="w-6 h-6 rounded-full border flex items-center justify-center"
               style={{borderColor: 'var(--line)', color: 'var(--gray)'}}
@@ -37,6 +38,7 @@ export function CartSummary({restaurantId}: CartSummaryProps) {
               {item.quantity}
             </span>
             <button
+              type="button"
               onClick={() => updateQuantity(item.id, item.quantity + 1)}
               className="w-6 h-6 rounded-full flex items-center justify-center text-white"
               style={{background: 'var(--orange)'}}
@@ -45,6 +47,7 @@ export function CartSummary({restaurantId}: CartSummaryProps) {
               <Plus className="w-3 h-3" />
             </button>
             <button
+              type="button"
               onClick={() => removeItem(item.id)}
               className="w-6 h-6 flex items-center justify-center ml-1"
               style={{color: 'var(--gray)'}}
