@@ -23,9 +23,30 @@ export default function RiderDashboardLayout({ children }: { children: React.Rea
     );
   }
 
-  // approval_status is admin-controlled (admin-review-application) or set by
-  // rider-cancel-delivery on hitting the strike limit -- a paid rider isn't
-  // necessarily approved, and an approved rider can later become suspended.
+  // Payment is a separate prerequisite from approval. Never expose dashboard
+  // navigation or content to a rider until Paystack verification has marked the fee paid.
+  if (!rider.verification_fee_paid) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--white)' }}>
+        <div className="max-w-[340px] text-center">
+          <h2 className="text-[18px] font-semibold mb-2" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+            Complete your verification payment
+          </h2>
+          <p className="text-[12.5px] mb-4" style={{ color: 'var(--gray)' }}>
+            Your rider dashboard will remain locked until your verification payment is confirmed.
+          </p>
+          <button
+            onClick={() => router.replace('/rider-portal/onboarding/payment')}
+            className="px-4 py-2 rounded-md bg-[var(--orange)] text-white text-[13px] font-medium"
+          >
+            Continue to payment
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // A paid rider is still not allowed into the dashboard until an admin approves.
   if (rider.approval_status !== 'approved') {
     const rejected = rider.approval_status === 'rejected';
     const suspended = rider.approval_status === 'suspended';
@@ -46,7 +67,7 @@ export default function RiderDashboardLayout({ children }: { children: React.Rea
               ? 'Too many cancelled deliveries. Contact support if you think this is a mistake.'
               : rejected
               ? "We couldn't approve your rider application this time."
-              : "We're reviewing your details. This usually doesn't take long."}
+              : "Your payment is confirmed. We're reviewing your details before enabling your dashboard."}
           </p>
         </div>
       </div>
