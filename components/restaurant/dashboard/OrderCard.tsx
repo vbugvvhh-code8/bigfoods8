@@ -28,7 +28,7 @@ export default function OrderCard({
   const [selectedRider, setSelectedRider] = useState('');
   const [assignmentMessage, setAssignmentMessage] = useState('');
   useEffect(() => {
-    if (order.rider || !['placed', 'preparing'].includes(order.status)) return;
+    if (order.rider_id || !['placed', 'preparing'].includes(order.status)) return;
     setAssignmentReady(false);
     void (async () => {
       const { data, error } = await getBrowserSupabase().functions.invoke('dispatch-marketplace', {
@@ -44,7 +44,7 @@ export default function OrderCard({
       setAssignmentMessage('');
       setAssignmentReady(true);
     })();
-  }, [order.id, order.status, order.rider, order.payment_status]);
+  }, [order.id, order.status, order.rider_id, order.payment_status]);
 
   async function handleAssignRider() {
     if (!selectedRider) return;
@@ -91,9 +91,15 @@ export default function OrderCard({
         ₦{Number(order.subtotal).toLocaleString()} · {order.delivery_address ?? 'No address on file'}
       </p>
 
+      {['delivered', 'cancelled'].includes(order.status) && (
+        <div className="mb-2">
+          <span className="inline-flex rounded-full px-2 py-1 text-[10.5px] font-semibold" style={{ background: 'var(--peach)', color: 'var(--gray)' }}>Order closed · {status.label}</span>
+        </div>
+      )}
+
       {['placed', 'preparing'].includes(order.status) && (
         <div className="mb-2">
-          {order.rider ? (
+          {order.rider_id ? (
             <span className="inline-flex rounded-full px-2 py-1 text-[10.5px] font-semibold" style={{ background: 'var(--teal)', color: 'white' }}>Rider assigned</span>
           ) : order.payment_status !== 'paid' ? (
             <span className="inline-flex rounded-full px-2 py-1 text-[10.5px] font-semibold" style={{ background: 'var(--peach)', color: 'var(--red)' }}>Payment not confirmed</span>
@@ -111,7 +117,7 @@ export default function OrderCard({
         </div>
       )}
 
-      {!order.rider && order.payment_status === 'paid' && ['placed', 'preparing'].includes(order.status) && (
+      {!order.rider_id && order.payment_status === 'paid' && ['placed', 'preparing'].includes(order.status) && (
         <div className="mt-2 mb-2 rounded-[9px] p-2.5 space-y-2" style={{ background: 'var(--peach)', border: '1px solid var(--line)' }}>
           <div>
             <p className="text-[12px] font-semibold" style={{ color: 'var(--ink)' }}>Assign a delivery rider</p>
@@ -188,7 +194,7 @@ export default function OrderCard({
             </button>
             <button
               onClick={handleConfirmHandover}
-              disabled={busy || !order.rider}
+              disabled={busy || !order.rider_id}
               className="flex-1 py-2 rounded-[8px] text-[11.5px] font-semibold text-white disabled:opacity-40"
               style={{ background: 'var(--orange)' }}
             >
