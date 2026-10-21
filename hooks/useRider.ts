@@ -62,6 +62,15 @@ export default function useRider() {
   const setOnline = useCallback(
     async (online: boolean) => {
       if (!rider) return;
+      if (online && !rider.waiver_completed) {
+        setError('Complete your rider waiver before going online.');
+        return;
+      }
+      if (online && (!rider.verification_fee_paid || rider.approval_status !== 'approved')) {
+        setError('Your verification payment and admin approval must be complete before going online.');
+        return;
+      }
+      setError(null);
       let lat: number | null = null;
       let lng: number | null = null;
       if (online && typeof navigator !== 'undefined' && navigator.geolocation) {
