@@ -81,8 +81,9 @@ export default function DetailsForm({ draft, updateDraft, onContinue }: DetailsF
       });
       if (error) throw error;
       onContinue();
-    } catch {
-      setSaveError('Could not save your details — try again.');
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Unknown error';
+      setSaveError(`Could not save your details: ${message}. Please try again.`);
     } finally {
       setSaving(false);
     }
