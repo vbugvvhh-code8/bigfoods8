@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { isCanonicalActiveZone } from "../_shared/service-area.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -83,15 +84,7 @@ Deno.serve(async (req) => {
           status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const counts = new Map<string, number>();
-      for (const location of locations ?? []) counts.set(location.lga, (counts.get(location.lga) ?? 0) + 1);
-      const selected = (locations ?? []).find((location: any) => {
-        const expectedZone = (counts.get(location.lga) ?? 0) > 1
-          ? `${location.lga} (${location.state})`
-          : location.lga;
-        return expectedZone === patch.zone;
-      });
-      if (!selected || !selected.is_active) {
+      if (!isCanonicalActiveZone(patch.zone, locations ?? [])) {
         return new Response(JSON.stringify({ error: "That service area is not currently active" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
