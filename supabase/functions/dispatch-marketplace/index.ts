@@ -78,6 +78,51 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, status: data.status });
     }
 
+    if (action === "restaurant_assignment_options") {
+      const orderId = body?.order_id;
+      if (typeof orderId !== "string") return json({ error: "Order id is required" }, 400);
+
+      // Use the service role for data hidden by RLS, but only after verifying
+      // that this signed-in user owns the restaurant attached to the order.
+      const { data: order, error: orderError } = await admin.from("orders")
+        .select("id,restaurant_id,zone,status,payment_status,rider_id")
+        .eq("id", orderId).maybeSingle();
+      if (orderError) return json({ error: "Could not load order" }, 500);
+      if (!order) return json({ error: "Order not found" }, 404);
+
+      if (!isAdmin) {
+        const { data: restaurant, error: restaurantError } = await admin.from("restaurants")
+          .select("id,owner_id").eq("id", order.restaurant_id).maybeSingle();
+        if (restaurantError) return json({ error: "Could not verify restaurant ownership" }, 500);
+        if (!restaurant || restaurant.owner_id !== user.id) return json({ error: "This is not your restaurant order" }, 403);
+      }
+
+      const { data: setting, error: settingError } = await admin.from("platform_settings")
+        .select("value").eq("key", "dispatch_restaurant_assignment_enabled").maybeSingle();
+      if (settingError) return json({ error: "Could not load assignment settings" }, 500);
+      const assignmentEnabled = setting?.value === true || setting?.value === "true";
+      const orderEligible = order.payment_status === "paid"
+        && ["placed", "preparing"].includes(order.status) && !order.rider_id;
+
+      if (!assignmentEnabled || !orderEligible) {
+        return json({ assignment_enabled: assignmentEnabled, order_eligible: orderEligible, riders: [] });
+      }
+
+      const { data: riders, error: ridersError } = await admin.from("riders")
+        .select("id,name,zone,status,approval_status,waiver_completed,dispatch_disabled")
+        .eq("status", "online").eq("approval_status", "approved")
+        .eq("waiver_completed", true).eq("dispatch_disabled", false)
+        .order("name");
+      if (ridersError) return json({ error: "Could not load eligible riders" }, 500);
+      const orderZone = (order.zone ?? "").trim().toLocaleLowerCase();
+      const eligible = (riders ?? []).filter((rider: { zone: string | null }) =>
+        (rider.zone ?? "").trim().toLocaleLowerCase() === orderZone
+      ).map((rider: { id: string; name: string; zone: string | null }) => ({
+        id: rider.id, name: rider.name, zone: rider.zone,
+      }));
+      return json({ assignment_enabled: assignmentEnabled, order_eligible: orderEligible, riders: eligible });
+    }
+
     if (action === "assign_rider") {
       if (!isAdmin && typeof body?.restaurant_order_id !== "string") return json({ error: "Administrator access required" }, 403);
       const orderId = isAdmin ? body?.order_id : body?.restaurant_order_id;
