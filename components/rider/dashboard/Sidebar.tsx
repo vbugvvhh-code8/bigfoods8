@@ -9,6 +9,7 @@ import getBrowserSupabase from '@/lib/supabase/client';
 const NAV_ITEMS = [
   { id: '/rider-portal/dashboard', label: 'Overview', icon: <LayoutGrid className="w-4 h-4" /> },
   { id: '/rider-portal/deliveries', label: 'Deliveries', icon: <Truck className="w-4 h-4" /> },
+  { id: '/rider-portal/dashboard/nearby-orders', label: 'Nearby orders', icon: <LayoutGrid className="w-4 h-4" /> },
   { id: '/rider-portal/dashboard/nearby-orders', label: 'Nearby Orders', icon: <MapPin className="w-4 h-4" /> },
   { id: '/rider-portal/dashboard/transfers', label: 'Hand-offs', icon: <HandHelping className="w-4 h-4" /> },
   { id: '/rider-portal/dashboard/wallet', label: 'Wallet', icon: <Wallet className="w-4 h-4" /> },
