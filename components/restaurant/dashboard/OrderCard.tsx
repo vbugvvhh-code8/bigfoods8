@@ -91,6 +91,26 @@ export default function OrderCard({
         ₦{Number(order.subtotal).toLocaleString()} · {order.delivery_address ?? 'No address on file'}
       </p>
 
+      {['placed', 'preparing'].includes(order.status) && (
+        <div className="mb-2">
+          {order.rider ? (
+            <span className="inline-flex rounded-full px-2 py-1 text-[10.5px] font-semibold" style={{ background: 'var(--teal)', color: 'white' }}>Rider assigned</span>
+          ) : order.payment_status !== 'paid' ? (
+            <span className="inline-flex rounded-full px-2 py-1 text-[10.5px] font-semibold" style={{ background: 'var(--peach)', color: 'var(--red)' }}>Payment not confirmed</span>
+          ) : !assignmentReady ? (
+            <span className="inline-flex rounded-full px-2 py-1 text-[10.5px] font-semibold" style={{ background: 'var(--peach)', color: 'var(--gray)' }}>Checking rider availability…</span>
+          ) : assignmentMessage ? (
+            <span className="inline-flex rounded-full px-2 py-1 text-[10.5px] font-semibold" style={{ background: 'var(--peach)', color: 'var(--red)' }}>Rider availability error</span>
+          ) : !assignmentEnabled ? (
+            <span className="inline-flex rounded-full px-2 py-1 text-[10.5px] font-semibold" style={{ background: 'var(--peach)', color: 'var(--gray)' }}>Assignment disabled</span>
+          ) : eligibleRiders.length > 0 ? (
+            <span className="inline-flex rounded-full px-2 py-1 text-[10.5px] font-semibold" style={{ background: 'var(--green)', color: 'white' }}>Ready to assign</span>
+          ) : (
+            <span className="inline-flex rounded-full px-2 py-1 text-[10.5px] font-semibold" style={{ background: 'var(--peach)', color: 'var(--orange)' }}>Waiting for eligible rider</span>
+          )}
+        </div>
+      )}
+
       {!order.rider && order.payment_status === 'paid' && ['placed', 'preparing'].includes(order.status) && (
         <div className="mt-2 mb-2 rounded-[9px] p-2.5 space-y-2" style={{ background: 'var(--peach)', border: '1px solid var(--line)' }}>
           <div>
