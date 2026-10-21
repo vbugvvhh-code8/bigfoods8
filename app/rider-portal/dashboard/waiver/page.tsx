@@ -23,6 +23,7 @@ export default function RiderWaiverPage() {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) throw new Error('Please sign in again before uploading.');
       if (!file.type.startsWith('image/')) throw new Error('Please choose an image of your completed waiver.');
+      if (file.size > 8 * 1024 * 1024) throw new Error('Please choose an image smaller than 8 MB.');
       const ext = file.name.split('.').pop() || 'jpg';
       const path = `${user.id}/waiver-${Date.now()}.${ext}`;
       const { error: uploadError } = await supabase.storage.from('rider-documents').upload(path, file, {
