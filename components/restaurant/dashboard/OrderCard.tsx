@@ -30,9 +30,11 @@ export default function OrderCard({
     if (order.rider || !['placed', 'preparing'].includes(order.status)) return;
     const supabase = getBrowserSupabase();
     void (async () => {
+      let ridersQuery = supabase.from('riders').select('id, name, zone').eq('status', 'online').eq('approval_status', 'approved').eq('verification_fee_paid', true).eq('waiver_completed', true).eq('dispatch_disabled', false);
+      if (order.zone) ridersQuery = ridersQuery.eq('zone', order.zone);
       const [{ data: settings }, { data: riders }] = await Promise.all([
         supabase.from('platform_settings').select('value').eq('key', 'dispatch_restaurant_assignment_enabled').maybeSingle(),
-        supabase.from('riders').select('id, name, zone').eq('status', 'online').eq('approval_status', 'approved').eq('verification_fee_paid', true).eq('waiver_completed', true).eq('dispatch_disabled', false),
+        ridersQuery,
       ]);
       setAssignmentEnabled(settings?.value === true || settings?.value === 'true');
       setEligibleRiders((riders ?? []) as { id: string; name: string; zone: string | null }[]);
