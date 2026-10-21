@@ -36,8 +36,9 @@ export async function middleware(req: NextRequest) {
   const isRestaurantDashboardRoute = pathname.startsWith(RESTAURANT_DASHBOARD_BASE);
   const isRestaurantOnboardingRoute = pathname.startsWith(RESTAURANT_ONBOARDING_BASE);
   const isRiderDashboardRoute = pathname.startsWith(RIDER_DASHBOARD_BASE);
+  const isCustomerOrderRoute = pathname.startsWith('/order');
 
-  if (!isAdminRoute && !isRestaurantDashboardRoute && !isRestaurantOnboardingRoute && !isRiderDashboardRoute) {
+  if (!isAdminRoute && !isRestaurantDashboardRoute && !isRestaurantOnboardingRoute && !isRiderDashboardRoute && !isCustomerOrderRoute) {
     return NextResponse.next();
   }
 
@@ -134,5 +135,7 @@ export const config = {
     '/restaurant-portal/dashboard/:path*',
     '/restaurant-portal/onboarding/:path*',
     '/rider-portal/dashboard/:path*',
+    // Refresh Supabase SSR auth cookies on customer order pages too.
+    '/order/:path*',
   ],
 };
