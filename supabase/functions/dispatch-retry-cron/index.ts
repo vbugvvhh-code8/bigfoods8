@@ -2,7 +2,6 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { areAllServiceAreasActive, isCanonicalActiveServiceArea, type ServiceLocation } from "../_shared/service-area.ts";
 
-const CRON_SECRET = Deno.env.get("CRON_SECRET");
 const FROM_ADDRESS = "BigFoods <onboarding@opticsview.store>";
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
@@ -16,9 +15,17 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
 }
 
 Deno.serve(async (req) => {
-  if (!CRON_SECRET || req.headers.get("x-cron-secret") !== CRON_SECRET) return json({ error: "unauthorized" }, 401);
+  const providedSecret = req.headers.get("x-cron-secret");
+  if (!providedSecret) return json({ error: "unauthorized" }, 401);
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  // The secret lives in Supabase Vault; a service-role-only RPC compares it
+  // without returning the stored value to this function or any client.
+  const { data: authorized, error: authError } = await admin.rpc("verify_dispatch_cron_secret", {
+    p_presented_secret: providedSecret,
+  });
+  if (authError || authorized !== true) return json({ error: "unauthorized" }, 401);
+
   const { data: serviceLocations, error: serviceLocationsError } = await admin
     .from("locations").select("state, lga, is_active");
   if (serviceLocationsError || !serviceLocations) {
