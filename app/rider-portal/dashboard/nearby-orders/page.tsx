@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/admin/layout/PageHeader';
 import getBrowserSupabase from '@/lib/supabase/client';
@@ -13,6 +13,8 @@ export default function NearbyOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const swipeStart = useRef<number | null>(null);
+  const [swipeProgress, setSwipeProgress] = useState<Record<string, number>>({});
   const router = useRouter();
   const supabase = getBrowserSupabase();
 
@@ -51,7 +53,25 @@ export default function NearbyOrdersPage() {
       offers.map(offer => <div key={offer.offer_id} className="rounded-2xl p-4 space-y-3" style={{ border: '1px solid var(--line)' }}>
         <div className="flex justify-between gap-3"><div><p className="font-semibold">Order {offer.order_id.slice(0, 8)}</p><p className="text-sm">{offer.zone ?? rider.zone ?? 'Service area'}</p><p className="text-xs opacity-70">{offer.status === 'accepted' ? 'Accepted' : 'Offer available'}</p></div><p className="font-semibold">₦{Number(offer.delivery_fee ?? 0).toLocaleString()}</p></div>
         <p className="text-sm">{offer.status === 'accepted' ? offer.delivery_address ?? 'Open delivery details for destination' : 'Delivery address is shared after acceptance.'}</p>
-        {offer.status === 'offered' && <div className="flex gap-2"><button disabled={!!busy} onClick={() => void respond(offer.order_id, false)} className="flex-1 rounded-lg border p-2 text-sm disabled:opacity-50">{busy === offer.order_id ? 'Working…' : 'Reject'}</button><button disabled={!!busy || rider.status !== 'online'} onClick={() => void respond(offer.order_id, true)} className="flex-1 rounded-lg p-2 text-sm text-white disabled:opacity-50" style={{ background: 'var(--orange)' }}>{busy === offer.order_id ? 'Working…' : 'Accept'}</button></div>}
+        {offer.status === 'offered' && <div className="space-y-3">
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Swipe to accept order and open pickup map"
+            onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !busy && rider.status === 'online') void respond(offer.order_id, true); }}
+            onPointerDown={e => { if (busy || rider.status !== 'online') return; swipeStart.current = e.clientX; e.currentTarget.setPointerCapture(e.pointerId); }}
+            onPointerMove={e => { if (swipeStart.current === null) return; const progress = Math.max(0, Math.min(100, ((e.clientX - swipeStart.current) / Math.max(1, e.currentTarget.clientWidth)) * 100)); setSwipeProgress(s => ({ ...s, [offer.order_id]: progress })); }}
+            onPointerUp={() => { const progress = swipeProgress[offer.order_id] ?? 0; swipeStart.current = null; setSwipeProgress(s => ({ ...s, [offer.order_id]: 0 })); if (progress >= 65 && !busy && rider.status === 'online') void respond(offer.order_id, true); }}
+            onPointerCancel={() => { swipeStart.current = null; setSwipeProgress(s => ({ ...s, [offer.order_id]: 0 })); }}
+            className="relative flex h-14 touch-pan-y select-none items-center overflow-hidden rounded-full px-2 text-sm font-semibold text-white"
+            style={{ background: '#242424', opacity: busy || rider.status !== 'online' ? 0.55 : 1 }}
+          >
+            <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: (swipeProgress[offer.order_id] ?? 0) + '%', background: 'var(--orange)', opacity: 0.75 }} />
+            <span className="relative z-10 flex h-10 w-10 items-center justify-center rounded-full text-lg text-white" style={{ background: 'var(--orange)', transform: `translateX(${Math.max(0, ((swipeProgress[offer.order_id] ?? 0) / 100) * 180)}px)`, transition: swipeStart.current === null ? 'transform 180ms ease' : 'none' }}>➜</span>
+            <span className="relative z-10 ml-3 flex-1 text-center pr-10">{busy === offer.order_id ? 'Accepting…' : 'Swipe to Accept Order'}</span>
+          </div>
+          <button disabled={!!busy} onClick={() => void respond(offer.order_id, false)} className="w-full rounded-lg border p-2 text-sm disabled:opacity-50">{busy === offer.order_id ? 'Working…' : 'Reject order'}</button>
+        </div>}
         {offer.status === 'accepted' && <button onClick={() => router.push('/rider-portal/dashboard/delivery/' + offer.order_id)} className="w-full rounded-lg p-2 text-sm text-white" style={{ background: 'var(--orange)' }}>Open delivery</button>}
       </div>)}
   </div>;
