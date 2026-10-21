@@ -79,7 +79,6 @@ async function createRiderOffersForOrder(admin: ReturnType<typeof createClient>,
     .select("id")
     .eq("status", "online")
     .eq("approval_status", "approved")
-    .eq("verification_fee_paid", true)
     .eq("waiver_completed", true)
     .eq("dispatch_disabled", false)
     .eq("zone", order.zone);
