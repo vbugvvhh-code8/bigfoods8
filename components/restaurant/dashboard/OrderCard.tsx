@@ -42,8 +42,8 @@ export default function OrderCard({
   async function handleAssignRider() {
     if (!selectedRider) return;
     setBusy(true); setAssignmentMessage('');
-    const { data, error } = await getBrowserSupabase().rpc('dispatch_assign_rider', { p_order_id: order.id, p_rider_id: selectedRider });
-    if (error || !data?.ok) setAssignmentMessage(data?.error ?? error?.message ?? 'Could not assign rider.');
+    const { data, error } = await getBrowserSupabase().functions.invoke('dispatch-marketplace', { body: { action: 'assign_rider', restaurant_order_id: order.id, rider_id: selectedRider } });
+    if (error || data?.error || !data?.ok) setAssignmentMessage(data?.error ?? error?.message ?? 'Could not assign rider.');
     else { setAssignmentMessage('Rider assigned. Refresh orders to see the assignment.'); setAssignmentEnabled(false); }
     setBusy(false);
   }
