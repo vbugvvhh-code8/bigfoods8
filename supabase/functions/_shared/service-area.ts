@@ -9,17 +9,45 @@ export type RestaurantServiceArea = {
   zone?: string | null;
 };
 
+function countLgaNames(locations: readonly ServiceLocation[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const location of locations) {
+    counts.set(location.lga, (counts.get(location.lga) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function zoneKeyForLocation(
+  state: string,
+  lga: string,
+  lgaCounts: ReadonlyMap<string, number>,
+): string {
+  return (lgaCounts.get(lga) ?? 0) > 1 ? `${lga} (${state})` : lga;
+}
+
 /** Return the canonical stored zone for a state/LGA pair, or undefined if absent. */
 export function canonicalZoneKey(
   state: string,
   lga: string,
   locations: readonly ServiceLocation[],
 ): string | undefined {
-  const matching = locations.filter((location) => location.state === state && location.lga === lga);
-  if (matching.length !== 1) return undefined;
+  const matchingCount = locations.filter((location) => location.state === state && location.lga === lga).length;
+  if (matchingCount !== 1) return undefined;
+  return zoneKeyForLocation(state, lga, countLgaNames(locations));
+}
 
-  const sameLgaCount = locations.filter((location) => location.lga === lga).length;
-  return sameLgaCount > 1 ? `${lga} (${state})` : lga;
+function isActiveAreaWithCounts(
+  state: string | null | undefined,
+  zone: string | null | undefined,
+  locations: readonly ServiceLocation[],
+  lgaCounts: ReadonlyMap<string, number>,
+): boolean {
+  if (!state || !zone) return false;
+  return locations.some((location) =>
+    location.state === state &&
+    zoneKeyForLocation(location.state, location.lga, lgaCounts) === zone &&
+    location.is_active === true
+  );
 }
 
 /** Validate a restaurant state + stored zone against the canonical key and active flag. */
@@ -28,12 +56,7 @@ export function isCanonicalActiveServiceArea(
   zone: string | null | undefined,
   locations: readonly ServiceLocation[],
 ): boolean {
-  if (!state || !zone) return false;
-  return locations.some((location) =>
-    location.state === state &&
-    canonicalZoneKey(location.state, location.lga, locations) === zone &&
-    location.is_active === true
-  );
+  return isActiveAreaWithCounts(state, zone, locations, countLgaNames(locations));
 }
 
 /** Validate a rider's stored zone without guessing a state from an ambiguous LGA. */
@@ -42,8 +65,9 @@ export function isCanonicalActiveZone(
   locations: readonly ServiceLocation[],
 ): boolean {
   if (!zone) return false;
+  const lgaCounts = countLgaNames(locations);
   return locations.some((location) =>
-    canonicalZoneKey(location.state, location.lga, locations) === zone &&
+    zoneKeyForLocation(location.state, location.lga, lgaCounts) === zone &&
     location.is_active === true
   );
 }
@@ -53,7 +77,9 @@ export function areAllServiceAreasActive(
   restaurants: readonly RestaurantServiceArea[],
   locations: readonly ServiceLocation[],
 ): boolean {
-  return restaurants.length > 0 && restaurants.every((restaurant) =>
-    isCanonicalActiveServiceArea(restaurant.state, restaurant.zone, locations)
+  if (restaurants.length === 0) return false;
+  const lgaCounts = countLgaNames(locations);
+  return restaurants.every((restaurant) =>
+    isActiveAreaWithCounts(restaurant.state, restaurant.zone, locations, lgaCounts)
   );
 }
