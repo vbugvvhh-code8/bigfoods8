@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isCanonicalActiveServiceArea } from "../_shared/service-area.ts";
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
   const R = 6371;
@@ -47,16 +48,20 @@ Deno.serve(async (req: Request) => {
     if (!restaurant.state || !restaurant.zone) {
       return json({ error: "Restaurant service area is not configured" }, 400);
     }
-    const { data: serviceLocations, error: locationError } = await supabase
+    // Use the service-role client only for this server-side coverage check so
+    // duplicate LGA names are evaluated across active and inactive locations.
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    const { data: serviceLocations, error: locationError } = await admin
       .from("locations")
       .select("state, lga, is_active");
-    if (locationError) return json({ error: "Unable to verify service coverage" }, 503);
-    const matchingLocation = (serviceLocations ?? []).find((location: any) =>
-      location.state === restaurant.state &&
-      (restaurant.zone === location.lga || restaurant.zone === `${location.lga} (${location.state})`)
-    );
-    if (!matchingLocation || !matchingLocation.is_active) {
-      return json({ error: "This restaurant's delivery area is not currently active" }, 400);
+    if (locationError || !serviceLocations) {
+      return json({ error: "Unable to verify service coverage" }, 503);
+    }
+    if (!isCanonicalActiveServiceArea(restaurant.state, restaurant.zone, serviceLocations)) {
+      return json({ error: "This restaurant's delivery area is not currently active or uses an invalid zone key" }, 400);
     }
 
     if (restaurant.latitude == null || restaurant.longitude == null) {
