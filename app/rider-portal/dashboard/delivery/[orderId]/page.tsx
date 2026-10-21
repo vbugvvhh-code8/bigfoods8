@@ -84,16 +84,30 @@ export default function DeliveryDetailPage() {
         {stage === 'to_pickup' ? restaurant?.name ?? 'Restaurant' : customer?.full_name ?? 'Customer'}
       </h2>
 
-      <div className="rounded-[10px] p-3.5 mb-3" style={{ border: '1px solid var(--line)' }}>
-        <p className="text-[12px] mb-2" style={{ color: 'var(--ink)' }}>{destAddress ?? 'Address not available'}</p>
-        <a
-          href={mapsUrl(destLat, destLng, destAddress)}
-          target="_blank" rel="noreferrer"
-          className="text-[11.5px] font-semibold"
-          style={{ color: 'var(--orange)' }}
-        >
-          Open in Maps →
-        </a>
+      <div className="overflow-hidden rounded-[14px] mb-3" style={{ border: '1px solid var(--line)', background: '#f5f5f5' }}>
+        {destLat != null && destLng != null || destAddress ? (
+          <iframe
+            title={stage === 'to_pickup' ? 'Map to restaurant pickup' : 'Map to customer drop-off'}
+            src={`https://maps.google.com/maps?q=${encodeURIComponent(destLat != null && destLng != null ? `${destLat},${destLng}` : destAddress ?? '')}&output=embed`}
+            className="h-[250px] w-full border-0"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            allowFullScreen
+          />
+        ) : (
+          <div className="flex h-[250px] items-center justify-center px-5 text-center text-sm text-gray-600">Map unavailable because this destination has no address or coordinates yet.</div>
+        )}
+        <div className="p-3.5">
+          <p className="text-[12px] mb-3" style={{ color: 'var(--ink)' }}>{destAddress ?? (destLat != null && destLng != null ? `${destLat}, ${destLng}` : 'Address not available')}</p>
+          <a
+            href={mapsUrl(destLat, destLng, destAddress)}
+            target="_blank" rel="noreferrer"
+            className="flex w-full items-center justify-center rounded-full py-3 text-[12.5px] font-semibold text-white"
+            style={{ background: 'var(--orange)' }}
+          >
+            Navigate to {stage === 'to_pickup' ? 'pickup' : 'customer'} in Maps →
+          </a>
+        </div>
       </div>
 
       {stage === 'to_dropoff' && customer?.phone && (
