@@ -6,28 +6,36 @@ This branch reconciles the exact deployed source for the three affected Edge Fun
 
 ## Changes in this branch
 
+- `supabase/functions/_shared/service-area.ts`
+  - Centralizes canonical zone key generation and active-area validation.
+  - Rejects unqualified zone keys when an LGA name exists in multiple states.
+  - Checks every restaurant in a multi-restaurant batch; an empty or incomplete batch is ineligible.
+- `supabase/functions/_shared/service-area.test.ts`
+  - Tests active/inactive areas, unknown values, duplicate LGA names, missing rider zones, and mixed-area batches.
 - `supabase/functions/create-order/index.ts`
   - Includes the restaurant's state in the lookup.
-  - Checks its canonical zone against `public.locations` and requires the matching state/LGA row to be active before creating an order.
-  - Returns a client-safe error for inactive or unconfigured coverage and fails closed if the coverage lookup errors.
+  - Uses a server-side service-role read of the full locations list so inactive rows and duplicate LGA names are included in validation.
+  - Requires the canonical state/LGA zone key to be active before creating an order; fails closed on lookup errors.
 - `supabase/functions/rider-onboarding-save/index.ts`
-  - Validates any supplied rider zone against the admin-controlled active location list.
-  - Uses the same duplicate-LGA zone key convention as `lib/nigeriaLocations.ts` (for example, `Surulere (Lagos)`).
-  - Rejects inactive, unknown, or ambiguous/unconfigured values and fails closed if the coverage lookup errors.
+  - Validates any supplied rider zone against the admin-controlled active location list using the shared canonical-zone helper.
+  - Rejects inactive, unknown, missing, or ambiguous/unconfigured values and fails closed if the coverage lookup errors.
 - `supabase/functions/dispatch-retry-cron/index.ts`
   - Replaces the source-embedded cron secret with `Deno.env.get("CRON_SECRET")`.
   - Fails closed if the secret is missing or the request header does not match.
-  - Rechecks active coverage before rider assignment for both single orders and multi-restaurant batches.
+  - Loads the complete locations list once per cron invocation and rechecks canonical active coverage before dispatching a single order or batch.
   - Leaves orders/batches in their current state when coverage is inactive; it does not silently cancel or rewrite paid orders.
+- `.github/workflows/active-service-area-checks.yml`
+  - Runs Deno type checks for all three functions and the shared module, plus the service-area unit tests.
 
 ## Required release steps (not performed)
 
-1. Review the branch diff and run TypeScript/Deno checks in CI or a local Supabase Functions environment.
-2. Configure a new `CRON_SECRET` Supabase Edge Function secret and update the scheduler to send that new value in `x-cron-secret`. The previous embedded value must be considered compromised and rotated. Do not deploy the cron function until the secret and scheduler are coordinated.
-3. Deploy the three functions to a non-production/test environment first, if available.
-4. Test: active area accepts onboarding and order creation; inactive area rejects both; duplicate LGA names resolve by state; lookup errors fail closed; dispatch retry does not assign riders in inactive areas; already-paid orders remain intact.
-5. Verify existing clients send canonical zone values and inspect the current restaurant/rider records for any invalid zone keys before production rollout.
-6. Only after verification, request explicit production deployment approval.
+1. Review the branch diff and confirm the GitHub Actions Deno type-check and unit-test workflow is green.
+2. Configure a new `CRON_SECRET` Edge Function secret and update the scheduler to send that exact value in `x-cron-secret`. The previous embedded value must be considered compromised and rotated. Do not deploy the cron function until the secret and scheduler are coordinated.
+3. The scheduler currently contains the existing secret inline; remove that literal during the coordinated rotation so it is never kept in the cron command.
+4. Deploy the three functions to a non-production/test environment first, if available.
+5. Test: active area accepts onboarding and order creation; inactive area rejects both; duplicate LGA names resolve by state; lookup errors fail closed; dispatch retry does not assign riders in inactive areas; already-paid orders remain intact.
+6. Verify existing clients send canonical zone values and inspect the current restaurant/rider records for any invalid zone keys before production rollout.
+7. Only after verification, request explicit production deployment approval.
 
 ## Important data-model note
 
@@ -41,3 +49,18 @@ The current `riders` table stores a zone key but no separate state/location ID. 
 - Anambra / Onitsha South
 
 This list reflects the live database at the time of review and is not hard-coded into the functions.
+
+## Read-only compatibility audit
+
+A read-only audit of the live database found:
+
+- 14 restaurant records: all 14 use canonical state/zone keys; 10 are in active service areas and 4 are in inactive areas.
+- 3 restaurants are currently accepting orders outside active coverage: Mama ngozi (Anambra / Anambra East), Bidwish Kitchen (Anambra / Anaocha), and Mma (Ebonyi / Ikwo). This branch rejects new order creation for these areas, but the existing records and accepting flags were not changed.
+- 28 rider records: 3 have a missing zone, 11 use an active area, and 14 use inactive areas. The remaining count corresponds to those three missing-zone records; no unknown or ambiguous zone strings were found in the canonical comparison.
+- No production restaurant or rider records were changed during this audit.
+
+## Validation run
+
+GitHub Actions run for this branch: https://github.com/vbugvvhh-code8/bigfoods8/actions/workflows/active-service-area-checks.yml
+
+The latest successful run validates the three Edge Functions and shared service-area module, then runs the shared unit tests. These tests cover deterministic zone rules and batch eligibility; they do not replace endpoint-level integration tests against a test Supabase project.
