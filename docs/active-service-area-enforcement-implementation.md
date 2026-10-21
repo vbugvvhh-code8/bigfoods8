@@ -20,22 +20,25 @@ This branch reconciles the exact deployed source for the three affected Edge Fun
   - Validates any supplied rider zone against the admin-controlled active location list using the shared canonical-zone helper.
   - Rejects inactive, unknown, missing, or ambiguous/unconfigured values and fails closed if the coverage lookup errors.
 - `supabase/functions/dispatch-retry-cron/index.ts`
-  - Replaces the source-embedded cron secret with `Deno.env.get("CRON_SECRET")`.
-  - Fails closed if the secret is missing or the request header does not match.
+  - Validates the scheduler header through a service-role-only RPC backed by Supabase Vault, so neither the Edge Function source nor `cron.job.command` needs to contain the secret.
+  - Fails closed if the header is missing, the secret does not match, or coverage cannot be read.
   - Loads the complete locations list once per cron invocation and rechecks canonical active coverage before dispatching a single order or batch.
   - Leaves orders/batches in their current state when coverage is inactive; it does not silently cancel or rewrite paid orders.
+- `supabase/migrations/20261021143000_secure_dispatch_cron_secret.sql`
+  - Generates a 256-bit random scheduler secret inside PostgreSQL, stores it in Vault, and creates a boolean-only verifier RPC.
+  - Grants that verifier only to `service_role`; it never returns the secret.
 - `.github/workflows/active-service-area-checks.yml`
   - Runs Deno type checks for all three functions and the shared module, plus the service-area unit tests.
 
 ## Required release steps (not performed)
 
 1. Review the branch diff and confirm the GitHub Actions Deno type-check and unit-test workflow is green.
-2. Configure a new `CRON_SECRET` Edge Function secret and update the scheduler to send that exact value in `x-cron-secret`. The previous embedded value must be considered compromised and rotated. Do not deploy the cron function until the secret and scheduler are coordinated.
-3. The scheduler currently contains the existing secret inline; remove that literal during the coordinated rotation so it is never kept in the cron command.
-4. Deploy the three functions to a non-production/test environment first, if available.
-5. Test: active area accepts onboarding and order creation; inactive area rejects both; duplicate LGA names resolve by state; lookup errors fail closed; dispatch retry does not assign riders in inactive areas; already-paid orders remain intact.
-6. Verify existing clients send canonical zone values and inspect the current restaurant/rider records for any invalid zone keys before production rollout.
-7. Only after verification, request explicit production deployment approval.
+2. Apply the Vault-backed cron-secret migration before deploying the cron function.
+3. Pause the every-minute dispatch cron job for the short cutover window; deploy the updated function; update the job to read `x-cron-secret` from `vault.decrypted_secrets`; then reactivate the job. Do not expose or copy the Vault value into source code or the scheduler command.
+4. Verify the scheduler's next execution succeeds and that a missing/wrong header is rejected. The previous inline secret is treated as compromised and must be removed from the scheduler command.
+5. Deploy `create-order` and `rider-onboarding-save` with the shared helper included.
+6. Test: active area accepts onboarding and order creation; inactive area rejects both; duplicate LGA names resolve by state; lookup errors fail closed; dispatch retry does not assign riders in inactive areas; already-paid orders remain intact.
+7. Verify existing clients send canonical zone values and inspect the current restaurant/rider records for any invalid zone keys before production rollout.
 
 ## Important data-model note
 
