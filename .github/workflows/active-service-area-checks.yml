@@ -16,6 +16,7 @@ on:
       - "supabase/functions/create-order/**"
       - "supabase/functions/rider-onboarding-save/**"
       - "supabase/functions/dispatch-retry-cron/**"
+      - "supabase/functions/_shared/**"
       - ".github/workflows/active-service-area-checks.yml"
 
 jobs:
