@@ -73,7 +73,9 @@ export function useRestaurants(options?: {
 export function useRestaurant(id: string, customerLat?: number, customerLng?: number) {
   const supabase = getBrowserSupabase();
 
-  const {data, isLoading, error} = useSWR(['restaurant', id], async () => {
+  // A multi-restaurant cart has no single restaurant ID. Do not issue a REST
+  // request with id=eq. in that state; Supabase returns HTTP 400 and SWR retries it.
+  const {data, isLoading, error} = useSWR(id ? ['restaurant', id] : null, async () => {
     const {data, error} = await supabase.from('restaurants').select('*').eq('id', id).eq('approval_status', 'approved').single();
     if (error) throw error;
     return data as Restaurant;
