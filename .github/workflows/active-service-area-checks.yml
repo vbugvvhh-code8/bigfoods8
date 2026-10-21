@@ -6,6 +6,7 @@ on:
       - "supabase/functions/create-order/**"
       - "supabase/functions/rider-onboarding-save/**"
       - "supabase/functions/dispatch-retry-cron/**"
+      - "supabase/functions/_shared/**"
       - ".github/workflows/active-service-area-checks.yml"
   push:
     branches:
@@ -29,8 +30,12 @@ jobs:
         with:
           deno-version: v2.x
       - name: Check create-order
-        run: deno check supabase/functions/create-order/index.ts
+        run: deno check --node-modules-dir=auto supabase/functions/create-order/index.ts
       - name: Check rider-onboarding-save
-        run: deno check supabase/functions/rider-onboarding-save/index.ts
+        run: deno check --node-modules-dir=auto supabase/functions/rider-onboarding-save/index.ts
       - name: Check dispatch-retry-cron
-        run: deno check supabase/functions/dispatch-retry-cron/index.ts
+        run: deno check --node-modules-dir=auto supabase/functions/dispatch-retry-cron/index.ts
+      - name: Check shared service-area module
+        run: deno check --node-modules-dir=auto supabase/functions/_shared/service-area.ts
+      - name: Test active service-area rules
+        run: deno test --node-modules-dir=auto supabase/functions/_shared/service-area.test.ts
