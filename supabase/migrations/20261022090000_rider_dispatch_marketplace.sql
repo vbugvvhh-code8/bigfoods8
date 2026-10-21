@@ -122,7 +122,7 @@ BEGIN
   IF NOT COALESCE(v_offers_enabled, true) THEN RETURN; END IF;
 
   RETURN QUERY
-  SELECT o.id, o.id, o.zone, ofr.status, ofr.offered_at,
+  SELECT ofr.id, o.id, o.zone, ofr.status, ofr.offered_at,
          o.delivery_address, o.delivery_lat, o.delivery_lng, o.delivery_fee
   FROM public.rider_order_offers ofr
   JOIN public.orders o ON o.id = ofr.order_id
