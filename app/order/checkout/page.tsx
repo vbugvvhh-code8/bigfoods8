@@ -4,7 +4,7 @@ import {useState, useMemo} from 'react';
 import {useRouter} from 'next/navigation';
 import {ArrowLeft} from 'lucide-react';
 import {useCart} from '@/hooks/useCart';
-import {useRestaurant} from '@/hooks/useRestaurants';
+import {useRestaurant, useRestaurants} from '@/hooks/useRestaurants';
 import {useCheckout} from '@/hooks/useCheckout';
 import usePricingConfig from '@/hooks/usePricingConfig';
 import {haversineKm} from '@/lib/customer/distance';
@@ -30,7 +30,12 @@ function CheckoutContent() {
   // clustering for 3+ restaurants) is computed server-side at payment init.
   // This is here purely so the customer sees a believable total before paying.
   const {restaurant: singleRestaurant} = useRestaurant(!isMultiRestaurant ? groups[0]?.restaurantId ?? '' : '');
-  const restaurantResults = groups.map((g) => useRestaurant(g.restaurantId));
+  // Hooks must never be called inside a map: cart edits change the number of groups,
+  // which caused React error #300 when removing the last item from a restaurant.
+  const {restaurants: availableRestaurants} = useRestaurants();
+  const restaurantResults = groups.map((group) => ({
+    restaurant: availableRestaurants.find((restaurant) => restaurant.id === group.restaurantId),
+  }));
 
   const minDeliveryFee = prices.minimum_delivery_fee ?? 1000;
   const platformFee = (prices.platform_fee ?? 500) * groups.length;
