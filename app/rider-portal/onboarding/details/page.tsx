@@ -22,7 +22,9 @@ export default function RiderDetailsPage() {
     <DetailsForm
       draft={draft}
       updateDraft={updateDraft}
-      onContinue={() => router.push('/rider-portal/onboarding/documents')}
+      // A full navigation makes the next step re-read the saved rider row,
+      // avoiding a stale client-side onboarding step leaving the form in place.
+      onContinue={() => { window.location.assign('/rider-portal/onboarding/documents'); }}
     />
   );
 }
