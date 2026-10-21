@@ -81,12 +81,43 @@ Deno.serve(async (req: Request) => {
     if (action === "assign_rider") {
       if (!isAdmin && typeof body?.restaurant_order_id !== "string") return json({ error: "Administrator access required" }, 403);
       const orderId = isAdmin ? body?.order_id : body?.restaurant_order_id;
-      if (typeof orderId !== "string" || typeof body?.rider_id !== "string") return json({ error: "Order and rider are required" }, 400);
-      // The SQL assignment RPC performs ownership, setting, payment, eligibility, and zone checks.
-      const { data, error } = await userClient.rpc("dispatch_assign_rider", { p_order_id: orderId, p_rider_id: body.rider_id });
-      if (error) return json({ error: "Could not assign rider" }, 500);
+      const riderId = body?.rider_id;
+      if (typeof orderId !== "string" || typeof riderId !== "string") return json({ error: "Order and rider are required" }, 400);
+
+      // Admin assignments are validated and written through the service client so
+      // the UI does not depend on a browser-session RPC role check succeeding.
+      // Restaurant owners continue through the database RPC, which verifies ownership.
+      if (isAdmin) {
+        const [{ data: order, error: orderError }, { data: rider, error: riderError }] = await Promise.all([
+          admin.from("orders").select("id,zone,status,payment_status,rider_id").eq("id", orderId).maybeSingle(),
+          admin.from("riders").select("id,zone,status,approval_status,waiver_completed,dispatch_disabled").eq("id", riderId).maybeSingle(),
+        ]);
+        if (orderError || riderError) return json({ error: "Could not verify order and rider eligibility" }, 500);
+        if (!order) return json({ error: "Order not found" }, 404);
+        if (order.rider_id) return json({ error: "This order already has a rider assigned" }, 409);
+        if (order.payment_status !== "paid" || !["placed", "preparing"].includes(order.status)) {
+          return json({ error: "Only paid orders in placed or preparing status can be assigned" }, 409);
+        }
+        if (!rider) return json({ error: "Rider not found" }, 404);
+        if (rider.status !== "online" || rider.approval_status !== "approved" || !rider.waiver_completed || rider.dispatch_disabled) {
+          return json({ error: "Choose an online, approved, waiver-complete rider with dispatch access enabled" }, 409);
+        }
+        if (!order.zone || !rider.zone || order.zone.trim().toLowerCase() !== rider.zone.trim().toLowerCase()) {
+          return json({ error: "The rider must be in the same service zone as the order" }, 409);
+        }
+        const { data: updated, error: updateError } = await admin.from("orders")
+          .update({ rider_id: riderId })
+          .eq("id", orderId).is("rider_id", null)
+          .select("id,rider_id").maybeSingle();
+        if (updateError) return json({ error: "Database could not save the rider assignment" }, 500);
+        if (!updated) return json({ error: "Another dispatcher assigned this order. Refresh and try again." }, 409);
+        return json({ ok: true, order_id: orderId, rider_id: riderId });
+      }
+
+      const { data, error } = await userClient.rpc("dispatch_assign_rider", { p_order_id: orderId, p_rider_id: riderId });
+      if (error) return json({ error: error.message || "Could not assign rider" }, 500);
       if (!data?.ok) return json({ error: data?.error ?? "Assignment failed" }, 409);
-      return json({ ok: true, order_id: orderId, rider_id: body.rider_id });
+      return json({ ok: true, order_id: orderId, rider_id: riderId });
     }
 
     if (action === "set_setting") {
