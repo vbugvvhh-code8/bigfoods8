@@ -86,7 +86,7 @@ export default function OrderCard({
         ₦{Number(order.subtotal).toLocaleString()} · {order.delivery_address ?? 'No address on file'}
       </p>
 
-      {!order.rider && assignmentEnabled && ['placed', 'preparing'].includes(order.status) && (
+      {!order.rider && assignmentEnabled && order.payment_status === 'paid' && ['placed', 'preparing'].includes(order.status) && (
         <div className="mt-2 space-y-2">
           <div className="flex gap-2">
             <select aria-label="Assign rider" value={selectedRider} onChange={e => setSelectedRider(e.target.value)} className="min-w-0 flex-1 rounded-lg border p-2 text-xs" style={{ borderColor: 'var(--line)' }}>
