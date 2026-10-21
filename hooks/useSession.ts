@@ -1,74 +1,97 @@
 'use client';
 
-import useSWR from 'swr';
 import { useEffect, useState } from 'react';
 import getBrowserSupabase from '../lib/supabase/client';
+import type { User } from '@supabase/supabase-js';
+
+type Profile = {
+  id: string;
+  role: string | null;
+  full_name: string | null;
+  phone: string | null;
+  status: string | null;
+  state: string | null;
+  lga: string | null;
+  created_at: string | null;
+};
 
 export default function useSession() {
   const supabase = getBrowserSupabase();
-
-  const { data: user, error, mutate } = useSWR('supabase-session', async () => {
-    // Use getUser() instead of getSession() to ensure the user is validated
-    const { data, error: userErr } = await supabase.auth.getUser();
-    if (userErr) throw userErr;
-    return data.user ?? null;
-  });
-
-  const [profile, setProfile] = useState<any | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     let mounted = true;
+    let profileRequest = 0;
 
-    async function load() {
-      setLoading(true);
-      try {
-        if (!user) {
+    async function loadProfile(nextUser: User | null) {
+      const request = ++profileRequest;
+      if (!nextUser) {
+        if (mounted) {
           setProfile(null);
           setIsAdmin(false);
-          return;
         }
+        return;
+      }
 
+      try {
         const { data: profData, error: profErr } = await supabase
           .from('profiles')
           .select('id, role, full_name, phone, status, state, lga, created_at')
-          .eq('id', user.id)
-          .single();
+          .eq('id', nextUser.id)
+          .maybeSingle();
 
-        if (profErr && (profErr as any).code !== 'PGRST116') {
-          // surface real errors, ignore simple not-found
-          throw profErr;
-        }
+        if (profErr) throw profErr;
+        const { data: adminData, error: adminErr } = await supabase.rpc('is_admin');
+        if (adminErr) console.warn('Could not resolve admin role', adminErr);
 
-        const { data: adminData } = await supabase.rpc('is_admin');
-
-        if (!mounted) return;
-
+        if (!mounted || request !== profileRequest) return;
         setProfile(profData ?? null);
         setIsAdmin(!!adminData);
       } catch (e) {
-        console.error('useSession error', e);
-      } finally {
-        if (mounted) setLoading(false);
+        if (!mounted || request !== profileRequest) return;
+        // A profile/RPC network error must not erase a valid auth session.
+        setError(e instanceof Error ? e : new Error('Could not load your profile.'));
       }
     }
 
-    load();
+    // Subscribe before reading the stored session to avoid missing an auth
+    // change between initial hydration and the first session read.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      const nextUser = session?.user ?? null;
+      setUser(nextUser);
+      setError(null);
+      setLoading(false);
+      void loadProfile(nextUser);
+    });
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      // Revalidate SWR key and reload profile/role
-      mutate();
-      load();
+    void supabase.auth.getSession().then(({ data, error: sessionError }) => {
+      if (!mounted) return;
+      if (sessionError) {
+        // A transient session-read error is not proof the customer signed out.
+        setError(sessionError);
+        setLoading(false);
+        return;
+      }
+      const nextUser = data.session?.user ?? null;
+      setUser((current) => current ?? nextUser);
+      setLoading(false);
+      void loadProfile(nextUser);
+    }).catch((e) => {
+      if (!mounted) return;
+      setError(e instanceof Error ? e : new Error('Could not restore your session.'));
+      setLoading(false);
     });
 
     return () => {
       mounted = false;
-      subscription?.unsubscribe();
+      subscription.unsubscribe();
     };
-  }, [user, mutate, supabase]);
+  }, [supabase]);
 
-  return { user: user ?? null, profile, isAdmin, loading, error };
+  return { user, profile, isAdmin, loading, error };
 }
