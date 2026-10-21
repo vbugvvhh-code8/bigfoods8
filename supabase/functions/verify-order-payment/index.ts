@@ -93,30 +93,28 @@ async function createRiderOffersForOrder(admin: ReturnType<typeof createClient>,
 }
 
 async function dispatchSingleOrder(admin: ReturnType<typeof createClient>, orderId: string) {
-  // Checkout creates a cancelled placeholder only to keep pending payments
-  // out of active order lists. Verified payment activates that placeholder.
-  // Never revive an order with an explicit cancellation audit trail.
   const { data: order, error: loadError } = await admin
     .from("orders")
-    .select("id, status, cancelled_at, cancelled_by")
+    .select("id, status, cancelled_at, cancelled_by, payment_status")
     .eq("id", orderId)
     .single();
   if (loadError || !order) throw loadError ?? new Error("Order not found");
+
+  // Do not mutate a genuine cancellation or recreate offers for one, even if
+  // a later payment verification callback is replayed.
+  const genuinelyCancelled = order.status === "cancelled"
+    && (!!order.cancelled_at || !!order.cancelled_by);
+  if (genuinelyCancelled) return;
 
   const patch: Record<string, unknown> = {
     payment_status: "paid",
     last_dispatch_attempt_at: new Date().toISOString(),
     dispatch_retry_count: 0,
   };
-  if (order.status === "cancelled" && !order.cancelled_at && !order.cancelled_by) {
-    patch.status = "placed";
-  }
+  if (order.status === "cancelled") patch.status = "placed";
 
   const { error: updateError } = await admin.from("orders").update(patch).eq("id", orderId);
   if (updateError) throw updateError;
-
-  // A genuinely cancelled order is not eligible for rider dispatch.
-  if (order.status === "cancelled" && (order.cancelled_at || order.cancelled_by)) return;
   await createRiderOffersForOrder(admin, orderId);
 }
 
