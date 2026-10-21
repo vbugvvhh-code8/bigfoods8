@@ -3,12 +3,9 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 // Rewritten to match the current architecture: initialize-order-payment now
 // creates the order (or order_group + delivery_batches for a multi-
-// restaurant cart) EAGERLY, in a payment_status='pending' state, before
-// payment happens -- this function's job is just to re-verify with
-// Paystack directly, flip payment_status to 'paid', and THEN run dispatch
-// (never before payment clears). It no longer creates orders from metadata
-// the way the original version did -- that approach predates the eager-
-// creation model and would double-insert / silently do nothing against it.
+// restaurant cart) eagerly, in a payment_status='pending' state, before
+// payment happens. This function verifies with Paystack, marks payment paid,
+// and runs dispatch only after provider confirmation.
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -96,12 +93,28 @@ async function createRiderOffersForOrder(admin: ReturnType<typeof createClient>,
 }
 
 async function dispatchSingleOrder(admin: ReturnType<typeof createClient>, orderId: string) {
-  // Offers are created only after Paystack verification has succeeded. Do not
-  // silently pre-assign the nearest rider: riders must accept their own offer.
-  const { error } = await admin.from("orders")
-    .update({ payment_status: "paid", last_dispatch_attempt_at: new Date().toISOString(), dispatch_retry_count: 0 })
-    .eq("id", orderId);
-  if (error) throw error;
+  const { data: order, error: loadError } = await admin
+    .from("orders")
+    .select("id, status, cancelled_at, cancelled_by, payment_status")
+    .eq("id", orderId)
+    .single();
+  if (loadError || !order) throw loadError ?? new Error("Order not found");
+
+  // Do not mutate a genuine cancellation or recreate offers for one, even if
+  // a later payment verification callback is replayed.
+  const genuinelyCancelled = order.status === "cancelled"
+    && (!!order.cancelled_at || !!order.cancelled_by);
+  if (genuinelyCancelled) return;
+
+  const patch: Record<string, unknown> = {
+    payment_status: "paid",
+    last_dispatch_attempt_at: new Date().toISOString(),
+    dispatch_retry_count: 0,
+  };
+  if (order.status === "cancelled") patch.status = "placed";
+
+  const { error: updateError } = await admin.from("orders").update(patch).eq("id", orderId);
+  if (updateError) throw updateError;
   await createRiderOffersForOrder(admin, orderId);
 }
 
@@ -129,7 +142,6 @@ Deno.serve(async (req: Request) => {
     if (!reference) return json({ error: "Missing reference" }, 400);
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-
     const { data: txn, error: txnError } = await admin
       .from("transactions")
       .select("*")
@@ -142,8 +154,6 @@ Deno.serve(async (req: Request) => {
     // Idempotent replay (customer hits back/refresh on the callback page).
     if (txn.status === "success") {
       if (txn.order_id) {
-        // Retry idempotent dispatch side effects if an earlier callback marked
-        // payment successful but failed before creating rider offers.
         await dispatchSingleOrder(admin, txn.order_id);
         const { data: existingOrder } = await admin.from("orders").select("delivery_code").eq("id", txn.order_id).single();
         return json({ success: true, order_id: txn.order_id, delivery_code: existingOrder?.delivery_code, already_processed: true });
