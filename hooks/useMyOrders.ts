@@ -25,6 +25,9 @@ export function useMyOrders() {
       const {data: orderRows, error: orderError} = await supabase
         .from('orders')
         .select('*')
+        // A checkout attempt is not an order until Paystack confirms payment.
+        // Exclude pending/failed payment attempts from the customer's order history.
+        .eq('payment_status', 'paid')
         .order('placed_at', {ascending: false});
 
       if (cancelled) return;
