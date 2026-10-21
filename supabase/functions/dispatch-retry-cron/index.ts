@@ -82,9 +82,22 @@ Deno.serve(async (req) => {
   for (const batch of stuckBatches ?? []) {
     if (!batch.route_sequence?.length) continue;
     const firstRestaurantId = batch.route_sequence[0];
-    const { data: firstRestaurant } = await admin.from("restaurants").select("latitude, longitude, zone, state").eq("id", firstRestaurantId).single();
+    const { data: firstRestaurant } = await admin.from("restaurants").select("id, latitude, longitude, zone, state").eq("id", firstRestaurantId).single();
     if (!firstRestaurant) continue;
-    if (!(await isActiveServiceArea(firstRestaurant.state, firstRestaurant.zone))) continue;
+
+    // A batch may span multiple restaurants. Require every restaurant in its
+    // route to remain in an active service area before assigning a rider.
+    const { data: batchRestaurants, error: batchRestaurantsError } = await admin
+      .from("restaurants").select("id, state, zone").in("id", batch.route_sequence);
+    if (batchRestaurantsError || !batchRestaurants || batchRestaurants.length !== new Set(batch.route_sequence).size) continue;
+    let allAreasActive = true;
+    for (const batchRestaurant of batchRestaurants) {
+      if (!(await isActiveServiceArea(batchRestaurant.state, batchRestaurant.zone))) {
+        allAreasActive = false;
+        break;
+      }
+    }
+    if (!allAreasActive) continue;
 
     let query = admin.from("riders").select("id, lat, lng").eq("status", "online").eq("approval_status", "approved").not("lat", "is", null);
     if (firstRestaurant.zone) query = query.eq("zone", firstRestaurant.zone);
