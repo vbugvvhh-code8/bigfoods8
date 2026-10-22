@@ -109,10 +109,11 @@ Deno.serve(async (req: Request) => {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
     const restaurantIds = groups.map((g: any) => g.restaurant_id);
-    const { data: restaurants } = await admin
+    const { data: restaurants, error: restaurantsError } = await admin
       .from("restaurants")
       .select("id, latitude, longitude, is_accepting_orders, zone, state, delivery_radius_km")
       .in("id", restaurantIds);
+    if (restaurantsError) return json({ error: "Unable to validate restaurant information. Please try again later." }, 503);
     if (!restaurants || restaurants.length !== restaurantIds.length) {
       return json({ error: "One or more restaurants weren't found" }, 404);
     }
