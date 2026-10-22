@@ -61,6 +61,22 @@ export function useRestaurants(options?: {
 
       const {data, error} = await query;
       if (error) throw error;
+
+      // A stale restaurants.is_featured flag must not keep an expired paid
+      // promotion in the customer-facing promoted row.
+      if (options?.featuredOnly) {
+        const now = new Date().toISOString();
+        const {data: livePromotions, error: promotionsError} = await supabase
+          .from('promotions')
+          .select('restaurant_id')
+          .eq('status', 'active')
+          .lte('starts_at', now)
+          .gt('ends_at', now);
+        if (promotionsError) throw promotionsError;
+        const promotedIds = new Set((livePromotions ?? []).map((p) => p.restaurant_id));
+        return ((data ?? []) as Restaurant[]).filter((restaurant) => promotedIds.has(restaurant.id));
+      }
+
       return data as Restaurant[];
     }
   );
