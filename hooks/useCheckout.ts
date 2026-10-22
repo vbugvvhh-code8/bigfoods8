@@ -23,6 +23,7 @@ interface InitializeParams {
 }
 
 export function useCheckout() {
+  const [paymentLink, setPaymentLink] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const supabase = getBrowserSupabase();
@@ -52,5 +53,25 @@ export function useCheckout() {
     }
   };
 
-  return {initializePayment, isSubmitting, error};
+  const createPaymentLink = async (params: InitializeParams) => {
+    setIsSubmitting(true); setError(null); setPaymentLink(null);
+    try {
+      const init = await supabase.functions.invoke('initialize-order-payment', {body: {
+        groups: params.groups, delivery_address: params.deliveryAddress || null,
+        delivery_lat: params.deliveryLat, delivery_lng: params.deliveryLng,
+        delivery_note: params.deliveryNote || null, tip_amount: params.tipAmount,
+        callbackOrigin: window.location.origin, payment_mode: 'link',
+      }});
+      if (init.error) throw init.error;
+      if (init.data?.error) throw new Error(init.data.error);
+      if (!init.data?.reference) throw new Error('Could not prepare payment link');
+      const created = await supabase.functions.invoke('create-order-payment-link', {body: {reference: init.data.reference}});
+      if (created.error) throw created.error;
+      if (created.data?.error) throw new Error(created.data.error);
+      if (!created.data?.payment_url) throw new Error('Could not create payment link');
+      setPaymentLink(created.data.payment_url);
+    } catch (e: any) { setError(e?.message ?? 'Could not create payment link. Try again.'); }
+    finally { setIsSubmitting(false); }
+  };
+  return {initializePayment, createPaymentLink, paymentLink, isSubmitting, error};
 }
