@@ -161,9 +161,9 @@ export default function DeliveryDetailPage() {
                 className="w-full px-4 py-3 rounded-xl text-base outline-none mb-4 tracking-[0.3em]" style={{ border: '1px solid #ead9ca', color: '#211d19', background: '#ffffff' }} />
               {error && <p role="alert" className="mb-3 text-sm" style={{ color: '#b42318' }}>{error}</p>}
               <button type="submit" disabled={busy || !/^\d{4}$/.test(code)}
-                className="w-full min-h-12 rounded-xl px-4 text-sm font-semibold text-white disabled:opacity-50"
-                style={{ background: busy || !/^\d{4}$/.test(code) ? '#d7a17b' : '#ff7900' }}>
-                {busy ? 'Submitting…' : 'Submit and confirm delivery'}
+                className="w-full min-h-12 rounded-full px-4 py-3.5 text-[13.5px] font-semibold text-white disabled:opacity-50"
+                style={{ background: busy || !/^\d{4}$/.test(code) ? '#d7a17b' : 'var(--orange)' }}>
+                {busy ? 'Submitting…' : 'Confirm delivery'}
               </button>
               <button type="button" disabled={busy} onClick={() => setShowDeliveryCodeModal(false)} className="w-full min-h-11 py-3 mt-1 text-sm" style={{ color: '#706b65' }}>Back</button>
             </form>
@@ -171,7 +171,7 @@ export default function DeliveryDetailPage() {
         </div>
       )}
 
-      {confirmingCancel ? (
+      {confirmingCancel && (
         <CancelConfirm
           showPenalty={stage === 'to_dropoff'}
           penaltyPct={penaltyPct}
@@ -179,10 +179,6 @@ export default function DeliveryDetailPage() {
           onConfirm={cancelDelivery}
           onDismiss={() => setConfirmingCancel(false)}
         />
-      ) : (
-        <button onClick={() => setConfirmingCancel(true)} className="w-full py-2.5 mt-3 text-[12px]" style={{ color: 'var(--red)', background: 'none', border: 'none' }}>
-          Cancel this delivery
-        </button>
       )}
     </>
   );
