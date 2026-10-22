@@ -56,10 +56,22 @@ export default function RiderDashboardPage() {
       setOffersMessage(data?.error ?? 'Could not load nearby jobs. Please refresh.');
     } else {
       const fetchedOffers = (data?.offers ?? []) as NearbyOffer[];
-      // An accepted offer is the rider's current commitment even if the order's
-      // rider_id has not been populated yet. Never show other offers alongside it.
+      // Only prioritize accepted offers whose order is still active and
+      // assigned to this rider. Stale accepted rows for completed orders must
+      // not suppress pending offers that the rider can actually accept.
       const acceptedOffers = fetchedOffers.filter(offer => offer.status === 'accepted');
-      setNearbyOffers(acceptedOffers.length ? acceptedOffers.slice(0, 1) : fetchedOffers);
+      let currentOffers = fetchedOffers;
+      if (acceptedOffers.length && rider?.id) {
+        const { data: activeAcceptedOrders } = await supabase.from('orders')
+          .select('id,status,rider_id')
+          .in('id', acceptedOffers.map(offer => offer.order_id))
+          .eq('rider_id', rider.id)
+          .in('status', ['placed', 'preparing', 'picked_up']);
+        const validAcceptedIds = new Set((activeAcceptedOrders ?? []).map(order => order.id));
+        currentOffers = fetchedOffers.filter(offer => offer.status !== 'accepted' || validAcceptedIds.has(offer.order_id));
+      }
+      const currentAcceptedOffers = currentOffers.filter(offer => offer.status === 'accepted');
+      setNearbyOffers(currentAcceptedOffers.length ? currentAcceptedOffers.slice(0, 1) : currentOffers);
       setOffersMessage('');
     }
     setOffersLoading(false);
