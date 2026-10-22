@@ -1,11 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MapPin, Navigation, Wallet, Bike, ArrowUpRight, Clock3, ShieldCheck } from 'lucide-react';
 import useRider from '@/hooks/useRider';
 import useRiderActiveOrder from '@/hooks/useRiderActiveOrder';
 import useRiderWallet from '@/hooks/useRiderWallet';
+import getBrowserSupabase from '@/lib/supabase/client';
 
 const STATUS_LABEL: Record<string, string> = {
   placed: 'Awaiting restaurant preparation',
@@ -13,13 +15,21 @@ const STATUS_LABEL: Record<string, string> = {
   picked_up: 'On the way to drop-off',
 };
 
+type NearbyOffer = { offer_id: string; order_id: string; zone: string | null; status: string; offered_at: string; delivery_address: string | null; delivery_fee: number | null };
+
 export default function RiderDashboardPage() {
   const { rider, setOnline, error } = useRider();
   const { order, loading: orderLoading } = useRiderActiveOrder(rider?.id);
   const { transactions } = useRiderWallet(rider?.id);
+  const router = useRouter();
+  const supabase = getBrowserSupabase();
   const [toggling, setToggling] = useState(false);
   const [livePosition, setLivePosition] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   const [locationMessage, setLocationMessage] = useState('Getting your live location…');
+  const [nearbyOffers, setNearbyOffers] = useState<NearbyOffer[]>([]);
+  const [offersLoading, setOffersLoading] = useState(false);
+  const [offerActionId, setOfferActionId] = useState<string | null>(null);
+  const [offersMessage, setOffersMessage] = useState('');
 
   const online = rider?.status === 'online';
   const missingZone = !rider?.zone;
@@ -31,6 +41,52 @@ export default function RiderDashboardPage() {
       .filter((t) => t.created_at && new Date(t.created_at) >= startOfDay)
       .reduce((sum, t) => sum + Number(t.amount), 0);
   }, [transactions]);
+
+  const loadNearbyOffers = useCallback(async (quiet = false) => {
+    if (!rider || rider.status !== 'online' || order) {
+      setNearbyOffers([]);
+      setOffersLoading(false);
+      return;
+    }
+    if (!quiet) setOffersLoading(true);
+    const { data, error: invokeError } = await supabase.functions.invoke('dispatch-marketplace', { body: { action: 'rider_offers' } });
+    if (invokeError || data?.error) {
+      setOffersMessage(data?.error ?? 'Could not load nearby jobs. Please refresh.');
+    } else {
+      setNearbyOffers((data?.offers ?? []) as NearbyOffer[]);
+      setOffersMessage('');
+    }
+    setOffersLoading(false);
+  }, [rider?.id, rider?.status, order?.id, supabase]);
+
+  useEffect(() => {
+    if (!rider || order || rider.status !== 'online') {
+      setNearbyOffers([]);
+      return;
+    }
+    void loadNearbyOffers();
+    const timer = window.setInterval(() => { void loadNearbyOffers(true); }, 10000);
+    return () => window.clearInterval(timer);
+  }, [rider?.id, rider?.status, order?.id, loadNearbyOffers]);
+
+  async function respondToOffer(orderId: string, accept: boolean) {
+    if (offerActionId) return;
+    setOfferActionId(orderId);
+    setOffersMessage('');
+    const { data, error: invokeError } = await supabase.functions.invoke('dispatch-marketplace', {
+      body: { action: 'respond_offer', order_id: orderId, accept },
+    });
+    if (invokeError || data?.error) {
+      setOffersMessage(data?.error ?? invokeError?.message ?? 'This offer is no longer available.');
+      await loadNearbyOffers(true);
+    } else if (accept) {
+      router.push('/rider-portal/dashboard/delivery/' + orderId);
+    } else {
+      setNearbyOffers(rows => rows.filter(row => row.order_id !== orderId));
+      setOffersMessage('Offer declined.');
+    }
+    setOfferActionId(null);
+  }
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -114,35 +170,20 @@ export default function RiderDashboardPage() {
           <div className="mx-4 mb-4 rounded-xl p-3" style={{ background: '#F7F4F0' }}>
             <p className="text-sm font-medium" style={{ color: 'var(--ink)' }}>{livePosition.lat.toFixed(6)}, {livePosition.lng.toFixed(6)}</p>
             <p className="text-xs mt-1" style={{ color: 'var(--gray)' }}>GPS accuracy ±{Math.round(livePosition.accuracy)} m · updates as you move</p>
-            <a
-              className="mt-3 inline-flex items-center gap-1 text-xs font-semibold"
-              style={{ color: 'var(--orange)' }}
-              href={`https://www.openstreetmap.org/?mlat=${livePosition.lat}&mlon=${livePosition.lng}#map=17/${livePosition.lat}/${livePosition.lng}`}
-              target="_blank"
-              rel="noreferrer"
-            ><MapPin className="h-3.5 w-3.5" /> View location on map <ArrowUpRight className="h-3 w-3" /></a>
+            <a className="mt-3 inline-flex items-center gap-1 text-xs font-semibold" style={{ color: 'var(--orange)' }} href={`https://www.openstreetmap.org/?mlat=${livePosition.lat}&mlon=${livePosition.lng}#map=17/${livePosition.lat}/${livePosition.lng}`} target="_blank" rel="noreferrer"><MapPin className="h-3.5 w-3.5" /> View location on map <ArrowUpRight className="h-3 w-3" /></a>
           </div>
         ) : (
-          <div className="mx-4 mb-4 rounded-xl p-3 text-xs" style={{ background: '#F7F4F0', color: 'var(--gray)' }}>
-            Your location is needed to match nearby jobs accurately. Make sure location permission is enabled.
-          </div>
+          <div className="mx-4 mb-4 rounded-xl p-3 text-xs" style={{ background: '#F7F4F0', color: 'var(--gray)' }}>Your location is needed to match nearby jobs accurately. Make sure location permission is enabled.</div>
         )}
       </section>
 
-      {missingZone && (
-        <div className="rounded-xl p-3 text-sm" style={{ background: 'var(--peach)', color: '#6E5A46' }}>
-          Your service area is not set, so nearby jobs may not match correctly. <Link href="/rider-portal/dashboard/profile" className="font-semibold underline">Set your service area</Link>.
-        </div>
-      )}
+      {missingZone && <div className="rounded-xl p-3 text-sm" style={{ background: 'var(--peach)', color: '#6E5A46' }}>Your service area is not set, so nearby jobs may not match correctly. <Link href="/rider-portal/dashboard/profile" className="font-semibold underline">Set your service area</Link>.</div>}
 
       {orderLoading ? (
         <section className="rounded-2xl p-5 text-sm" style={{ background: 'white', border: '1px solid var(--line)', color: 'var(--gray)' }}>Checking your active delivery…</section>
       ) : order ? (
         <Link href={`/rider-portal/dashboard/delivery/${order.id}`} className="block rounded-2xl p-4 sm:p-5" style={{ background: '#211E1B', color: 'white', border: '2px solid var(--orange)' }}>
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold" style={{ background: 'var(--orange)', color: 'white' }}><ShieldCheck className="h-3.5 w-3.5" /> PRIORITY · ACTIVE DELIVERY</span>
-            <ArrowUpRight className="h-5 w-5 shrink-0" />
-          </div>
+          <div className="flex items-center justify-between gap-3 mb-3"><span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold" style={{ background: 'var(--orange)', color: 'white' }}><ShieldCheck className="h-3.5 w-3.5" /> PRIORITY · ACTIVE DELIVERY</span><ArrowUpRight className="h-5 w-5 shrink-0" /></div>
           <h2 className="text-lg font-semibold">{STATUS_LABEL[order.status] ?? order.status}</h2>
           <p className="mt-2 text-sm" style={{ color: '#D0C9C2' }}>Destination</p>
           <p className="mt-1 text-sm">{order.delivery_address ?? 'Open delivery to view the destination and map.'}</p>
@@ -152,18 +193,20 @@ export default function RiderDashboardPage() {
       ) : (
         <section className="rounded-2xl p-4 sm:p-5" style={{ background: 'white', border: '1px solid var(--line)' }}>
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--ink)' }}>Jobs near you</h2>
-              <p className="mt-1 text-sm" style={{ color: 'var(--gray)' }}>
-                {online ? 'Eligible delivery jobs in your service area appear here when the admin allows riders to accept them.' : 'Go online to check for eligible delivery jobs.'}
-              </p>
-            </div>
+            <div><h2 className="text-lg font-semibold" style={{ color: 'var(--ink)' }}>Jobs near you</h2><p className="mt-1 text-sm" style={{ color: 'var(--gray)' }}>{online ? 'Available paid orders in your service area. Accept one to open the delivery map.' : 'Go online to check for eligible delivery jobs.'}</p></div>
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style={{ background: 'var(--peach)', color: 'var(--orange)' }}><MapPin className="h-5 w-5" /></div>
           </div>
-          <Link href="/rider-portal/dashboard/nearby-orders" className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white" style={{ background: 'var(--orange)' }}>
-            Find available jobs <ArrowUpRight className="h-4 w-4" />
-          </Link>
-          <p className="mt-3 flex items-center gap-1.5 text-xs" style={{ color: 'var(--gray)' }}><Clock3 className="h-3.5 w-3.5" /> Job availability refreshes automatically while you are online.</p>
+          {offersMessage && <p role="alert" className="mt-3 rounded-lg p-3 text-sm" style={{ background: 'var(--peach)', color: 'var(--red)' }}>{offersMessage}</p>}
+          {!online ? <p className="mt-4 rounded-xl p-3 text-sm" style={{ background: '#F7F4F0', color: 'var(--gray)' }}>Switch to online to receive eligible jobs.</p> : offersLoading && nearbyOffers.length === 0 ? <p className="mt-4 rounded-xl p-3 text-sm" style={{ background: '#F7F4F0', color: 'var(--gray)' }}>Checking available jobs…</p> : nearbyOffers.length === 0 ? <div className="mt-4 rounded-xl p-3 text-sm" style={{ background: '#F7F4F0', color: 'var(--gray)' }}>No eligible offers right now. This list refreshes automatically.</div> : <div className="mt-4 space-y-3">
+            {nearbyOffers.map(offer => <article key={offer.offer_id} className="rounded-xl p-3" style={{ border: '1px solid var(--line)', background: '#FFFAF5' }}>
+              <div className="flex items-start justify-between gap-3"><div><p className="font-semibold" style={{ color: 'var(--ink)' }}>Order {offer.order_id.slice(0, 8)}</p><p className="mt-1 text-xs" style={{ color: 'var(--gray)' }}>{offer.zone ?? rider?.zone ?? 'Service area'} · {offer.status === 'accepted' ? 'Accepted' : 'Offer available'}</p></div><p className="font-semibold" style={{ color: 'var(--ink)' }}>₦{Number(offer.delivery_fee ?? 0).toLocaleString()}</p></div>
+              <p className="mt-2 text-sm" style={{ color: 'var(--gray)' }}>{offer.status === 'accepted' ? offer.delivery_address ?? 'Open delivery to view destination.' : 'Delivery address is shown after acceptance.'}</p>
+              {offer.status === 'offered' && <button disabled={!!offerActionId} onClick={() => void respondToOffer(offer.order_id, true)} className="mt-3 w-full rounded-xl px-4 py-3 text-sm font-semibold text-white disabled:opacity-50" style={{ background: 'var(--orange)' }}>{offerActionId === offer.order_id ? 'Accepting…' : 'Accept order and open map'}</button>}
+              {offer.status === 'accepted' && <button onClick={() => router.push('/rider-portal/dashboard/delivery/' + offer.order_id)} className="mt-3 w-full rounded-xl px-4 py-3 text-sm font-semibold text-white" style={{ background: 'var(--orange)' }}>Open delivery map</button>}
+            </article>)}
+          </div>}
+          <Link href="/rider-portal/dashboard/nearby-orders" className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold" style={{ borderColor: 'var(--line)', color: 'var(--ink)' }}>View all nearby orders <ArrowUpRight className="h-4 w-4" /></Link>
+          <p className="mt-3 flex items-center gap-1.5 text-xs" style={{ color: 'var(--gray)' }}><Clock3 className="h-3.5 w-3.5" /> Refreshes automatically while you are online.</p>
         </section>
       )}
     </div>
