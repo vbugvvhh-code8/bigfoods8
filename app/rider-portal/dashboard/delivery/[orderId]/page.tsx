@@ -30,7 +30,6 @@ export default function DeliveryDetailPage() {
   const [customer, setCustomer] = useState<Profile | null>(null);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
-  const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const { prices } = usePricingConfig(['cancellation_penalty_pct']);
@@ -112,7 +111,7 @@ export default function DeliveryDetailPage() {
           </div>
           <div className="mt-4 rounded-xl px-4 py-3 text-center text-[12px]" style={{ background: '#24211e', color: '#e7e5e4' }}>
             Use the map above to confirm the pinned destination.
-          </div>>
+          </div>
         </div>
       </div>
 
