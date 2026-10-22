@@ -209,23 +209,23 @@ Deno.serve(async (req: Request) => {
         return json({ error: "One or more items don't belong to their restaurant" }, 400);
       }
       const menuItemById = new Map((menuItems ?? []).map((m: any) => [m.id, m]));
-      const subtotal = g.items.reduce((sum: number, i: any) => {
+      const pricedItems = g.items.map((i: any) => {
         const menuItem = menuItemById.get(i.menu_item_id) as any;
-        const unitPrice = Number(menuItem?.price);
-        if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new Error("Invalid menu item price");
-        return sum + unitPrice * i.quantity;
-      }, 0);
-      if (!Number.isSafeInteger(Math.round(subtotal)) || subtotal < 0) {
+        const rawPrice = Number(menuItem?.price);
+        if (!Number.isFinite(rawPrice) || rawPrice < 0) throw new Error("Invalid menu item price");
+        // Checkout/payment amounts use whole naira; apply the same rounded unit
+        // price to line items and the subtotal so receipts reconcile exactly.
+        const unitPrice = Math.round(rawPrice);
+        return { menu_item_id: i.menu_item_id, quantity: i.quantity, unit_price: unitPrice };
+      });
+      const subtotal = pricedItems.reduce((sum: number, i: any) => sum + i.unit_price * i.quantity, 0);
+      if (!Number.isSafeInteger(subtotal) || subtotal < 0) {
         return json({ error: "Cart subtotal is invalid. Please refresh your cart." }, 400);
       }
       groupComputations.push({
         restaurant_id: g.restaurant_id,
-        subtotal: Math.round(subtotal),
-        items: g.items.map((i: any) => ({
-          menu_item_id: i.menu_item_id,
-          quantity: i.quantity,
-          unit_price: Number(menuItemById.get(i.menu_item_id)!.price),
-        })),
+        subtotal,
+        items: pricedItems,
       });
     }
 
