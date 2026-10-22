@@ -25,3 +25,22 @@ create index if not exists order_payment_links_expiry_idx
 
 alter table public.order_payment_links enable row level security;
 -- All access is mediated by Edge Functions using the service role; no client policies.
+
+-- Atomic claim: concurrent requests cannot both consume a token. The caller
+-- supplies a SHA-256 token hash and receives a row only once, before expiry.
+create or replace function public.claim_order_payment_link(p_token_hash text)
+returns setof public.order_payment_links
+language sql
+security definer
+set search_path = ''
+as $$
+  update public.order_payment_links
+     set consumed_at = pg_catalog.now()
+   where token_hash = p_token_hash
+     and consumed_at is null
+     and expires_at > pg_catalog.now()
+  returning *;
+$$;
+
+revoke all on function public.claim_order_payment_link(text) from public, anon, authenticated;
+grant execute on function public.claim_order_payment_link(text) to service_role;
