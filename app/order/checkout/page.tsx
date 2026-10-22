@@ -38,7 +38,9 @@ function CheckoutContent() {
     restaurant: availableRestaurants.find((restaurant) => restaurant.id === group.restaurantId),
   }));
 
-  const minDeliveryFee = prices.minimum_delivery_fee ?? 1000;\n\n  // Open the share modal only after the link has actually been created.
+  const minDeliveryFee = prices.minimum_delivery_fee ?? 1000;
+
+  // Open the share modal only after the link has actually been created.
   const hasPaymentLink = Boolean(paymentLink);
   const platformFee = (prices.platform_fee ?? 500) * groups.length;
 
