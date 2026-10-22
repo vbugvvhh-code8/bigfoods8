@@ -50,7 +50,7 @@ Deno.serve(async (req: Request) => {
         && rider.waiver_completed && !rider.dispatch_disabled) {
         const { data: setting } = await admin.from("platform_settings").select("value")
           .eq("key", "dispatch_rider_offers_enabled").maybeSingle();
-        const enabled = setting?.value === true || setting?.value === "true" || setting == null;
+        const enabled = setting?.value === true || setting?.value === "true";
         if (enabled) {
           const { data: orders, error: ordersError } = await admin.from("orders")
             .select("id").is("rider_id", null).eq("payment_status", "paid")
