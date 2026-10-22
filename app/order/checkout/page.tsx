@@ -144,6 +144,11 @@ function CheckoutContent() {
 
       <div className="fixed bottom-20 lg:bottom-4 left-0 right-0 px-4 z-30">
         <div className="max-w-[380px] lg:max-w-2xl mx-auto">
+          <p className="text-[11px] text-center mb-2" style={{color: 'var(--gray)'}}>
+            {deliveryPoint
+              ? 'Delivery fee and final payable total are confirmed securely when payment starts.'
+              : 'Choose a delivery location to calculate an estimated total.'}
+          </p>
           <button
             onClick={handlePay}
             disabled={!deliveryPoint || isSubmitting}
@@ -153,8 +158,8 @@ function CheckoutContent() {
             {isSubmitting
               ? 'Starting payment…'
               : deliveryPoint
-              ? `Pay ₦${(subtotal + platformFee + (estimatedDeliveryFee ?? 0) + tipAmount).toLocaleString()}`
-              : 'Choose a delivery location to pay'}
+              ? `Continue to payment · est. ₦${(subtotal + platformFee + (estimatedDeliveryFee ?? 0) + tipAmount).toLocaleString()}`
+              : 'Choose a delivery location to continue'}
           </button>
         </div>
       </div>
