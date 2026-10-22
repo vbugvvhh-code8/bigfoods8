@@ -16,7 +16,7 @@ const ACTIVE_STATUSES = ['placed', 'preparing', 'picked_up'];
 
 export function OrderHistoryCard({order}: {order: OrderWithRestaurant}) {
   const isActive = ACTIVE_STATUSES.includes(order.status);
-  const total = order.subtotal + order.platform_fee + (order.delivery_fee ?? 0) + (order.tip_amount ?? 0);
+  const total = order.subtotal + order.platform_fee + (order.delivery_batch_id ? order.batchDeliveryFee + order.batchTipAmount : (order.delivery_fee ?? 0) + (order.tip_amount ?? 0));
 
   return (
     <Link href={`/order/track/${order.id}`} className="flex items-center gap-3 py-3.5 w-full text-left">
