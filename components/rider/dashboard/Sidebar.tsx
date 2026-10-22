@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import NavItem from '@/components/restaurant/dashboard/NavItem';
 import { LayoutGrid, Truck, Wallet, User, MapPin, Menu, X, LogOut, HandHelping } from 'lucide-react';
@@ -60,6 +60,14 @@ function LogoutButton() {
 export default function Sidebar({ riderName }: { riderName?: string }) {
   const [open, setOpen] = useState(false);
 
+  // Keep the page behind the mobile drawer from scrolling while it is open.
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [open]);
+
   const footer = (
     <div className="mt-auto pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
       <LogoutButton />
@@ -84,7 +92,7 @@ export default function Sidebar({ riderName }: { riderName?: string }) {
       </div>
 
       {/* Mobile: top bar with menu toggle */}
-      <div className="md:hidden sticky top-0 z-[10000] flex items-center justify-between px-4 py-3" style={{ background: 'var(--ink)' }}>
+      <div className="md:hidden flex items-center justify-between px-4 py-3" style={{ background: 'var(--ink)' }}>
         <BrandBlock />
         <button onClick={() => setOpen(true)} aria-label="Open menu" style={{ color: 'white' }}>
           <Menu className="w-5 h-5" />
@@ -93,8 +101,8 @@ export default function Sidebar({ riderName }: { riderName?: string }) {
 
       {/* Mobile: slide-in drawer */}
       {open && (
-        <div className="md:hidden fixed inset-0 z-[10001] flex" style={{ isolation: 'isolate' }}>
-          <div className="relative z-[10002] h-[100dvh] w-[240px] flex flex-col py-5 px-3.5 overflow-y-auto overscroll-contain" style={{ background: 'var(--ink)', color: '#D8D2CB' }}>
+        <div className="md:hidden fixed inset-0 z-[100] flex h-[100dvh] overflow-hidden" role="dialog" aria-modal="true" aria-label="Navigation menu">
+          <div className="relative z-10 flex h-full max-h-[100dvh] w-[min(18rem,85vw)] flex-shrink-0 flex-col overflow-y-auto overscroll-contain py-5 px-3.5 pb-[max(1.25rem,env(safe-area-inset-bottom))]" style={{ background: 'var(--ink)', color: '#D8D2CB' }}>
             <div className="flex items-center justify-between mb-7 px-1.5">
               <span className="font-semibold text-[14px] text-white tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
                 BigFoods
@@ -108,7 +116,7 @@ export default function Sidebar({ riderName }: { riderName?: string }) {
             </div>
             {footer}
           </div>
-          <div className="flex-1" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => setOpen(false)} />
+          <button type="button" aria-label="Close navigation menu" className="absolute inset-0 z-0 h-full w-full" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => setOpen(false)} />
         </div>
       )}
     </>
