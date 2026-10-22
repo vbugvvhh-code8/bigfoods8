@@ -44,3 +44,26 @@ $$;
 
 revoke all on function public.claim_order_payment_link(text) from public, anon, authenticated;
 grant execute on function public.claim_order_payment_link(text) to service_role;
+
+
+-- Release a claim only when the caller knows initialization did not start.
+-- The consumed_at guard ensures this cannot reset a link after successful payment
+-- verification has otherwise completed and avoids clearing a later claim.
+create or replace function public.release_order_payment_link_claim(p_token_hash text)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.order_payment_links
+     set consumed_at = null
+   where token_hash = p_token_hash
+     and consumed_at is not null
+     and expires_at > pg_catalog.now();
+  return found;
+end;
+$$;
+
+revoke all on function public.release_order_payment_link_claim(text) from public, anon, authenticated;
+grant execute on function public.release_order_payment_link_claim(text) to service_role;
