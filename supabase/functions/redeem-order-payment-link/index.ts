@@ -81,7 +81,6 @@ Deno.serve(async (req: Request) => {
     if (!response.ok || !payload?.status || typeof payload?.data?.authorization_url !== "string") {
       console.error("PAYMENT_LINK_PAYSTACK_INIT_FAILED", { linkId: link.id, message: payload?.message });
       await admin.rpc("release_order_payment_link_claim", { p_token_hash: tokenHash });
-      await admin.rpc("release_order_payment_link_claim", { p_token_hash: tokenHash });
       return json({ error: "Unable to start payment. The link is available to retry; no payment confirmation was recorded." }, 502);
     }
 
