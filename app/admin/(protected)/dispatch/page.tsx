@@ -12,7 +12,6 @@ export default function AdminDispatchPage() {
   const [orders, setOrders] = useState<DispatchOrder[]>([]);
   const [riders, setRiders] = useState<Rider[]>([]);
   const [restaurantEnabled, setRestaurantEnabled] = useState(false);
-  const [offersEnabled, setOffersEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
@@ -33,7 +32,6 @@ export default function AdminDispatchPage() {
       for (const s of (data.settings ?? []) as Setting[]) {
         const enabled = s.value === true || s.value === 'true';
         if (s.key === 'dispatch_restaurant_assignment_enabled') setRestaurantEnabled(enabled);
-        if (s.key === 'dispatch_rider_offers_enabled') setOffersEnabled(enabled);
       }
       setMessage('');
     } catch (e) { setMessage(e instanceof Error ? e.message : 'Could not load dispatch data.'); }
@@ -47,7 +45,6 @@ export default function AdminDispatchPage() {
     try {
       await call({ action: 'set_setting', key, enabled });
       if (key === 'dispatch_restaurant_assignment_enabled') setRestaurantEnabled(enabled);
-      else setOffersEnabled(enabled);
     } catch (e) { setMessage(e instanceof Error ? e.message : 'Could not save setting.'); }
     finally { setBusy(''); }
   }
@@ -73,14 +70,7 @@ export default function AdminDispatchPage() {
     finally { setBusy(''); }
   }
 
-  async function sendOffers(order: DispatchOrder) {
-    setBusy('offers-' + order.id); setMessage('');
-    try {
-      const data = await call({ action: 'create_offers', order_id: order.id });
-      setMessage(`Created ${data.offers_created ?? 0} rider offer(s) for order ${order.id.slice(0, 8)}.`);
-    } catch (e) { setMessage(e instanceof Error ? e.message : 'Could not create offers.'); }
-    finally { setBusy(''); }
-  }
+
 
   const eligibleRiders = riders.filter(r => r.status === 'online' && r.approval_status === 'approved' && r.waiver_completed && !r.dispatch_disabled);
 
@@ -90,7 +80,6 @@ export default function AdminDispatchPage() {
     <section className="rounded-xl p-4 space-y-3" style={{ border: '1px solid var(--line)' }}>
       <h2 className="font-semibold">Dispatch controls</h2>
       <label className="flex items-center justify-between gap-4 text-sm"><span><strong className="block">Restaurant owner assignment</strong><span style={{ color: 'var(--gray)' }}>Allow owners to assign eligible riders to their own orders.</span></span><input type="checkbox" checked={restaurantEnabled} disabled={!!busy} onChange={e => void toggleSetting('dispatch_restaurant_assignment_enabled', e.target.checked)} /></label>
-      <label className="flex items-center justify-between gap-4 text-sm"><span><strong className="block">Rider order offers</strong><span style={{ color: 'var(--gray)' }}>Pause or enable rider offer and acceptance.</span></span><input type="checkbox" checked={offersEnabled} disabled={!!busy} onChange={e => void toggleSetting('dispatch_rider_offers_enabled', e.target.checked)} /></label>
     </section>
     <section className="space-y-3">
       <div><h2 className="font-semibold">Unassigned orders ({orders.length})</h2><p className="text-sm" style={{ color: 'var(--gray)' }}>Customer checkout payment must be confirmed. Riders must be online, approved, waiver-complete, enabled, and in the same zone.</p></div>
@@ -99,8 +88,7 @@ export default function AdminDispatchPage() {
         return <article key={order.id} className="rounded-xl p-4 space-y-3" style={{ border: '1px solid var(--line)' }}>
           <div className="flex flex-wrap justify-between gap-2"><strong>Order {order.id.slice(0, 8)}</strong><span className="text-sm">{order.status} · {order.payment_status ?? 'payment unknown'}</span></div>
           <p className="text-sm" style={{ color: 'var(--gray)' }}>{order.zone ?? 'No zone'} · {order.delivery_address ?? 'No delivery address'} · ₦{Number(order.delivery_fee ?? 0).toLocaleString()}</p>
-          <div className="flex flex-wrap gap-2"><select aria-label="Select rider" id={'rider-' + order.id} className="min-w-0 flex-1 rounded-lg border p-2 text-sm" defaultValue=""><option value="">Choose eligible rider ({matching.length})</option>{matching.map(r => <option key={r.id} value={r.id}>{r.name} · {r.zone}</option>)}</select><button disabled={!!busy || order.payment_status !== 'paid'} onClick={() => { const el = document.getElementById('rider-' + order.id) as HTMLSelectElement | null; if (el?.value) void assign(order, el.value); }} className="rounded-lg px-3 py-2 text-sm font-semibold text-white disabled:opacity-50" style={{ background: 'var(--orange)' }}>{busy === order.id ? 'Assigning…' : 'Assign rider'}</button><button disabled={!!busy || order.payment_status !== 'paid' || !offersEnabled} onClick={() => void sendOffers(order)} className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">{busy === 'offers-' + order.id ? 'Sending…' : 'Send rider offers'}</button></div>
-          {!offersEnabled && <p className="text-xs">Rider offers are paused globally.</p>}
+          <div className="flex flex-wrap gap-2"><select aria-label="Select rider" id={'rider-' + order.id} className="min-w-0 flex-1 rounded-lg border p-2 text-sm" defaultValue=""><option value="">Choose eligible rider ({matching.length})</option>{matching.map(r => <option key={r.id} value={r.id}>{r.name} · {r.zone}</option>)}</select><button disabled={!!busy || order.payment_status !== 'paid'} onClick={() => { const el = document.getElementById('rider-' + order.id) as HTMLSelectElement | null; if (el?.value) void assign(order, el.value); }} className="rounded-lg px-3 py-2 text-sm font-semibold text-white disabled:opacity-50" style={{ background: 'var(--orange)' }}>{busy === order.id ? 'Assigning…' : 'Assign rider'}</button></div>
           {order.payment_status !== 'paid' && <p className="text-xs">Assignment and offers are disabled until payment is confirmed.</p>}
         </article>;
       })}
