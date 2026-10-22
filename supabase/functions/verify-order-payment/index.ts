@@ -96,11 +96,25 @@ async function createRiderOffersForOrder(admin: ReturnType<typeof createClient>,
 }
 
 async function dispatchSingleOrder(admin: ReturnType<typeof createClient>, orderId: string) {
-  // Offers are created only after Paystack verification has succeeded. Do not
-  // silently pre-assign the nearest rider: riders must accept their own offer.
-  const { error } = await admin.from("orders")
-    .update({ payment_status: "paid", last_dispatch_attempt_at: new Date().toISOString(), dispatch_retry_count: 0 })
-    .eq("id", orderId);
+  const { data: order, error: loadError } = await admin
+    .from("orders")
+    .select("id, status, cancelled_at, cancelled_by")
+    .eq("id", orderId)
+    .single();
+  if (loadError || !order) throw loadError ?? new Error("Order not found");
+
+  // initialize-order-payment creates unpaid placeholder rows with status
+  // cancelled. Restore only those placeholders after Paystack verifies payment;
+  // never resurrect a genuine cancellation.
+  const patch: Record<string, unknown> = {
+    payment_status: "paid",
+    last_dispatch_attempt_at: new Date().toISOString(),
+    dispatch_retry_count: 0,
+  };
+  if (order.status === "cancelled" && !order.cancelled_at && !order.cancelled_by) {
+    patch.status = "placed";
+  }
+  const { error } = await admin.from("orders").update(patch).eq("id", orderId);
   if (error) throw error;
   await createRiderOffersForOrder(admin, orderId);
 }
@@ -149,7 +163,7 @@ Deno.serve(async (req: Request) => {
         return json({ success: true, order_id: txn.order_id, delivery_code: existingOrder?.delivery_code, already_processed: true });
       }
       if (txn.order_group_id) {
-        const { data: batches } = await admin.from("delivery_batches").select("id, delivery_code").eq("order_group_id", txn.order_group_id);
+        const { data: batches } = await admin.from("delivery_batches").select("id, delivery_code, route_sequence").eq("order_group_id", txn.order_group_id);
         return json({ success: true, order_group_id: txn.order_group_id, batches, already_processed: true });
       }
     }
@@ -179,7 +193,18 @@ Deno.serve(async (req: Request) => {
 
     if (txn.order_group_id) {
       await admin.from("order_groups").update({ payment_status: "paid" }).eq("id", txn.order_group_id);
-      await admin.from("orders").update({ payment_status: "paid" }).eq("order_group_id", txn.order_group_id);
+      // These rows are initialized as cancelled placeholders, not user-cancelled
+      // orders. Restore only rows with no cancellation metadata.
+      await admin.from("orders")
+        .update({ status: "placed", payment_status: "paid" })
+        .eq("order_group_id", txn.order_group_id)
+        .eq("status", "cancelled")
+        .is("cancelled_at", null)
+        .is("cancelled_by", null);
+      await admin.from("orders")
+        .update({ payment_status: "paid" })
+        .eq("order_group_id", txn.order_group_id)
+        .neq("status", "cancelled");
       const { data: batches } = await admin.from("delivery_batches").select("id").eq("order_group_id", txn.order_group_id);
       for (const b of batches ?? []) {
         await assignRiderToBatch(admin, b.id);
