@@ -55,7 +55,11 @@ export default function RiderDashboardPage() {
     if (invokeError || data?.error) {
       setOffersMessage(data?.error ?? 'Could not load nearby jobs. Please refresh.');
     } else {
-      setNearbyOffers((data?.offers ?? []) as NearbyOffer[]);
+      const fetchedOffers = (data?.offers ?? []) as NearbyOffer[];
+      // An accepted offer is the rider's current commitment even if the order's
+      // rider_id has not been populated yet. Never show other offers alongside it.
+      const acceptedOffers = fetchedOffers.filter(offer => offer.status === 'accepted');
+      setNearbyOffers(acceptedOffers.length ? acceptedOffers.slice(0, 1) : fetchedOffers);
       setOffersMessage('');
     }
     setOffersLoading(false);
