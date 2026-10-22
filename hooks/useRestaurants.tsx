@@ -52,18 +52,13 @@ export function useRestaurants(options?: {
       if (options?.category && options.category !== 'All') {
         query = query.eq('category', options.category);
       }
-      if (options?.featuredOnly) {
-        query = query.eq('is_featured', true);
-      }
       if (options?.customerState) {
         query = query.eq('state', options.customerState);
       }
 
-      const {data, error} = await query;
-      if (error) throw error;
-
-      // A stale restaurants.is_featured flag must not keep an expired paid
-      // promotion in the customer-facing promoted row.
+      // Paid promotion placement is determined by a valid promotion period,
+      // not the legacy is_featured flag. Otherwise paid restaurants can be
+      // omitted and expired ones can linger if that flag becomes stale.
       if (options?.featuredOnly) {
         const now = new Date().toISOString();
         const {data: livePromotions, error: promotionsError} = await supabase
@@ -73,9 +68,13 @@ export function useRestaurants(options?: {
           .lte('starts_at', now)
           .gt('ends_at', now);
         if (promotionsError) throw promotionsError;
-        const promotedIds = new Set((livePromotions ?? []).map((p) => p.restaurant_id));
-        return ((data ?? []) as Restaurant[]).filter((restaurant) => promotedIds.has(restaurant.id));
+        const promotedIds = [...new Set((livePromotions ?? []).map((p) => p.restaurant_id))];
+        if (promotedIds.length === 0) return [];
+        query = query.in('id', promotedIds);
       }
+
+      const {data, error} = await query;
+      if (error) throw error;
 
       return data as Restaurant[];
     }
