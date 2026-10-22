@@ -82,7 +82,7 @@ export default function OrderCard({
           {['placed', 'preparing'].includes(order.status) && (
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap" style={{
               background: order.rider_id ? 'var(--teal)' : order.payment_status !== 'paid' ? 'var(--peach)' : assignmentReady && assignmentEnabled && !assignmentMessage && eligibleRiders.length > 0 ? 'var(--green)' : 'var(--peach)',
-              color: order.rider_id ? 'white' : order.payment_status !== 'paid' || (assignmentReady && assignmentMessage) ? 'var(--red)' : 'var(--orange)'
+              color: order.rider_id || (assignmentReady && assignmentEnabled && !assignmentMessage && eligibleRiders.length > 0) ? 'white' : order.payment_status !== 'paid' || (assignmentReady && assignmentMessage) ? 'var(--red)' : 'var(--orange)'
             }}>
               {order.rider_id ? 'Rider assigned' : order.payment_status !== 'paid' ? 'Payment not confirmed' : !assignmentReady ? 'Checking rider…' : assignmentMessage ? 'Check rider status' : !assignmentEnabled ? 'Assignment disabled' : eligibleRiders.length > 0 ? 'Ready to assign' : 'Waiting for rider'}
             </span>
