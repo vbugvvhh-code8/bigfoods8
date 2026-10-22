@@ -25,7 +25,14 @@ export default function NearbyOrdersPage() {
     if (!quiet) setLoading(true);
     const { data, error } = await supabase.functions.invoke('dispatch-marketplace', { body: { action: 'rider_offers' } });
     if (error || data?.error) setMessage(data?.error ?? 'Could not load order offers. Please try again.');
-    else { setOffers((data?.offers ?? []) as Offer[]); setMessage(''); }
+    else {
+      const fetchedOffers = (data?.offers ?? []) as Offer[];
+      // Accepted offers must take priority even when the order row has not yet
+      // been linked to rider_id; hide every other offer until this is resolved.
+      const acceptedOffers = fetchedOffers.filter(offer => offer.status === 'accepted');
+      setOffers(acceptedOffers.length ? acceptedOffers.slice(0, 1) : fetchedOffers);
+      setMessage('');
+    }
     setLoading(false);
   }, [supabase, activeOrder?.id]);
 
