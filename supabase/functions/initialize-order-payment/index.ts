@@ -83,7 +83,8 @@ Deno.serve(async (req: Request) => {
     const customerId = userData.user.id;
     const customerEmail = userData.user.email;
 
-    const { groups, delivery_address, delivery_lat, delivery_lng, delivery_note, tip_amount, callbackOrigin } = await req.json();
+    const { groups, delivery_address, delivery_lat, delivery_lng, delivery_note, tip_amount, callbackOrigin, payment_mode } = await req.json();
+    if (payment_mode != null && payment_mode !== 'link') return json({ error: 'Invalid payment mode.' }, 400);
     if (!Array.isArray(groups) || groups.length === 0) {
       return json({ error: "At least one restaurant group is required" }, 400);
     }
@@ -288,6 +289,7 @@ Deno.serve(async (req: Request) => {
         return json({ error: txnError.message }, 500);
       }
 
+      if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_id: order.id, reference });
       const authUrl = await startPaystack(customerEmail, totalAmount, reference, callbackOrigin, { order_id: order.id, type: "order_payment" });
       if ("error" in authUrl) {
         await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
@@ -409,6 +411,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: txnError.message }, 500);
     }
 
+    if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_group_id: group.id, reference });
     const authUrl = await startPaystack(customerEmail, totalAmount, reference, callbackOrigin, { order_group_id: group.id, type: "order_payment" });
     if ("error" in authUrl) {
       await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
