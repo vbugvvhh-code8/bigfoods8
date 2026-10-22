@@ -66,7 +66,7 @@ async function assignRiderToBatch(admin: ReturnType<typeof createClient>, batchI
 async function createRiderOffersForOrder(admin: ReturnType<typeof createClient>, orderId: string) {
   const { data: setting } = await admin.from("platform_settings").select("value")
     .eq("key", "dispatch_rider_offers_enabled").maybeSingle();
-  const offersEnabled = setting?.value === true || setting?.value === "true" || setting == null;
+  const offersEnabled = setting?.value === true || setting?.value === "true";
   if (!offersEnabled) return 0;
 
   const { data: order, error: orderError } = await admin.from("orders")
@@ -205,10 +205,9 @@ Deno.serve(async (req: Request) => {
         .update({ payment_status: "paid" })
         .eq("order_group_id", txn.order_group_id)
         .neq("status", "cancelled");
-      const { data: batches } = await admin.from("delivery_batches").select("id").eq("order_group_id", txn.order_group_id);
-      for (const b of batches ?? []) {
-        await assignRiderToBatch(admin, b.id);
-      }
+      // Default dispatch policy is admin assignment only. Do not select or
+      // assign a rider during payment verification. Rider self-assignment and
+      // restaurant-owner assignment are controlled separately by admin settings.
       const { data: batchCodes } = await admin.from("delivery_batches").select("id, delivery_code").eq("order_group_id", txn.order_group_id);
       return json({ success: true, order_group_id: txn.order_group_id, batches: batchCodes });
     }
