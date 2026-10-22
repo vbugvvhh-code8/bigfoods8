@@ -1,16 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useParams, useRouter } from 'next/navigation';
 import getBrowserSupabase from '@/lib/supabase/client';
 import usePricingConfig from '@/hooks/usePricingConfig';
 import CancelConfirm from '@/components/rider/dashboard/CancelConfirm';
 import type { Order, Restaurant, Profile } from '@/types/database';
 
-function mapsUrl(lat: number | null, lng: number | null, address: string | null) {
-  if (lat != null && lng != null) return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address ?? '')}`;
-}
+const DeliveryMap = dynamic(() => import('@/components/rider/dashboard/DeliveryMap'), { ssr: false, loading: () => <div className="h-[300px] animate-pulse" style={{ background: '#f4f2ef' }} /> });
 
 async function fetchOrderContext(supabase: ReturnType<typeof getBrowserSupabase>, orderId: string) {
   const { data: o } = await supabase.from('orders').select('*').eq('id', orderId).maybeSingle();
@@ -86,29 +84,7 @@ export default function DeliveryDetailPage() {
       </h2>
 
       <div className="overflow-hidden rounded-[22px] mb-4" style={{ border: '1px solid var(--line)', background: '#f5f5f5' }}>
-        <div className="relative">
-          {destLat != null && destLng != null ? (
-            <iframe
-              title={stage === 'to_pickup' ? 'Exact restaurant pickup location' : 'Exact customer drop-off location'}
-              src={`https://maps.google.com/maps?q=${destLat},${destLng}&z=18&output=embed`}
-              className="h-[300px] w-full border-0"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              allowFullScreen
-            />
-          ) : destAddress ? (
-            <iframe
-              title={stage === 'to_pickup' ? 'Approximate restaurant pickup map' : 'Approximate customer drop-off map'}
-              src={`https://maps.google.com/maps?q=${encodeURIComponent(destAddress)}&z=16&output=embed`}
-              className="h-[300px] w-full border-0"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              allowFullScreen
-            />
-          ) : (
-            <div className="flex h-[300px] items-center justify-center px-5 text-center text-sm" style={{ color: 'var(--gray)' }}>This destination has no saved address or GPS coordinates yet.</div>
-          )}
-        </div>
+        <DeliveryMap latitude={destLat} longitude={destLng} />
         <div className="p-4" style={{ background: '#111111', color: '#ffffff' }}>
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full" style={{ background: '#343434', color: '#ffffff' }}>
@@ -134,14 +110,9 @@ export default function DeliveryDetailPage() {
               </a>
             )}
           </div>
-          <a
-            href={mapsUrl(destLat, destLng, destAddress)}
-            target="_blank" rel="noreferrer"
-            className="mt-4 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-[14px] font-semibold"
-            style={{ background: '#ff7900', color: '#ffffff' }}
-          >
-            Navigate to {stage === 'to_pickup' ? 'pickup' : 'drop-off'} in Maps <span aria-hidden="true">→</span>
-          </a>
+          <div className="mt-4 rounded-xl px-4 py-3 text-center text-[12px]" style={{ background: '#24211e', color: '#e7e5e4' }}>
+            Use the map above to confirm the pinned destination.
+          </div>>
         </div>
       </div>
 
