@@ -174,16 +174,59 @@ Deno.serve(async (req: Request) => {
       headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
     });
     const verifyData = await verifyRes.json();
-    const paystackStatus = verifyData?.data?.status;
+    const paystackTransaction = verifyData?.data;
+    const paystackStatus = paystackTransaction?.status;
+    const paystackAmountKobo = Number(paystackTransaction?.amount);
+    const expectedAmountKobo = Math.round(Number(txn.amount) * 100);
+    const paystackCurrency = paystackTransaction?.currency;
+    const paystackReference = paystackTransaction?.reference;
 
     if (!verifyRes.ok || paystackStatus !== "success") {
-      await admin.from("transactions").update({ status: "failed" }).eq("id", txn.id);
-      if (txn.order_id) await admin.from("orders").update({ payment_status: "failed" }).eq("id", txn.order_id);
-      if (txn.order_group_id) await admin.from("order_groups").update({ payment_status: "failed" }).eq("id", txn.order_group_id);
       return json({ success: false, error: "Payment was not successful" });
     }
 
-    await admin.from("transactions").update({ status: "success" }).eq("id", txn.id);
+    // Verify every provider-owned payment attribute before mutating any order.
+    // Paystack reports amounts in kobo; transactions.amount is stored in naira.
+    if (
+      !Number.isSafeInteger(expectedAmountKobo) || expectedAmountKobo <= 0 ||
+      !Number.isSafeInteger(paystackAmountKobo) || paystackAmountKobo !== expectedAmountKobo ||
+      paystackCurrency !== "NGN" || paystackReference !== reference
+    ) {
+      console.error("ORDER_PAYMENT_VERIFICATION_MISMATCH", {
+        transactionId: txn.id,
+        expectedAmountKobo,
+        paystackAmountKobo,
+        expectedCurrency: "NGN",
+        paystackCurrency,
+        referenceMatches: paystackReference === reference,
+      });
+      await admin.from("transactions").update({ status: "failed" }).eq("id", txn.id);
+      return json({ success: false, error: "Payment details could not be verified. Please contact support before retrying." }, 400);
+    }
+
+    // Claim success only after amount, currency, reference, and provider status match.
+    const { data: claimed, error: claimError } = await admin.from("transactions")
+      .update({ status: "success" })
+      .eq("id", txn.id)
+      .eq("status", "pending")
+      .select("id")
+      .maybeSingle();
+    if (claimError) return json({ error: "Could not finalize payment verification. Please retry." }, 503);
+    if (!claimed) {
+      const { data: currentTxn } = await admin.from("transactions").select("status").eq("id", txn.id).single();
+      if (currentTxn?.status === "success") {
+        if (txn.order_id) {
+          await dispatchSingleOrder(admin, txn.order_id);
+          const { data: existingOrder } = await admin.from("orders").select("delivery_code").eq("id", txn.order_id).single();
+          return json({ success: true, order_id: txn.order_id, delivery_code: existingOrder?.delivery_code, already_processed: true });
+        }
+        if (txn.order_group_id) {
+          const { data: batches } = await admin.from("delivery_batches").select("id, delivery_code").eq("order_group_id", txn.order_group_id);
+          return json({ success: true, order_group_id: txn.order_group_id, batches, already_processed: true });
+        }
+      }
+      return json({ success: false, error: "This payment attempt has already been processed." }, 409);
+    }
 
     if (txn.order_id) {
       await dispatchSingleOrder(admin, txn.order_id);
