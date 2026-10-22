@@ -35,7 +35,7 @@ export default function OrderCard({
         body: { action: 'restaurant_assignment_options', order_id: order.id },
       });
       if (error || data?.error) {
-        setAssignmentMessage(data?.error ?? 'Could not load rider assignment options. Please refresh.');
+        setAssignmentMessage(data?.error ?? (error ? 'Rider assignment service is unavailable. The dispatch update needs to be deployed.' : 'Could not load eligible riders. Please try again.'));
         setAssignmentReady(true);
         return;
       }
