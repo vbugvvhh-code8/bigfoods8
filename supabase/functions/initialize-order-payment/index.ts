@@ -304,10 +304,8 @@ Deno.serve(async (req: Request) => {
       return { sequence, deliveryFee };
     });
     // Tip splits evenly across however many separate deliveries this becomes.
-    const tipPerBatch = batchPlans.length ? Math.round(tipAmount / batchPlans.length) : 0;
-    // Preserve the exact tip total while distributing the rounding remainder
-    // across early batches; no part of the selected tip is silently lost.
-    const tipRemainder = tipAmount - tipPerBatch * batchPlans.length;
+    const tipPerBatch = batchPlans.length ? Math.floor(tipAmount / batchPlans.length) : 0;
+    const tipRemainder = batchPlans.length ? tipAmount - tipPerBatch * batchPlans.length : 0;
     totalAmount += tipAmount;
 
     const { data: group, error: groupError } = await admin
@@ -325,7 +323,8 @@ Deno.serve(async (req: Request) => {
       .single();
     if (groupError) return json({ error: groupError.message }, 500);
 
-    for (const plan of batchPlans) {
+    for (const [planIndex, plan] of batchPlans.entries()) {
+      const batchTip = tipPerBatch + (planIndex < tipRemainder ? 1 : 0);
       const deliveryCode = Math.floor(1000 + Math.random() * 9000).toString();
       const { data: batch, error: batchError } = await admin
         .from("delivery_batches")
@@ -334,7 +333,7 @@ Deno.serve(async (req: Request) => {
           status: "assigning",
           delivery_code: deliveryCode,
           delivery_fee: plan.deliveryFee,
-          tip_amount: tipPerBatch,
+          tip_amount: batchTip,
           route_sequence: plan.sequence,
         })
         .select()
