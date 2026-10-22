@@ -224,7 +224,8 @@ export default function PromotionsPage() {
           <p className="text-[12.5px] font-semibold" style={{ color: 'var(--ink)' }}>Analytics</p>
           <DateRangeFilter value={analyticsRange} onChange={setAnalyticsRange} />
         </div>
-        <div className="grid grid-cols-3 gap-2.5 mb-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-3">
+          <KpiTile label="Card impressions" value={String(stats.cardImpressions)} />
           <KpiTile label="Card clicks" value={String(stats.cardClicks)} />
           <KpiTile label="Page views" value={String(stats.pageViews)} />
           <KpiTile label="Click-through" value={stats.clickThroughRate !== null ? `${stats.clickThroughRate}%` : '—'} />
