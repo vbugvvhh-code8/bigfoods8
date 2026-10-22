@@ -161,8 +161,9 @@ Deno.serve(async (req: Request) => {
     });
     const verifyData = await verifyRes.json();
     const paystackStatus = verifyData?.data?.status;
+    const paystackCurrency = verifyData?.data?.currency;
 
-    if (!verifyRes.ok || paystackStatus !== "success") {
+    if (!verifyRes.ok || verifyData?.status !== true || paystackStatus !== "success") {
       // Never downgrade a transaction that has already been confirmed successful.
       // Only pending transactions can be marked failed by a verification attempt.
       if (txn.status === "pending") {
@@ -193,6 +194,21 @@ Deno.serve(async (req: Request) => {
       return json({
         success: false,
         error: "Payment amount did not match. If you were charged, contact support before retrying.",
+      }, 400);
+    }
+
+    // BigFoods charges in Nigerian naira. An amount match in a different
+    // currency must never be accepted as a successful order payment.
+    if (paystackCurrency !== "NGN") {
+      console.error("ORDER_PAYMENT_CURRENCY_MISMATCH", {
+        transactionId: txn.id,
+        reference,
+        paidCurrency: paystackCurrency,
+        expectedCurrency: "NGN",
+      });
+      return json({
+        success: false,
+        error: "Payment currency did not match. If you were charged, contact support before retrying.",
       }, 400);
     }
 
