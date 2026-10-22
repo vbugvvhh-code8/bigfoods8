@@ -79,9 +79,11 @@ export default function PromotionsPage() {
     );
     const active = currentPromotion ?? latestExpired ?? null;
     setCurrent(active);
-    setHistory(rows.filter((r) =>
-      r.id !== active?.id && r.status !== 'active' && r.status !== 'pending'
-    ));
+    setHistory(rows.filter((r) => {
+      if (r.id === active?.id || r.status === 'pending') return false;
+      const isStillRunning = r.status === 'active' && (!r.ends_at || new Date(r.ends_at).getTime() > now);
+      return !isStillRunning;
+    }));
     setLoadingPromotions(false);
   }, [restaurant?.id, supabase]);
 
@@ -176,7 +178,7 @@ export default function PromotionsPage() {
 
       <div className="p-4 rounded-[12px]" style={{ border: '1px solid var(--line)' }}>
         <p className="text-[12.5px] font-semibold mb-3" style={{ color: 'var(--ink)' }}>
-          {current ? 'Extend or buy another promotion' : 'Promote your restaurant'}
+          {hasExpired ? 'Renew your promotion' : current ? 'Extend or buy another promotion' : 'Promote your restaurant'}
         </p>
 
         <div className="grid grid-cols-2 gap-2 mb-3">
@@ -252,8 +254,10 @@ export default function PromotionsPage() {
                     {p.ends_at ? ` – ${new Date(p.ends_at).toLocaleDateString()}` : ''}
                   </p>
                 </div>
-                <span className="text-[10.5px] font-semibold capitalize" style={{ color: 'var(--gray)' }}>
-                  {p.status}
+                <span className="text-[10.5px] font-semibold" style={{ color: 'var(--gray)' }}>
+                  {p.status === 'active' && p.ends_at && new Date(p.ends_at).getTime() <= Date.now()
+                    ? 'Expired'
+                    : p.status.replaceAll('_', ' ')}
                 </span>
               </div>
             ))}
