@@ -15,7 +15,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 flex bg-white"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-[10000] flex bg-white"
       style={{borderTop: '1px solid var(--line)', paddingBottom: 'env(safe-area-inset-bottom)'}}
     >
       {ITEMS.map(({href, label, icon: Icon}) => {
