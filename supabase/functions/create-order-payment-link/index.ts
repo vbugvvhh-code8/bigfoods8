@@ -47,8 +47,15 @@ Deno.serve(async (req: Request) => {
       return json({ error: "This payment attempt is not linked to exactly one order or order group." }, 409);
     }
 
-    const origin = req.headers.get("origin");
-    if (!origin || !/^https?:\\/\\//i.test(origin)) return json({ error: "Unable to determine the application URL. Please try again from the app." }, 400);
+    const originHeader = req.headers.get("origin");
+    let origin: string;
+    try {
+      const parsedOrigin = new URL(originHeader ?? "");
+      if (parsedOrigin.protocol !== "https:" && parsedOrigin.protocol !== "http:") throw new Error("Invalid origin protocol");
+      origin = parsedOrigin.origin;
+    } catch {
+      return json({ error: "Unable to determine the application URL. Please try again from the app." }, 400);
+    }
 
     // Avoid issuing multiple active links for the same transaction.
     const { data: existing } = await admin.from("order_payment_links")
