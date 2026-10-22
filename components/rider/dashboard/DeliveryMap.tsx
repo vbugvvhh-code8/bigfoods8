@@ -123,7 +123,7 @@ export default function DeliveryMap({ latitude, longitude }: { latitude: number 
 
   return (
     <div className="w-full">
-      <div className="relative h-[320px] w-full">
+      <div className="relative h-[420px] sm:h-[480px] w-full">
         <MapContainer center={destination} zoom={15} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
           <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <MapViewport destination={destination} rider={rider} />
