@@ -39,11 +39,11 @@ export default function useRestaurantEventStats(restaurantId?: string, range: Da
     };
   }, [restaurantId, range, supabase]);
 
+  const cardImpressions = events.filter((e) => e.event_type === 'card_impression').length;
   const cardClicks = events.filter((e) => e.event_type === 'card_click').length;
   const pageViews = events.filter((e) => e.event_type === 'page_view').length;
-  // What share of people who saw the card actually opened the page —
-  // tells a restaurant whether the listing itself is compelling.
-  const clickThroughRate = cardClicks > 0 ? Math.round((pageViews / cardClicks) * 100) : null;
+  // CTR is clicks divided by visible card impressions, not page views divided by clicks.
+  const clickThroughRate = cardImpressions > 0 ? Math.round((cardClicks / cardImpressions) * 100) : null;
 
   const days = range === 'today' ? 1 : range === '7d' ? 7 : range === '14d' ? 14 : 30;
   const dailyViews: { label: string; value: number }[] = [];
@@ -59,5 +59,5 @@ export default function useRestaurantEventStats(restaurantId?: string, range: Da
     dailyViews.push({ label: day.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }), value });
   }
 
-  return { loading, cardClicks, pageViews, clickThroughRate, dailyViews };
+  return { loading, cardImpressions, cardClicks, pageViews, clickThroughRate, dailyViews };
 }
