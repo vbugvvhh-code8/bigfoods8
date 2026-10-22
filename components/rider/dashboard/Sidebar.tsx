@@ -116,7 +116,7 @@ export default function Sidebar({ riderName }: { riderName?: string }) {
             </div>
             {footer}
           </div>
-          <div className="flex-1" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => setOpen(false)} />
+          <button type="button" aria-label="Close navigation menu" className="absolute inset-0 z-0 h-full w-full" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => setOpen(false)} />
         </div>
       )}
     </>
