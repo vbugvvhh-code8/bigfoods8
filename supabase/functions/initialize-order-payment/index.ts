@@ -235,7 +235,8 @@ Deno.serve(async (req: Request) => {
     }
     const tipAmount = Math.round(rawTipAmount);
 
-    // Orders are kept non-active (cancelled placeholder) until Paystack verifies success.\n    // verify-order-payment promotes them to placed only after provider confirmation.\n    // ---- Single restaurant: exactly the existing behavior, no group/batch at all ----
+    // Orders are kept non-active until Paystack verifies success.
+    // ---- Single restaurant: exactly the existing behavior, no group/batch at all ----
     if (groups.length === 1) {
       const restaurant = restaurants[0];
       const distanceKm = haversineKm(restaurant.latitude, restaurant.longitude, delivery_lat, delivery_lng);
