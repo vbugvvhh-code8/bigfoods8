@@ -81,7 +81,6 @@ export default function NearbyOrdersPage() {
             <span className="relative z-10 flex h-10 w-10 items-center justify-center rounded-full text-lg text-white" style={{ background: 'var(--orange)', transform: `translateX(${Math.max(0, ((swipeProgress[offer.order_id] ?? 0) / 100) * 180)}px)`, transition: swipeStart.current === null ? 'transform 180ms ease' : 'none' }}>➜</span>
             <span className="relative z-10 ml-3 flex-1 text-center pr-10">{busy === offer.order_id ? 'Accepting…' : 'Swipe to Accept Order'}</span>
           </div>
-          <button disabled={!!busy} onClick={() => void respond(offer.order_id, false)} className="w-full rounded-lg border p-2 text-sm disabled:opacity-50">{busy === offer.order_id ? 'Working…' : 'Reject order'}</button>
         </div>}
         {offer.status === 'accepted' && <button onClick={() => router.push('/rider-portal/dashboard/delivery/' + offer.order_id)} className="w-full rounded-lg p-2 text-sm text-white" style={{ background: 'var(--orange)' }}>Open delivery</button>}
       </div>))}
