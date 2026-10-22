@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapPin, Navigation, Wallet, Bike, ArrowUpRight, Clock3, ShieldCheck } from 'lucide-react';
 import useRider from '@/hooks/useRider';
 import useRiderActiveOrder from '@/hooks/useRiderActiveOrder';
@@ -30,6 +30,8 @@ export default function RiderDashboardPage() {
   const [offersLoading, setOffersLoading] = useState(false);
   const [offerActionId, setOfferActionId] = useState<string | null>(null);
   const [offersMessage, setOffersMessage] = useState('');
+  const swipeStart = useRef<number | null>(null);
+  const [swipeProgress, setSwipeProgress] = useState<Record<string, number>>({});
 
   const online = rider?.status === 'online';
   const missingZone = !rider?.zone;
@@ -201,7 +203,22 @@ export default function RiderDashboardPage() {
             {nearbyOffers.map(offer => <article key={offer.offer_id} className="rounded-xl p-3" style={{ border: '1px solid var(--line)', background: '#FFFAF5' }}>
               <div className="flex items-start justify-between gap-3"><div><p className="font-semibold" style={{ color: 'var(--ink)' }}>Order {offer.order_id.slice(0, 8)}</p><p className="mt-1 text-xs" style={{ color: 'var(--gray)' }}>{offer.zone ?? rider?.zone ?? 'Service area'} · {offer.status === 'accepted' ? 'Accepted' : 'Offer available'}</p></div><p className="font-semibold" style={{ color: 'var(--ink)' }}>₦{Number(offer.delivery_fee ?? 0).toLocaleString()}</p></div>
               <p className="mt-2 text-sm" style={{ color: 'var(--gray)' }}>{offer.status === 'accepted' ? offer.delivery_address ?? 'Open delivery to view destination.' : 'Delivery address is shown after acceptance.'}</p>
-              {offer.status === 'offered' && <button disabled={!!offerActionId} onClick={() => void respondToOffer(offer.order_id, true)} className="mt-3 w-full rounded-xl px-4 py-3 text-sm font-semibold text-white disabled:opacity-50" style={{ background: 'var(--orange)' }}>{offerActionId === offer.order_id ? 'Accepting…' : 'Accept order and open map'}</button>}
+              {offer.status === 'offered' && <div
+                role="button"
+                tabIndex={0}
+                aria-label="Swipe to accept order and open delivery map"
+                onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !offerActionId && online) void respondToOffer(offer.order_id, true); }}
+                onPointerDown={e => { if (offerActionId || !online) return; swipeStart.current = e.clientX; e.currentTarget.setPointerCapture(e.pointerId); }}
+                onPointerMove={e => { if (swipeStart.current === null) return; const progress = Math.max(0, Math.min(100, ((e.clientX - swipeStart.current) / Math.max(1, e.currentTarget.clientWidth)) * 100)); setSwipeProgress(s => ({ ...s, [offer.order_id]: progress })); }}
+                onPointerUp={() => { const progress = swipeProgress[offer.order_id] ?? 0; swipeStart.current = null; setSwipeProgress(s => ({ ...s, [offer.order_id]: 0 })); if (progress >= 65 && !offerActionId && online) void respondToOffer(offer.order_id, true); }}
+                onPointerCancel={() => { swipeStart.current = null; setSwipeProgress(s => ({ ...s, [offer.order_id]: 0 })); }}
+                className="relative mt-3 flex h-14 touch-pan-y select-none items-center overflow-hidden rounded-full px-2 text-sm font-semibold text-white"
+                style={{ background: '#242424', opacity: offerActionId || !online ? 0.55 : 1 }}
+              >
+                <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: (swipeProgress[offer.order_id] ?? 0) + '%', background: 'var(--orange)', opacity: 0.8 }} />
+                <span className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg text-white" style={{ background: 'var(--orange)', transform: `translateX(${Math.max(0, ((swipeProgress[offer.order_id] ?? 0) / 100) * 180)}px)`, transition: swipeStart.current === null ? 'transform 180ms ease' : 'none' }}>➜</span>
+                <span className="relative z-10 ml-3 flex-1 text-center pr-10">{offerActionId === offer.order_id ? 'Accepting…' : 'Swipe to Accept Order'}</span>
+              </div>}
               {offer.status === 'accepted' && <button onClick={() => router.push('/rider-portal/dashboard/delivery/' + offer.order_id)} className="mt-3 w-full rounded-xl px-4 py-3 text-sm font-semibold text-white" style={{ background: 'var(--orange)' }}>Open delivery map</button>}
             </article>)}
           </div>}
