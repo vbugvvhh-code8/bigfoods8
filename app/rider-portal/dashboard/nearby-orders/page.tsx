@@ -27,10 +27,22 @@ export default function NearbyOrdersPage() {
     if (error || data?.error) setMessage(data?.error ?? 'Could not load order offers. Please try again.');
     else {
       const fetchedOffers = (data?.offers ?? []) as Offer[];
-      // Accepted offers must take priority even when the order row has not yet
-      // been linked to rider_id; hide every other offer until this is resolved.
+      // An accepted offer is only current when its order is still active and
+      // assigned to this rider. Ignore stale accepted offers for delivered or
+      // cancelled orders so they cannot hide genuine pending offers.
       const acceptedOffers = fetchedOffers.filter(offer => offer.status === 'accepted');
-      setOffers(acceptedOffers.length ? acceptedOffers.slice(0, 1) : fetchedOffers);
+      let currentOffers = fetchedOffers;
+      if (acceptedOffers.length && rider?.id) {
+        const { data: activeAcceptedOrders } = await supabase.from('orders')
+          .select('id,status,rider_id')
+          .in('id', acceptedOffers.map(offer => offer.order_id))
+          .eq('rider_id', rider.id)
+          .in('status', ['placed', 'preparing', 'picked_up']);
+        const validAcceptedIds = new Set((activeAcceptedOrders ?? []).map(order => order.id));
+        currentOffers = fetchedOffers.filter(offer => offer.status !== 'accepted' || validAcceptedIds.has(offer.order_id));
+      }
+      const currentAcceptedOffers = currentOffers.filter(offer => offer.status === 'accepted');
+      setOffers(currentAcceptedOffers.length ? currentAcceptedOffers.slice(0, 1) : currentOffers);
       setMessage('');
     }
     setLoading(false);
