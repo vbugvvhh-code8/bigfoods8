@@ -4,6 +4,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const PAYSTACK_SECRET_KEY = Deno.env.get("PAYSTACK_SECRET_KEY");
+const APP_URL = Deno.env.get("APP_URL") ?? Deno.env.get("SITE_URL");
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -26,6 +27,11 @@ Deno.serve(async (req: Request) => {
 
   try {
     const { token, callbackOrigin } = await req.json();
+    const configuredOrigin = APP_URL ? new URL(APP_URL).origin : null;
+    const requestedOrigin = typeof callbackOrigin === "string" ? (() => { try { return new URL(callbackOrigin).origin; } catch { return null; } })() : null;
+    if (!configuredOrigin || !requestedOrigin || requestedOrigin !== configuredOrigin) {
+      return json({ error: "Payment callback URL is not configured for this application." }, 503);
+    }
     if (typeof token !== "string" || !/^[a-f0-9]{64}$/i.test(token)) return json({ error: "This payment link is invalid or expired." }, 404);
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     const tokenHash = await sha256(token);
@@ -46,6 +52,7 @@ Deno.serve(async (req: Request) => {
         txn.customer_id !== link.customer_id ||
         Number(txn.amount) !== Number(link.amount_naira) ||
         (!!txn.order_id !== !!link.order_id) || (!!txn.order_group_id !== !!link.order_group_id)) {
+      await admin.rpc("release_order_payment_link_claim", { p_token_hash: tokenHash });
       return json({ error: "This payment link is no longer valid for the payment attempt." }, 409);
     }
 
@@ -73,7 +80,8 @@ Deno.serve(async (req: Request) => {
     const payload = await response.json();
     if (!response.ok || !payload?.status || typeof payload?.data?.authorization_url !== "string") {
       console.error("PAYMENT_LINK_PAYSTACK_INIT_FAILED", { linkId: link.id, message: payload?.message });
-      return json({ error: "Unable to start payment. This link has been claimed; contact support before retrying." }, 502);
+      await admin.rpc("release_order_payment_link_claim", { p_token_hash: tokenHash });
+      return json({ error: "Unable to start payment. The link is available to retry; no payment confirmation was recorded." }, 502);
     }
 
     return json({ success: true, authorization_url: payload.data.authorization_url, reference: txn.reference, expires_at: link.expires_at });
