@@ -163,13 +163,40 @@ Deno.serve(async (req: Request) => {
     const paystackStatus = verifyData?.data?.status;
 
     if (!verifyRes.ok || paystackStatus !== "success") {
-      await admin.from("transactions").update({ status: "failed" }).eq("id", txn.id);
-      if (txn.order_id) await admin.from("orders").update({ payment_status: "failed" }).eq("id", txn.order_id);
-      if (txn.order_group_id) await admin.from("order_groups").update({ payment_status: "failed" }).eq("id", txn.order_group_id);
+      // Never downgrade a transaction that has already been confirmed successful.
+      // Only pending transactions can be marked failed by a verification attempt.
+      if (txn.status === "pending") {
+        await admin.from("transactions").update({ status: "failed" }).eq("id", txn.id).eq("status", "pending");
+        if (txn.order_id) {
+          await admin.from("orders").update({ payment_status: "failed" })
+            .eq("id", txn.order_id).eq("payment_status", "pending");
+        }
+        if (txn.order_group_id) {
+          await admin.from("order_groups").update({ payment_status: "failed" })
+            .eq("id", txn.order_group_id).eq("payment_status", "pending");
+        }
+      }
       return json({ success: false, error: "Payment was not successful" });
     }
 
-    await admin.from("transactions").update({ status: "success" }).eq("id", txn.id);
+    // Paystack reports amounts in kobo; transactions.amount is stored in naira.
+    // Never mark an order paid unless the provider-confirmed amount matches.
+    const paidKobo = Number(verifyData?.data?.amount);
+    const expectedKobo = Math.round(Number(txn.amount) * 100);
+    if (!Number.isFinite(paidKobo) || !Number.isFinite(expectedKobo) || paidKobo !== expectedKobo) {
+      console.error("ORDER_PAYMENT_AMOUNT_MISMATCH", {
+        transactionId: txn.id,
+        reference,
+        paidKobo,
+        expectedKobo,
+      });
+      return json({
+        success: false,
+        error: "Payment amount did not match. If you were charged, contact support before retrying.",
+      }, 400);
+    }
+
+    await admin.from("transactions").update({ status: "success" }).eq("id", txn.id).neq("status", "success");
 
     if (txn.order_id) {
       await dispatchSingleOrder(admin, txn.order_id);
