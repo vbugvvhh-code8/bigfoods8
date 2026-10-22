@@ -146,34 +146,90 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Your delivery location is outside one or more restaurants' delivery range" }, 400);
     }
 
-    const { data: pricingRows } = await admin
+    const { data: pricingRows, error: pricingError } = await admin
       .from("pricing_config")
       .select("key, value")
       .in("key", ["platform_fee", "delivery_rate_per_km", "minimum_delivery_fee"]);
-    const platformFee = Number(pricingRows?.find((p: any) => p.key === "platform_fee")?.value ?? 500);
-    const rate = Number(pricingRows?.find((p: any) => p.key === "delivery_rate_per_km")?.value ?? 150);
-    const minDeliveryFee = Number(pricingRows?.find((p: any) => p.key === "minimum_delivery_fee")?.value ?? 1000);
+    if (pricingError || !pricingRows) {
+      return json({ error: "Unable to load checkout pricing. Please try again later." }, 503);
+    }
 
-    // Validate every group's items belong to that restaurant, compute subtotals.
+    const pricingValue = (key: string) => {
+      const row = pricingRows.find((p: any) => p.key === key);
+      return row?.value;
+    };
+    const rawPlatformFee = pricingValue("platform_fee");
+    const rawRate = pricingValue("delivery_rate_per_km");
+    const rawMinDeliveryFee = pricingValue("minimum_delivery_fee");
+    const platformFee = Number(rawPlatformFee);
+    const rate = Number(rawRate);
+    const minDeliveryFee = Number(rawMinDeliveryFee);
+    if (
+      rawPlatformFee == null || rawRate == null || rawMinDeliveryFee == null ||
+      !Number.isFinite(platformFee) || platformFee < 0 ||
+      !Number.isFinite(rate) || rate < 0 ||
+      !Number.isFinite(minDeliveryFee) || minDeliveryFee < 0
+    ) {
+      return json({ error: "Checkout pricing is not configured correctly. Please contact support." }, 503);
+    }
+
+    // Validate all cart data at the payment boundary, then calculate prices from
+    // database-owned menu prices rather than browser-supplied totals or prices.
     const groupComputations: { restaurant_id: string; subtotal: number; items: any[] }[] = [];
+    let itemCount = 0;
     for (const g of groups) {
+      if (!g || typeof g.restaurant_id !== "string" || !Array.isArray(g.items) || g.items.length === 0) {
+        return json({ error: "Each restaurant group must include at least one cart item" }, 400);
+      }
+      const seenItemIds = new Set<string>();
+      for (const item of g.items) {
+        if (
+          !item || typeof item.menu_item_id !== "string" ||
+          !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 99 ||
+          seenItemIds.has(item.menu_item_id)
+        ) {
+          return json({ error: "Cart items must have unique item IDs and quantities between 1 and 99" }, 400);
+        }
+        seenItemIds.add(item.menu_item_id);
+      }
+      itemCount += g.items.length;
+      if (itemCount > 100) return json({ error: "Your cart contains too many items" }, 400);
+
       const { data: menuItems, error: itemsError } = await admin
         .from("menu_items")
         .select("id, price, restaurant_id")
         .in("id", g.items.map((i: any) => i.menu_item_id));
-      if (itemsError) return json({ error: itemsError.message }, 500);
+      if (itemsError) return json({ error: "Unable to validate cart items. Please try again later." }, 503);
       const invalid = menuItems?.find((m: any) => m.restaurant_id !== g.restaurant_id);
       if (invalid || menuItems?.length !== g.items.length) {
         return json({ error: "One or more items don't belong to their restaurant" }, 400);
       }
+      const menuItemById = new Map((menuItems ?? []).map((m: any) => [m.id, m]));
       const subtotal = g.items.reduce((sum: number, i: any) => {
-        const mi = menuItems.find((m: any) => m.id === i.menu_item_id);
-        return sum + (mi?.price ?? 0) * (i.quantity ?? 1);
+        const menuItem = menuItemById.get(i.menu_item_id) as any;
+        const unitPrice = Number(menuItem?.price);
+        if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new Error("Invalid menu item price");
+        return sum + unitPrice * i.quantity;
       }, 0);
-      groupComputations.push({ restaurant_id: g.restaurant_id, subtotal, items: g.items.map((i: any) => ({ ...i, unit_price: menuItems!.find((m: any) => m.id === i.menu_item_id)?.price ?? 0 })) });
+      if (!Number.isSafeInteger(Math.round(subtotal)) || subtotal < 0) {
+        return json({ error: "Cart subtotal is invalid. Please refresh your cart." }, 400);
+      }
+      groupComputations.push({
+        restaurant_id: g.restaurant_id,
+        subtotal: Math.round(subtotal),
+        items: g.items.map((i: any) => ({
+          menu_item_id: i.menu_item_id,
+          quantity: i.quantity,
+          unit_price: Number(menuItemById.get(i.menu_item_id)!.price),
+        })),
+      });
     }
 
-    const tipAmount = Math.max(0, Math.round(Number(tip_amount ?? 0)));
+    const rawTipAmount = Number(tip_amount ?? 0);
+    if (!Number.isFinite(rawTipAmount) || rawTipAmount < 0 || rawTipAmount > 1000000) {
+      return json({ error: "Tip amount must be a valid non-negative amount." }, 400);
+    }
+    const tipAmount = Math.round(rawTipAmount);
 
     // Orders are kept non-active (cancelled placeholder) until Paystack verifies success.\n    // verify-order-payment promotes them to placed only after provider confirmation.\n    // ---- Single restaurant: exactly the existing behavior, no group/batch at all ----
     if (groups.length === 1) {
