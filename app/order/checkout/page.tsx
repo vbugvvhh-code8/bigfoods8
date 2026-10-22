@@ -1,6 +1,6 @@
 'use client';
 
-import {useState, useMemo} from 'react';
+import {useState, useMemo, useEffect} from 'react';
 import {useRouter} from 'next/navigation';
 import {ArrowLeft, Gift, Info, X} from 'lucide-react';
 import {useCart} from '@/hooks/useCart';
@@ -27,6 +27,13 @@ function CheckoutContent() {
   const [tipAmount, setTipAmount] = useState(0);
   const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
   const [shareError, setShareError] = useState('');
+
+  useEffect(() => {
+    if (paymentLink) {
+      setShareError('');
+      setShowPaymentLinkModal(true);
+    }
+  }, [paymentLink]);
 
   // Rough client-side estimate only -- the real fee (with proper batch
   // clustering for 3+ restaurants) is computed server-side at payment init.
@@ -154,21 +161,21 @@ function CheckoutContent() {
       <button
         onClick={() => { if (paymentLink) setShowPaymentLinkModal(true); else handleCreatePaymentLink(); }}
         disabled={!deliveryPoint || isSubmitting}
-        className="mt-4 w-full flex items-center justify-between gap-3 rounded-2xl border bg-white px-4 py-4 text-left disabled:opacity-50"
+        className="mt-3 w-full flex items-center justify-between gap-2.5 rounded-xl border bg-white px-3 py-3 text-left disabled:opacity-50"
         style={{borderColor: '#E9E9E9', color: 'var(--ink)'}}
       >
         <span className="flex min-w-0 items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{background: '#FFF0E9', color: 'var(--orange)'}}>
-            <Gift className="h-6 w-6" />
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{background: 'var(--peach)', color: 'var(--orange)'}}>
+            <Gift className="h-4 w-4" />
           </span>
           <span className="min-w-0">
-            <span className="block text-[14px] font-bold">Ask someone to pay</span>
-            <span className="mt-0.5 block text-[12px]" style={{color: 'var(--gray)'}}>Share a link. They pay, you receive.</span>
+            <span className="block text-[13px] font-bold">Ask someone to pay</span>
+            <span className="mt-0.5 block text-[11px] leading-snug" style={{color: 'var(--gray)'}}>Share a link. They pay, you receive.</span>
           </span>
           {hasPaymentLink && <Info className="h-4 w-4 shrink-0" style={{color: 'var(--gray)'}} />}
         </span>
         <span
-          className="shrink-0 rounded-xl border-2 px-4 py-3 text-[12px] font-bold"
+          className="shrink-0 rounded-lg border-2 px-3 py-2.5 text-[11px] font-bold"
           style={{borderColor: 'var(--ink)', color: 'var(--ink)'}}
         >
           {isSubmitting ? 'Creating…' : hasPaymentLink ? 'Get link' : 'Get link'}
@@ -177,18 +184,18 @@ function CheckoutContent() {
 
       {showPaymentLinkModal && paymentLink && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 px-5" onClick={() => setShowPaymentLinkModal(false)}>
-          <section role="dialog" aria-modal="true" aria-labelledby="payment-link-title" className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
-            <div className="mb-4 flex items-start justify-between gap-3">
+          <section role="dialog" aria-modal="true" aria-labelledby="payment-link-title" className="w-full max-w-[340px] rounded-2xl bg-white p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-3 flex items-start justify-between gap-2">
               <div>
-                <h2 id="payment-link-title" className="text-[17px] font-bold" style={{color: 'var(--ink)'}}>Payment link ready</h2>
+                <h2 id="payment-link-title" className="text-[16px] font-bold" style={{color: 'var(--orange)'}}>Payment link ready</h2>
                 <p className="mt-1 text-[12px]" style={{color: 'var(--gray)'}}>Share this link with the person helping you pay.</p>
               </div>
               <button aria-label="Close payment link dialog" onClick={() => setShowPaymentLinkModal(false)} className="rounded-full p-1.5" style={{color: 'var(--gray)'}}><X className="h-5 w-5" /></button>
             </div>
-            <div className="break-all rounded-xl border p-3 text-[12px]" style={{borderColor: '#E9E9E9', color: 'var(--ink)'}}>{paymentLink}</div>
+            <div className="break-all rounded-lg border p-2.5 text-[11px]" style={{borderColor: 'var(--peach)', color: 'var(--ink)', background: '#FFFAF7'}}>{paymentLink}</div>
             {shareError && <p role="alert" className="mt-2 text-[12px]" style={{color: 'var(--red, #C1453A)'}}>{shareError}</p>}
-            <button onClick={async () => { try { await navigator.clipboard.writeText(paymentLink); setShowPaymentLinkModal(false); } catch { setShareError('Could not copy the link. Please select and copy it manually.'); } }} className="mt-3 w-full rounded-xl py-3 text-[13px] font-bold text-white" style={{background: 'var(--ink)'}}>Copy link</button>
-            {typeof navigator !== 'undefined' && !!navigator.share && <button onClick={() => navigator.share({title: 'Big Foods payment link', text: 'Please help me pay for my Big Foods order.', url: paymentLink}).catch(() => {})} className="mt-2 w-full rounded-xl border py-3 text-[13px] font-semibold" style={{borderColor: 'var(--ink)', color: 'var(--ink)'}}>Share link</button>}
+            <button onClick={async () => { try { await navigator.clipboard.writeText(paymentLink); setShowPaymentLinkModal(false); } catch { setShareError('Could not copy the link. Please select and copy it manually.'); } }} className="mt-3 w-full rounded-xl py-2.5 text-[12px] font-bold text-white" style={{background: 'var(--orange)'}}>Copy link</button>
+            {typeof navigator !== 'undefined' && !!navigator.share && <button onClick={() => navigator.share({title: 'Big Foods payment link', text: 'Please help me pay for my Big Foods order.', url: paymentLink}).catch(() => {})} className="mt-2 w-full rounded-xl border py-2.5 text-[12px] font-semibold" style={{borderColor: 'var(--orange)', color: 'var(--orange)'}}>Share link</button>}
           </section>
         </div>
       )}
