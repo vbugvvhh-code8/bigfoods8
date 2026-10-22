@@ -16,6 +16,8 @@ import { PUBLIC_LAUNCH_DATE, isBeforeLaunch } from '@/lib/launchDate';
 import type { DateRange } from '@/hooks/useRestaurantAnalytics';
 
 type Plan = '1_day' | '2_days' | '1_week' | '2_weeks' | '1_month';
+const LEGACY_PLAN_LABELS: Record<string, string> = { '3_months': '3 months' };
+const planLabel = (plan: string) => PLAN_LABELS[plan as Plan] ?? LEGACY_PLAN_LABELS[plan] ?? plan.replaceAll('_', ' ');
 
 const PLAN_LABELS: Record<Plan, string> = {
   '1_day': '1 day',
@@ -68,7 +70,7 @@ export default function PromotionsPage() {
     const rows = (data as PromotionRow[]) ?? [];
     const active = rows.find((r) => r.status === 'active' || r.status === 'pending') ?? null;
     setCurrent(active);
-    setHistory(rows.filter((r) => r.id !== active?.id));
+    setHistory(rows.filter((r) => r.id !== active?.id && r.status !== 'active' && r.status !== 'pending'));
     setLoadingPromotions(false);
   }, [restaurant?.id, supabase]);
 
@@ -122,7 +124,7 @@ export default function PromotionsPage() {
 
           {!hasStarted && isBeforeLaunch() ? (
             <p className="text-[12px] mb-1" style={{ color: 'var(--ink)' }}>
-              Your {PLAN_LABELS[current.plan as Plan] ?? current.plan} promotion is paid for and will start counting
+              Your {planLabel(current.plan)} promotion is paid for and will start counting
               down from launch day —{' '}
               {PUBLIC_LAUNCH_DATE.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}.
             </p>
@@ -221,7 +223,7 @@ export default function PromotionsPage() {
               <div key={p.id} className="flex items-center justify-between p-2.5 rounded-[8px]" style={{ border: '1px solid var(--line)' }}>
                 <div>
                   <p className="text-[12px]" style={{ color: 'var(--ink)' }}>
-                    {PLAN_LABELS[p.plan as Plan] ?? p.plan} · ₦{Number(p.amount_paid).toLocaleString()}
+                    {planLabel(p.plan)} · ₦{Number(p.amount_paid).toLocaleString()}
                   </p>
                   <p className="text-[10.5px]" style={{ color: 'var(--gray)' }}>
                     {p.starts_at ? new Date(p.starts_at).toLocaleDateString() : '—'}
