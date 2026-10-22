@@ -5,7 +5,10 @@ import { usePathname } from 'next/navigation';
 
 export default function NavItem({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
   const pathname = usePathname();
-  const isActive = pathname === href || pathname?.startsWith(href + '/');
+  const isDashboardRoot = href === '/restaurant-portal/dashboard' || href === '/rider-portal/dashboard';
+  // Keep the overview item active only on its own route; otherwise nested pages
+  // such as Orders and Nearby Orders incorrectly highlight Overview as well.
+  const isActive = pathname === href || (!isDashboardRoot && Boolean(pathname?.startsWith(href + '/')));
 
   return (
     <Link
