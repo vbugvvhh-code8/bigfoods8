@@ -51,7 +51,7 @@ export default function DashboardOverviewPage() {
         <p className="text-[12px] mb-2" style={{ color: 'var(--gray)' }}>
           {restaurant.category} · {restaurant.address}
         </p>
-        <RiderEtaBadge latitude={restaurant.latitude ?? undefined} longitude={restaurant.longitude ?? undefined} />
+        <RiderEtaBadge latitude={restaurant.latitude ?? undefined} longitude={restaurant.longitude ?? undefined} zone={restaurant.zone ?? null} />
       </div>
 
       <AcceptingHoursCard restaurant={restaurant} onUpdated={() => refresh()} />
