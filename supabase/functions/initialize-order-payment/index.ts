@@ -101,6 +101,9 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Each restaurant group must include a restaurant and at least one item" }, 400);
     }
     const requestedRestaurantIds = groups.map((g: any) => g.restaurant_id);
+    if (requestedRestaurantIds.some((id: unknown) => typeof id !== "string" || id.length === 0)) {
+      return json({ error: "Each restaurant group must have a valid restaurant ID" }, 400);
+    }
     if (new Set(requestedRestaurantIds).size !== requestedRestaurantIds.length) {
       return json({ error: "Each restaurant can appear only once in checkout" }, 400);
     }
