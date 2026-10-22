@@ -68,9 +68,20 @@ export default function PromotionsPage() {
       .eq('restaurant_id', restaurant.id)
       .order('starts_at', { ascending: false, nullsFirst: false });
     const rows = (data as PromotionRow[]) ?? [];
-    const active = rows.find((r) => r.status === 'active' || r.status === 'pending') ?? null;
+    const now = Date.now();
+    const currentPromotion = rows.find((r) =>
+      r.status === 'pending' ||
+      (r.status === 'active' && (!r.ends_at || new Date(r.ends_at).getTime() > now))
+    );
+    // Keep the latest expired promotion visible when there is no live or scheduled one.
+    const latestExpired = rows.find((r) =>
+      r.status === 'active' && !!r.ends_at && new Date(r.ends_at).getTime() <= now
+    );
+    const active = currentPromotion ?? latestExpired ?? null;
     setCurrent(active);
-    setHistory(rows.filter((r) => r.id !== active?.id && r.status !== 'active' && r.status !== 'pending'));
+    setHistory(rows.filter((r) =>
+      r.id !== active?.id && r.status !== 'active' && r.status !== 'pending'
+    ));
     setLoadingPromotions(false);
   }, [restaurant?.id, supabase]);
 
@@ -102,6 +113,7 @@ export default function PromotionsPage() {
     ? Math.max(0, Math.ceil((new Date(current.ends_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
     : null;
   const hasStarted = current?.starts_at ? new Date(current.starts_at) <= new Date() : false;
+  const hasExpired = current?.status === 'active' && !!current.ends_at && new Date(current.ends_at).getTime() <= Date.now();
 
   if (restaurantLoading || !restaurant) {
     return <p className="text-[12.5px] py-6 text-center" style={{ color: 'var(--gray)' }}>Loading…</p>;
@@ -118,11 +130,15 @@ export default function PromotionsPage() {
           <div className="flex items-center gap-2 mb-2">
             <Megaphone className="w-4 h-4" style={{ color: 'var(--orange)' }} />
             <p className="text-[13px] font-semibold" style={{ color: 'var(--ink)' }}>
-              {hasStarted ? 'Promotion active' : 'Promotion scheduled'}
+              {hasExpired ? 'Promotion expired' : hasStarted ? 'Promotion active' : 'Promotion scheduled'}
             </p>
           </div>
 
-          {!hasStarted && isBeforeLaunch() ? (
+          {hasExpired ? (
+            <p className="text-[12px] mb-1" style={{ color: 'var(--ink)' }}>
+              Your {planLabel(current.plan)} promotion ended on {new Date(current.ends_at!).toLocaleDateString()}. Renew to get promoted again.
+            </p>
+          ) : !hasStarted && isBeforeLaunch() ? (
             <p className="text-[12px] mb-1" style={{ color: 'var(--ink)' }}>
               Your {planLabel(current.plan)} promotion is paid for and will start counting
               down from launch day —{' '}
@@ -130,7 +146,7 @@ export default function PromotionsPage() {
             </p>
           ) : (
             <p className="text-[12px] mb-1" style={{ color: 'var(--ink)' }}>
-              {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left on your {PLAN_LABELS[current.plan as Plan] ?? current.plan} promotion.
+              {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left on your {planLabel(current.plan)} promotion.
             </p>
           )}
 
@@ -142,6 +158,12 @@ export default function PromotionsPage() {
       ) : (
         <p className="text-[12px] p-4 rounded-[12px]" style={{ border: '1px solid var(--line)', color: 'var(--gray)' }}>
           You don't have an active promotion right now.
+        </p>
+      )}
+
+      {hasExpired && (
+        <p className="text-[11px] p-2.5 rounded-[9px]" style={{ background: 'var(--peach)', color: 'var(--ink)' }}>
+          This paid promotion has ended. Your restaurant and menu remain available, but this promotion no longer qualifies for promoted placement. Choose a plan below to renew.
         </p>
       )}
 
