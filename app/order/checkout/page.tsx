@@ -147,7 +147,7 @@ function CheckoutContent() {
       )}
 
       <button
-        onClick={() => hasPaymentLink && setShowPaymentLinkModal(true)}
+        onClick={() => { if (paymentLink) setShowPaymentLinkModal(true); else handleCreatePaymentLink(); }}
         disabled={!deliveryPoint || isSubmitting}
         className="mt-4 w-full flex items-center justify-between gap-3 rounded-2xl border bg-white px-4 py-4 text-left disabled:opacity-50"
         style={{borderColor: '#E9E9E9', color: 'var(--ink)'}}
@@ -163,7 +163,6 @@ function CheckoutContent() {
           {hasPaymentLink && <Info className="h-4 w-4 shrink-0" style={{color: 'var(--gray)'}} />}
         </span>
         <span
-          onClick={(event) => { event.stopPropagation(); if (paymentLink) setShowPaymentLinkModal(true); else handleCreatePaymentLink(); }}
           className="shrink-0 rounded-xl border-2 px-4 py-3 text-[12px] font-bold"
           style={{borderColor: 'var(--ink)', color: 'var(--ink)'}}
         >
