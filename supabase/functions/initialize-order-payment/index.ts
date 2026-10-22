@@ -172,6 +172,9 @@ Deno.serve(async (req: Request) => {
     ) {
       return json({ error: "Checkout pricing is not configured correctly. Please contact support." }, 503);
     }
+    if (![platformFee, rate, minDeliveryFee].every(Number.isSafeInteger)) {
+      return json({ error: "Checkout pricing must be configured in whole naira amounts." }, 503);
+    }
 
     // Validate all cart data at the payment boundary, then calculate prices from
     // database-owned menu prices rather than browser-supplied totals or prices.
