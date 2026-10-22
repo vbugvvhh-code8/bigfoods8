@@ -2,8 +2,8 @@
 
 import {useEffect} from 'react';
 import Link from 'next/link';
-import {trackRestaurantEvent} from '@/hooks/useTrackRestaurantEvent';
 import type {RestaurantWithMeta} from '@/lib/customer/types';
+import {trackRestaurantEvent} from '@/hooks/useTrackRestaurantEvent';
 
 interface PromotedRowProps {
   restaurants: RestaurantWithMeta[];
@@ -25,7 +25,6 @@ export function PromotedRow({restaurants}: PromotedRowProps) {
     }
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
-        // A card impression means at least half of the card was visible.
         if (!entry.isIntersecting || entry.intersectionRatio < 0.5) return;
         const card = entry.target as HTMLElement;
         const id = card.dataset.restaurantId;
@@ -49,7 +48,14 @@ export function PromotedRow({restaurants}: PromotedRowProps) {
       </h2>
       <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
         {restaurants.map((r) => (
-          <Link key={r.id} href={`/order/restaurant/${r.id}`} data-promotion-impression data-restaurant-id={r.id} onClick={() => trackRestaurantEvent(r.id, 'card_click')} className="flex-shrink-0 w-[150px] text-left">
+          <Link
+            key={r.id}
+            href={`/order/restaurant/${r.id}`}
+            data-promotion-impression
+            data-restaurant-id={r.id}
+            onClick={() => trackRestaurantEvent(r.id, 'card_click')}
+            className="flex-shrink-0 w-[150px] text-left"
+          >
             <div
               className="w-[150px] h-[100px] rounded-xl relative overflow-hidden mb-2 bg-cover bg-center"
               style={
