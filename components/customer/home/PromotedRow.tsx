@@ -12,11 +12,12 @@ interface PromotedRowProps {
 export function PromotedRow({restaurants}: PromotedRowProps) {
   useEffect(() => {
     const cards = document.querySelectorAll<HTMLElement>('[data-promotion-impression]');
+    const tracked = new WeakSet<Element>();
     if (!('IntersectionObserver' in window)) {
       cards.forEach((card) => {
         const id = card.dataset.restaurantId;
-        if (id && card.dataset.impressionTracked !== 'true') {
-          card.dataset.impressionTracked = 'true';
+        if (id && !tracked.has(card)) {
+          tracked.add(card);
           trackRestaurantEvent(id, 'card_impression');
         }
       });
@@ -24,16 +25,17 @@ export function PromotedRow({restaurants}: PromotedRowProps) {
     }
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
+        // A card impression means at least half of the card was visible.
+        if (!entry.isIntersecting || entry.intersectionRatio < 0.5) return;
         const card = entry.target as HTMLElement;
         const id = card.dataset.restaurantId;
-        if (id && card.dataset.impressionTracked !== 'true') {
-          card.dataset.impressionTracked = 'true';
+        if (id && !tracked.has(card)) {
+          tracked.add(card);
           trackRestaurantEvent(id, 'card_impression');
         }
         observer.unobserve(card);
       });
-    }, {threshold: 0.5});
+    }, {threshold: [0, 0.5]});
     cards.forEach((card) => observer.observe(card));
     return () => observer.disconnect();
   }, [restaurants]);
