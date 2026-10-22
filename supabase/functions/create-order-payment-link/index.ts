@@ -36,7 +36,7 @@ Deno.serve(async (req: Request) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     const { data: txn, error: txnError } = await admin.from("transactions")
-      .select("id, customer_id, order_id, order_group_id, amount, currency, status, type")
+      .select("id, customer_id, order_id, order_group_id, amount, status, type")
       .eq("reference", reference.trim()).eq("type", "order_payment").maybeSingle();
 
     if (txnError || !txn || txn.customer_id !== auth.user.id) return json({ error: "Payment attempt not found." }, 404);
