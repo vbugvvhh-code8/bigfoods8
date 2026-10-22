@@ -111,8 +111,25 @@ export default function DeliveryDetailPage() {
               </a>
             )}
           </div>
-          <div className="mt-4 rounded-xl px-4 py-3 text-center text-[12px]" style={{ background: '#24211e', color: '#e7e5e4' }}>
-            {stage === 'to_dropoff' ? 'Confirm delivery when you have handed over the order.' : 'Follow the map to the restaurant pickup.'}
+          <div className="mt-4 grid grid-cols-1 gap-3">
+            {stage === 'to_dropoff' ? (
+              <>
+                <button type="button" onClick={() => { setCode(''); setError(null); setShowDeliveryCodeModal(true); }} disabled={busy}
+                  className="w-full min-h-12 rounded-full px-4 py-3 text-[13px] font-semibold text-white disabled:opacity-50"
+                  style={{ background: '#ff7900' }}>
+                  Confirm delivery
+                </button>
+                <button type="button" onClick={() => setConfirmingCancel(true)} disabled={busy}
+                  className="w-full min-h-11 rounded-full px-4 py-3 text-[13px] font-medium disabled:opacity-50"
+                  style={{ background: '#24211e', color: '#ff6b5f', border: '1px solid #51433c' }}>
+                  Cancel this delivery
+                </button>
+              </>
+            ) : (
+              <p className="rounded-xl px-4 py-3 text-center text-[12px]" style={{ background: '#24211e', color: '#e7e5e4' }}>
+                Follow the map to the restaurant pickup.
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -125,13 +142,7 @@ export default function DeliveryDetailPage() {
           style={{ background: 'var(--orange)' }}>
           {busy ? 'Updating…' : "I've picked up the order"}
         </button>
-      ) : (
-        <button onClick={() => { setCode(''); setShowDeliveryCodeModal(true); }} disabled={busy}
-          className="w-full py-3.5 rounded-[10px] text-[13.5px] font-semibold text-white disabled:opacity-40"
-          style={{ background: 'var(--orange)' }}>
-          Confirm delivery
-        </button>
-      )}
+      ) : null}
 
       {showDeliveryCodeModal && stage === 'to_dropoff' && (
         <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center p-3" style={{ background: 'rgba(0,0,0,0.58)' }} role="presentation" onClick={(event) => { if (event.target === event.currentTarget && !busy) setShowDeliveryCodeModal(false); }}>
@@ -144,14 +155,18 @@ export default function DeliveryDetailPage() {
               </div>
               <button type="button" aria-label="Close dialog" disabled={busy} onClick={() => setShowDeliveryCodeModal(false)} className="rounded-full p-2 disabled:opacity-50"><X size={20} /></button>
             </div>
-            <label htmlFor="delivery-code" className="block text-sm font-medium mb-2">Customer delivery code</label>
-            <input id="delivery-code" autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="Enter 4-digit code" inputMode="numeric" pattern="[0-9]{4}" maxLength={4}
-              className="w-full px-4 py-3 rounded-xl text-base outline-none mb-4 tracking-[0.3em]" style={{ border: '1px solid #ead9ca', color: '#211d19', background: '#ffffff' }} />
-            <button type="button" onClick={() => void advance('delivered')} disabled={busy || !/^\d{4}$/.test(code)}
-              className="w-full min-h-12 rounded-xl text-sm font-semibold text-white disabled:opacity-45" style={{ background: '#ff7900' }}>
-              {busy ? 'Submitting…' : 'Submit and confirm delivery'}
-            </button>
-            <button type="button" disabled={busy} onClick={() => setShowDeliveryCodeModal(false)} className="w-full py-3 mt-1 text-sm" style={{ color: '#706b65' }}>Cancel</button>
+            <form onSubmit={(event) => { event.preventDefault(); if (/^\d{4}$/.test(code) && !busy) void advance('delivered'); }}>
+              <label htmlFor="delivery-code" className="block text-sm font-medium mb-2">Customer delivery code</label>
+              <input id="delivery-code" autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="Enter 4-digit code" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required
+                className="w-full px-4 py-3 rounded-xl text-base outline-none mb-4 tracking-[0.3em]" style={{ border: '1px solid #ead9ca', color: '#211d19', background: '#ffffff' }} />
+              {error && <p role="alert" className="mb-3 text-sm" style={{ color: '#b42318' }}>{error}</p>}
+              <button type="submit" disabled={busy || !/^\d{4}$/.test(code)}
+                className="w-full min-h-12 rounded-xl px-4 text-sm font-semibold text-white disabled:opacity-50"
+                style={{ background: busy || !/^\d{4}$/.test(code) ? '#d7a17b' : '#ff7900' }}>
+                {busy ? 'Submitting…' : 'Submit and confirm delivery'}
+              </button>
+              <button type="button" disabled={busy} onClick={() => setShowDeliveryCodeModal(false)} className="w-full min-h-11 py-3 mt-1 text-sm" style={{ color: '#706b65' }}>Back</button>
+            </form>
           </section>
         </div>
       )}
