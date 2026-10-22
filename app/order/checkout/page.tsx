@@ -2,7 +2,7 @@
 
 import {useState, useMemo} from 'react';
 import {useRouter} from 'next/navigation';
-import {ArrowLeft} from 'lucide-react';
+import {ArrowLeft, Gift, Info, X} from 'lucide-react';
 import {useCart} from '@/hooks/useCart';
 import {useRestaurant, useRestaurants} from '@/hooks/useRestaurants';
 import {useCheckout} from '@/hooks/useCheckout';
@@ -24,7 +24,7 @@ function CheckoutContent() {
 
   const [deliveryPoint, setDeliveryPoint] = useState<DeliveryPoint | null>(null);
   const [note, setNote] = useState('');
-  const [tipAmount, setTipAmount] = useState(0);
+  const [tipAmount, setTipAmount] = useState(0);\n  const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
 
   // Rough client-side estimate only -- the real fee (with proper batch
   // clustering for 3+ restaurants) is computed server-side at payment init.
@@ -37,7 +37,7 @@ function CheckoutContent() {
     restaurant: availableRestaurants.find((restaurant) => restaurant.id === group.restaurantId),
   }));
 
-  const minDeliveryFee = prices.minimum_delivery_fee ?? 1000;
+  const minDeliveryFee = prices.minimum_delivery_fee ?? 1000;\n\n  // Open the share modal only after the link has actually been created.\n  const hasPaymentLink = Boolean(paymentLink);
   const platformFee = (prices.platform_fee ?? 500) * groups.length;
 
   const estimatedDeliveryFee = useMemo(() => {
@@ -146,14 +146,50 @@ function CheckoutContent() {
         </p>
       )}
 
-      {paymentLink && <div className="mt-4 p-3 rounded-xl border text-[12px]" style={{borderColor: 'var(--orange)', background: 'var(--peach)', color: 'var(--ink)'}}><p className="font-semibold">Payment link ready — share it with the person helping you pay.</p><p className="mt-2 break-all">{paymentLink}</p><button onClick={() => navigator.clipboard.writeText(paymentLink)} className="w-full mt-2 py-2 rounded-lg font-semibold text-white" style={{background: 'var(--orange)'}}>Copy payment link</button>{typeof navigator !== 'undefined' && !!navigator.share && <button onClick={() => navigator.share({title: 'Big Foods payment link', url: paymentLink})} className="w-full mt-2 py-2 rounded-lg border font-semibold">Share payment link</button>}</div>}
+      <button
+        onClick={() => hasPaymentLink && setShowPaymentLinkModal(true)}
+        disabled={!deliveryPoint || isSubmitting}
+        className="mt-4 w-full flex items-center justify-between gap-3 rounded-2xl border bg-white px-4 py-4 text-left disabled:opacity-50"
+        style={{borderColor: '#E9E9E9', color: 'var(--ink)'}}
+      >
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{background: '#FFF0E9', color: 'var(--orange)'}}>
+            <Gift className="h-6 w-6" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[14px] font-bold">Ask someone to pay</span>
+            <span className="mt-0.5 block text-[12px]" style={{color: 'var(--gray)'}}>Share a link. They pay, you receive.</span>
+          </span>
+          {hasPaymentLink && <Info className="h-4 w-4 shrink-0" style={{color: 'var(--gray)'}} />}
+        </span>
+        <span
+          onClick={(event) => { event.stopPropagation(); if (paymentLink) setShowPaymentLinkModal(true); else handleCreatePaymentLink(); }}
+          className="shrink-0 rounded-xl border-2 px-4 py-3 text-[12px] font-bold"
+          style={{borderColor: 'var(--ink)', color: 'var(--ink)'}}
+        >
+          {isSubmitting ? 'Creating…' : hasPaymentLink ? 'Get link' : 'Get link'}
+        </span>
+      </button>
+
+      {showPaymentLinkModal && paymentLink && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 px-5" onClick={() => setShowPaymentLinkModal(false)}>
+          <section role="dialog" aria-modal="true" aria-labelledby="payment-link-title" className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 id="payment-link-title" className="text-[17px] font-bold" style={{color: 'var(--ink)'}}>Payment link ready</h2>
+                <p className="mt-1 text-[12px]" style={{color: 'var(--gray)'}}>Share this link with the person helping you pay.</p>
+              </div>
+              <button aria-label="Close payment link dialog" onClick={() => setShowPaymentLinkModal(false)} className="rounded-full p-1.5" style={{color: 'var(--gray)'}}><X className="h-5 w-5" /></button>
+            </div>
+            <div className="break-all rounded-xl border p-3 text-[12px]" style={{borderColor: '#E9E9E9', color: 'var(--ink)'}}>{paymentLink}</div>
+            <button onClick={async () => { try { await navigator.clipboard.writeText(paymentLink); setShowPaymentLinkModal(false); } catch { setError('Could not copy the link. Please select and copy it manually.'); } }} className="mt-3 w-full rounded-xl py-3 text-[13px] font-bold text-white" style={{background: 'var(--ink)'}}>Copy link</button>
+            {typeof navigator !== 'undefined' && !!navigator.share && <button onClick={() => navigator.share({title: 'Big Foods payment link', text: 'Please help me pay for my Big Foods order.', url: paymentLink}).catch(() => {})} className="mt-2 w-full rounded-xl border py-3 text-[13px] font-semibold" style={{borderColor: 'var(--ink)', color: 'var(--ink)'}}>Share link</button>}
+          </section>
+        </div>
+      )}
+
       <div className="fixed bottom-20 lg:bottom-4 left-0 right-0 px-4 z-30">
         <div className="max-w-[380px] lg:max-w-2xl mx-auto">
-          <p className="text-[11px] text-center mb-2" style={{color: 'var(--gray)'}}>
-            {deliveryPoint
-              ? 'Delivery fee and final payable total are confirmed securely when payment starts.'
-              : 'Choose a delivery location to calculate an estimated total.'}
-          </p>
           <button
             onClick={handlePay}
             disabled={!deliveryPoint || isSubmitting}
@@ -166,7 +202,6 @@ function CheckoutContent() {
               ? `Continue to payment · est. ₦${(subtotal + platformFee + (estimatedDeliveryFee ?? 0) + tipAmount).toLocaleString()}`
               : 'Choose a delivery location to continue'}
           </button>
-          <button onClick={handleCreatePaymentLink} disabled={!deliveryPoint || isSubmitting} className="w-full mt-2 py-3 rounded-xl text-[12.5px] font-semibold border disabled:opacity-50" style={{borderColor: 'var(--ink)', color: 'var(--ink)', background: 'white'}}>{isSubmitting ? 'Preparing payment link…' : 'Need help paying? Create a shareable link'}</button>
         </div>
       </div>
     </div>
