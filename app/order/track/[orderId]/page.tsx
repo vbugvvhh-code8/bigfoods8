@@ -96,7 +96,7 @@ function TrackContent() {
         />
       )}
 
-      {rider && (
+      {rider && order.status !== 'delivered' && order.status !== 'cancelled' && (
         <div className="flex items-center justify-between mt-4 p-3.5 rounded-xl" style={{border: '1px solid var(--line)'}}>
           <div>
             <p className="text-[10.5px] uppercase tracking-wide" style={{color: 'var(--gray)'}}>Your rider</p>

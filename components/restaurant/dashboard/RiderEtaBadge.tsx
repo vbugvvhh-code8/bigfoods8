@@ -4,10 +4,11 @@ import useNearestRider from '@/hooks/useNearestRider';
 interface RiderEtaBadgeProps {
   latitude?: number;
   longitude?: number;
+  zone?: string | null;
 }
 
-export default function RiderEtaBadge({ latitude, longitude }: RiderEtaBadgeProps) {
-  const { etaMinutes, loading } = useNearestRider(latitude, longitude);
+export default function RiderEtaBadge({ latitude, longitude, zone }: RiderEtaBadgeProps) {
+  const { etaMinutes, loading } = useNearestRider(latitude, longitude, zone);
 
   return (
     <div
@@ -15,7 +16,7 @@ export default function RiderEtaBadge({ latitude, longitude }: RiderEtaBadgeProp
       style={{ background: 'var(--peach)', color: 'var(--ink)' }}
     >
       <Bike className="w-3.5 h-3.5" style={{ color: 'var(--orange)' }} />
-      {loading ? 'Checking riders…' : etaMinutes === null ? 'No riders online nearby' : `Nearest rider ~${etaMinutes} min away`}
+      {loading ? 'Checking riders…' : etaMinutes === null ? 'No eligible riders in your service area' : `Eligible rider ~${etaMinutes} min away`}
     </div>
   );
 }

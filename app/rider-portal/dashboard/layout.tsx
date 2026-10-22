@@ -75,9 +75,9 @@ export default function RiderDashboardLayout({ children }: { children: React.Rea
   }
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen" style={{ background: '#F7F4F0' }}>
+    <div className="flex flex-col md:flex-row min-h-screen" style={{ background: '#F7F4F0', isolation: 'isolate' }}>
       <Sidebar riderName={rider.name} />
-      <main className="flex-1 px-4 py-4 sm:px-7 sm:py-6 max-w-[1180px] overflow-auto w-full">
+      <main className="relative z-0 flex-1 px-4 py-4 sm:px-7 sm:py-6 max-w-[1180px] w-full min-w-0">
         {!rider.waiver_completed && !pathname?.startsWith('/rider-portal/dashboard/waiver') && <WaiverBanner />}
         {children}
       </main>

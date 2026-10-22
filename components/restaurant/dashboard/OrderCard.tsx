@@ -23,23 +23,28 @@ export default function OrderCard({
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [assignmentEnabled, setAssignmentEnabled] = useState(false);
+  const [assignmentReady, setAssignmentReady] = useState(false);
   const [eligibleRiders, setEligibleRiders] = useState<{ id: string; name: string; zone: string | null }[]>([]);
   const [selectedRider, setSelectedRider] = useState('');
   const [assignmentMessage, setAssignmentMessage] = useState('');
   useEffect(() => {
-    if (order.rider || !['placed', 'preparing'].includes(order.status)) return;
-    const supabase = getBrowserSupabase();
+    if (order.rider_id || !['placed', 'preparing'].includes(order.status)) return;
+    setAssignmentReady(false);
     void (async () => {
-      let ridersQuery = supabase.from('riders').select('id, name, zone').eq('status', 'online').eq('approval_status', 'approved').eq('waiver_completed', true).eq('dispatch_disabled', false);
-      if (order.zone) ridersQuery = ridersQuery.eq('zone', order.zone);
-      const [{ data: settings }, { data: riders }] = await Promise.all([
-        supabase.from('platform_settings').select('value').eq('key', 'dispatch_restaurant_assignment_enabled').maybeSingle(),
-        ridersQuery,
-      ]);
-      setAssignmentEnabled(settings?.value === true || settings?.value === 'true');
-      setEligibleRiders((riders ?? []) as { id: string; name: string; zone: string | null }[]);
+      const { data, error } = await getBrowserSupabase().functions.invoke('dispatch-marketplace', {
+        body: { action: 'restaurant_assignment_options', order_id: order.id },
+      });
+      if (error || data?.error) {
+        setAssignmentMessage(data?.error ?? (error ? 'Rider assignment service is unavailable. The dispatch update needs to be deployed.' : 'Could not load eligible riders. Please try again.'));
+        setAssignmentReady(true);
+        return;
+      }
+      setAssignmentEnabled(data?.assignment_enabled === true);
+      setEligibleRiders((data?.riders ?? []) as { id: string; name: string; zone: string | null }[]);
+      setAssignmentMessage('');
+      setAssignmentReady(true);
     })();
-  }, [order.id, order.status, order.rider]);
+  }, [order.id, order.status, order.rider_id, order.payment_status]);
 
   async function handleAssignRider() {
     if (!selectedRider) return;
@@ -66,13 +71,26 @@ export default function OrderCard({
 
   return (
     <div className="p-3.5 rounded-[12px]" style={{ border: '1px solid var(--line)', background: 'var(--white)' }}>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between gap-2 mb-2">
         <p className="text-[12.5px] font-semibold" style={{ color: 'var(--ink)' }}>
           Order #{order.id.slice(0, 8)}
         </p>
-        <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full capitalize" style={{ background: 'var(--peach)', color: status.color }}>
-          {status.label}
-        </span>
+        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+          <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full capitalize" style={{ background: 'var(--peach)', color: status.color }}>
+            {status.label}
+          </span>
+          {['placed', 'preparing'].includes(order.status) && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap" style={{
+              background: order.rider_id ? 'var(--teal)' : order.payment_status !== 'paid' ? 'var(--peach)' : assignmentReady && assignmentEnabled && !assignmentMessage && eligibleRiders.length > 0 ? 'var(--green)' : 'var(--peach)',
+              color: order.rider_id || (assignmentReady && assignmentEnabled && !assignmentMessage && eligibleRiders.length > 0) ? 'white' : order.payment_status !== 'paid' || (assignmentReady && assignmentMessage) ? 'var(--red)' : 'var(--orange)'
+            }}>
+              {order.rider_id ? 'Rider assigned' : order.payment_status !== 'paid' ? 'Payment not confirmed' : !assignmentReady ? 'Checking rider…' : assignmentMessage ? 'Check rider status' : !assignmentEnabled ? 'Awaiting admin assignment' : eligibleRiders.length > 0 ? 'Ready to assign' : 'Waiting for rider'}
+            </span>
+          )}
+          {['delivered', 'cancelled'].includes(order.status) && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap" style={{ background: 'var(--peach)', color: 'var(--gray)' }}>Closed</span>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-1.5 mb-1" style={{ color: 'var(--gray)' }}>
@@ -86,16 +104,25 @@ export default function OrderCard({
         ₦{Number(order.subtotal).toLocaleString()} · {order.delivery_address ?? 'No address on file'}
       </p>
 
-      {!order.rider && assignmentEnabled && order.payment_status === 'paid' && ['placed', 'preparing'].includes(order.status) && (
-        <div className="mt-2 space-y-2">
-          <div className="flex gap-2">
-            <select aria-label="Assign rider" value={selectedRider} onChange={e => setSelectedRider(e.target.value)} className="min-w-0 flex-1 rounded-lg border p-2 text-xs" style={{ borderColor: 'var(--line)' }}>
-              <option value="">Select online rider</option>
-              {eligibleRiders.map(r => <option key={r.id} value={r.id}>{r.name} · {r.zone ?? 'No zone'}</option>)}
-            </select>
-            <button onClick={() => void handleAssignRider()} disabled={!selectedRider || busy} className="rounded-lg px-3 py-2 text-xs font-semibold text-white disabled:opacity-40" style={{ background: 'var(--orange)' }}>Assign</button>
+      {!order.rider_id && order.payment_status === 'paid' && ['placed', 'preparing'].includes(order.status) && (
+        <div className="mt-2 mb-2 rounded-[9px] p-2.5 space-y-2" style={{ background: 'var(--peach)', border: '1px solid var(--line)' }}>
+          <div>
+            <p className="text-[12px] font-semibold" style={{ color: 'var(--ink)' }}>Assign a delivery rider</p>
+            <p className="text-[10.5px]" style={{ color: 'var(--gray)' }}>Choose an eligible online rider for this order before handing over the food.</p>
           </div>
-          {assignmentMessage && <p role="status" className="text-xs">{assignmentMessage}</p>}
+          {!assignmentReady && <p role="status" className="text-xs" style={{ color: 'var(--gray)' }}>Loading available riders…</p>}
+          {assignmentReady && assignmentMessage && <p role="status" className="text-xs" style={{ color: 'var(--red)' }}>{assignmentMessage}</p>}
+          {assignmentReady && !assignmentMessage && !assignmentEnabled && <p role="status" className="text-xs" style={{ color: 'var(--gray)' }}>An administrator will assign a rider to this order.</p>}
+          {assignmentReady && assignmentEnabled && eligibleRiders.length > 0 && (
+            <div className="flex gap-2">
+              <select aria-label="Select delivery rider" value={selectedRider} onChange={e => setSelectedRider(e.target.value)} className="min-w-0 flex-1 rounded-lg border p-2 text-xs" style={{ borderColor: 'var(--line)', background: 'var(--white)' }}>
+                <option value="">Choose rider…</option>
+                {eligibleRiders.map(r => <option key={r.id} value={r.id}>{r.name} · {r.zone ?? 'No zone'}</option>)}
+              </select>
+              <button onClick={() => void handleAssignRider()} disabled={!selectedRider || busy} className="rounded-lg px-3 py-2 text-xs font-semibold text-white disabled:opacity-40" style={{ background: 'var(--orange)' }}>{busy ? 'Assigning…' : 'Assign rider'}</button>
+            </div>
+          )}
+          {assignmentReady && assignmentEnabled && !eligibleRiders.length && !assignmentMessage && <p role="status" className="text-xs" style={{ color: 'var(--gray)' }}>No eligible online riders are available in this order’s service area. The rider must be online, approved, waiver-complete, dispatch-enabled, and in the same service zone.</p>}
         </div>
       )}
 
@@ -154,7 +181,7 @@ export default function OrderCard({
             </button>
             <button
               onClick={handleConfirmHandover}
-              disabled={busy || !order.rider}
+              disabled={busy || !order.rider_id}
               className="flex-1 py-2 rounded-[8px] text-[11.5px] font-semibold text-white disabled:opacity-40"
               style={{ background: 'var(--orange)' }}
             >

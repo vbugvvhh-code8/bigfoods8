@@ -66,7 +66,24 @@ Deno.serve(async (req: Request) => {
       }
       const { data, error } = await userClient.rpc("rider_nearby_order_offers");
       if (error) return json({ error: "Could not load order offers" }, 500);
-      return json({ offers: data ?? [] });
+
+      // The offer table can retain accepted rows after an order is delivered.
+      // Never return those stale rows as the rider's current commitment: only
+      // prioritize accepted offers whose order is still active and assigned.
+      const returnedOffers = (data ?? []) as Array<{ order_id: string; status: string }>;
+      const acceptedOffers = returnedOffers.filter(offer => offer.status === "accepted");
+      if (acceptedOffers.length && rider?.id) {
+        const { data: activeOrders, error: activeOrdersError } = await admin.from("orders")
+          .select("id")
+          .in("id", acceptedOffers.map(offer => offer.order_id))
+          .eq("rider_id", rider.id)
+          .in("status", ["placed", "preparing", "picked_up"]);
+        if (activeOrdersError) return json({ error: "Could not verify accepted deliveries" }, 500);
+        const activeIds = new Set((activeOrders ?? []).map(order => order.id));
+        const currentOffers = returnedOffers.filter(offer => offer.status !== "accepted" || activeIds.has(offer.order_id));
+        return json({ offers: currentOffers });
+      }
+      return json({ offers: returnedOffers });
     }
 
     if (action === "respond_offer") {
@@ -78,46 +95,60 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, status: data.status });
     }
 
+    if (action === "restaurant_assignment_options") {
+      const orderId = body?.order_id;
+      if (typeof orderId !== "string") return json({ error: "Order id is required" }, 400);
+
+      // Use the service role for data hidden by RLS, but only after verifying
+      // that this signed-in user owns the restaurant attached to the order.
+      const { data: order, error: orderError } = await admin.from("orders")
+        .select("id,restaurant_id,zone,status,payment_status,rider_id")
+        .eq("id", orderId).maybeSingle();
+      if (orderError) return json({ error: "Could not load order" }, 500);
+      if (!order) return json({ error: "Order not found" }, 404);
+
+      if (!isAdmin) {
+        const { data: restaurant, error: restaurantError } = await admin.from("restaurants")
+          .select("id,owner_id").eq("id", order.restaurant_id).maybeSingle();
+        if (restaurantError) return json({ error: "Could not verify restaurant ownership" }, 500);
+        if (!restaurant || restaurant.owner_id !== user.id) return json({ error: "This is not your restaurant order" }, 403);
+      }
+
+      const { data: setting, error: settingError } = await admin.from("platform_settings")
+        .select("value").eq("key", "dispatch_restaurant_assignment_enabled").maybeSingle();
+      if (settingError) return json({ error: "Could not load assignment settings" }, 500);
+      const assignmentEnabled = setting?.value === true || setting?.value === "true";
+      const orderEligible = order.payment_status === "paid"
+        && ["placed", "preparing"].includes(order.status) && !order.rider_id;
+
+      if (!assignmentEnabled || !orderEligible) {
+        return json({ assignment_enabled: assignmentEnabled, order_eligible: orderEligible, riders: [] });
+      }
+
+      const { data: riders, error: ridersError } = await admin.from("riders")
+        .select("id,name,zone,status,approval_status,waiver_completed,dispatch_disabled")
+        .eq("status", "online").eq("approval_status", "approved")
+        .eq("waiver_completed", true).eq("dispatch_disabled", false)
+        .order("name");
+      if (ridersError) return json({ error: "Could not load eligible riders" }, 500);
+      const orderZone = (order.zone ?? "").trim().toLocaleLowerCase();
+      const eligible = (riders ?? []).filter((rider: { zone: string | null }) =>
+        (rider.zone ?? "").trim().toLocaleLowerCase() === orderZone
+      ).map((rider: { id: string; name: string; zone: string | null }) => ({
+        id: rider.id, name: rider.name, zone: rider.zone,
+      }));
+      return json({ assignment_enabled: assignmentEnabled, order_eligible: orderEligible, riders: eligible });
+    }
+
     if (action === "assign_rider") {
       if (!isAdmin && typeof body?.restaurant_order_id !== "string") return json({ error: "Administrator access required" }, 403);
       const orderId = isAdmin ? body?.order_id : body?.restaurant_order_id;
-      const riderId = body?.rider_id;
-      if (typeof orderId !== "string" || typeof riderId !== "string") return json({ error: "Order and rider are required" }, 400);
-
-      // Admin assignments are validated and written through the service client so
-      // the UI does not depend on a browser-session RPC role check succeeding.
-      // Restaurant owners continue through the database RPC, which verifies ownership.
-      if (isAdmin) {
-        const [{ data: order, error: orderError }, { data: rider, error: riderError }] = await Promise.all([
-          admin.from("orders").select("id,zone,status,payment_status,rider_id").eq("id", orderId).maybeSingle(),
-          admin.from("riders").select("id,zone,status,approval_status,waiver_completed,dispatch_disabled").eq("id", riderId).maybeSingle(),
-        ]);
-        if (orderError || riderError) return json({ error: "Could not verify order and rider eligibility" }, 500);
-        if (!order) return json({ error: "Order not found" }, 404);
-        if (order.rider_id) return json({ error: "This order already has a rider assigned" }, 409);
-        if (order.payment_status !== "paid" || !["placed", "preparing"].includes(order.status)) {
-          return json({ error: "Only paid orders in placed or preparing status can be assigned" }, 409);
-        }
-        if (!rider) return json({ error: "Rider not found" }, 404);
-        if (rider.status !== "online" || rider.approval_status !== "approved" || !rider.waiver_completed || rider.dispatch_disabled) {
-          return json({ error: "Choose an online, approved, waiver-complete rider with dispatch access enabled" }, 409);
-        }
-        if (!order.zone || !rider.zone || order.zone.trim().toLowerCase() !== rider.zone.trim().toLowerCase()) {
-          return json({ error: "The rider must be in the same service zone as the order" }, 409);
-        }
-        const { data: updated, error: updateError } = await admin.from("orders")
-          .update({ rider_id: riderId })
-          .eq("id", orderId).is("rider_id", null)
-          .select("id,rider_id").maybeSingle();
-        if (updateError) return json({ error: "Database could not save the rider assignment" }, 500);
-        if (!updated) return json({ error: "Another dispatcher assigned this order. Refresh and try again." }, 409);
-        return json({ ok: true, order_id: orderId, rider_id: riderId });
-      }
-
-      const { data, error } = await userClient.rpc("dispatch_assign_rider", { p_order_id: orderId, p_rider_id: riderId });
-      if (error) return json({ error: error.message || "Could not assign rider" }, 500);
+      if (typeof orderId !== "string" || typeof body?.rider_id !== "string") return json({ error: "Order and rider are required" }, 400);
+      // The SQL assignment RPC performs ownership, setting, payment, eligibility, and zone checks.
+      const { data, error } = await userClient.rpc("dispatch_assign_rider", { p_order_id: orderId, p_rider_id: body.rider_id });
+      if (error) return json({ error: "Could not assign rider" }, 500);
       if (!data?.ok) return json({ error: data?.error ?? "Assignment failed" }, 409);
-      return json({ ok: true, order_id: orderId, rider_id: riderId });
+      return json({ ok: true, order_id: orderId, rider_id: body.rider_id });
     }
 
     if (action === "set_setting") {

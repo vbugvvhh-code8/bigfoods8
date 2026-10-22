@@ -33,7 +33,7 @@ export function TrackingMapView({
   lastUpdatedLabel,
 }: TrackingMapViewProps) {
   return (
-    <div className="relative w-full rounded-xl overflow-hidden" style={{height: 220}}>
+    <div className="relative z-0 isolate w-full rounded-xl overflow-hidden" style={{height: 220}}>
       <TrackingMap
         riderPosition={riderPosition}
         currentDestination={[currentDestination.lat, currentDestination.lng]}
