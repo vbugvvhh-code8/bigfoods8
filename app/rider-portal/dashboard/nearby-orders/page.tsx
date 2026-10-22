@@ -4,11 +4,13 @@ import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/admin/layout/PageHeader';
 import getBrowserSupabase from '@/lib/supabase/client';
 import useRider from '@/hooks/useRider';
+import useRiderActiveOrder from '@/hooks/useRiderActiveOrder';
 
 type Offer = { offer_id: string; order_id: string; zone: string | null; status: string; offered_at: string; delivery_address: string | null; delivery_fee: number | null };
 
 export default function NearbyOrdersPage() {
   const { rider, loading: riderLoading } = useRider();
+  const { order: activeOrder, loading: orderLoading } = useRiderActiveOrder(rider?.id);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -19,20 +21,21 @@ export default function NearbyOrdersPage() {
   const supabase = getBrowserSupabase();
 
   const load = useCallback(async (quiet = false) => {
+    if (activeOrder) { setOffers([]); setLoading(false); return; }
     if (!quiet) setLoading(true);
     const { data, error } = await supabase.functions.invoke('dispatch-marketplace', { body: { action: 'rider_offers' } });
     if (error || data?.error) setMessage(data?.error ?? 'Could not load order offers. Please try again.');
     else { setOffers((data?.offers ?? []) as Offer[]); setMessage(''); }
     setLoading(false);
-  }, [supabase]);
+  }, [supabase, activeOrder?.id]);
 
   useEffect(() => {
-    if (!rider) return;
+    if (!rider || orderLoading || activeOrder) { if (activeOrder) setOffers([]); return; }
     void load();
     if (rider.status !== 'online') return;
     const timer = setInterval(() => { void load(true); }, 10000);
     return () => clearInterval(timer);
-  }, [rider?.id, rider?.status, load]);
+  }, [rider?.id, rider?.status, load, orderLoading, activeOrder?.id]);
 
   async function respond(orderId: string, accept: boolean) {
     setBusy(orderId); setMessage('');
@@ -43,12 +46,13 @@ export default function NearbyOrdersPage() {
     setBusy(null);
   }
 
-  if (riderLoading || !rider) return <p className="py-8 text-center">Loading rider account…</p>;
+  if (riderLoading || !rider || orderLoading) return <p className="py-8 text-center">Loading rider account…</p>;
   return <div className="space-y-4">
     <PageHeader title="Nearby orders" subtitle="Offers for paid orders in your service area" />
-    {message && <p role="alert" className="rounded-xl p-3 text-sm">{message}</p>}
-    {rider.status !== 'online' && <p className="rounded-xl p-3 text-sm">Go online from your dashboard to receive offers.</p>}
-    {loading ? <p className="py-8 text-center">Loading offers…</p> : offers.length === 0 ?
+    {activeOrder ? <div className="rounded-2xl p-5" style={{ background: '#211E1B', color: 'white', border: '2px solid var(--orange)' }}><p className="text-xs font-semibold" style={{ color: '#FF9B4A' }}>PRIORITY · ACTIVE DELIVERY</p><h2 className="mt-2 text-lg font-semibold">{activeOrder.status === 'picked_up' ? 'On the way to drop-off' : activeOrder.status === 'preparing' ? 'Awaiting restaurant preparation' : 'Awaiting restaurant preparation'}</h2><p className="mt-3 text-sm" style={{ color: '#D0C9C2' }}>Destination</p><p className="mt-1 text-sm">{activeOrder.delivery_address ?? 'Open the delivery map to view the destination.'}</p><button onClick={() => router.push('/rider-portal/dashboard/delivery/' + activeOrder.id)} className="mt-4 w-full rounded-xl px-4 py-3 text-sm font-semibold text-white" style={{ background: 'var(--orange)' }}>Open active delivery map</button><p className="mt-3 text-xs" style={{ color: '#D0C9C2' }}>Finish this delivery before accepting another order.</p></div> : null}
+    {!activeOrder && message && <p role="alert" className="rounded-xl p-3 text-sm">{message}</p>}
+    {!activeOrder && rider.status !== 'online' && <p className="rounded-xl p-3 text-sm">Go online from your dashboard to receive offers.</p>}
+    {!activeOrder && (loading ? <p className="py-8 text-center">Loading offers…</p> : offers.length === 0 ?
       <div className="rounded-2xl border border-dashed p-7 text-center"><p className="font-medium">No nearby orders right now</p><p className="mt-2 text-sm">This list refreshes automatically while you are online.</p><button onClick={() => { setLoading(true); void load(); }} className="mt-4 rounded-lg px-4 py-2 text-sm text-white" style={{ background: 'var(--orange)' }}>Refresh</button></div> :
       offers.map(offer => <div key={offer.offer_id} className="rounded-2xl p-4 space-y-3" style={{ border: '1px solid var(--line)' }}>
         <div className="flex justify-between gap-3"><div><p className="font-semibold">Order {offer.order_id.slice(0, 8)}</p><p className="text-sm">{offer.zone ?? rider.zone ?? 'Service area'}</p><p className="text-xs opacity-70">{offer.status === 'accepted' ? 'Accepted' : 'Offer available'}</p></div><p className="font-semibold">₦{Number(offer.delivery_fee ?? 0).toLocaleString()}</p></div>
@@ -73,6 +77,6 @@ export default function NearbyOrdersPage() {
           <button disabled={!!busy} onClick={() => void respond(offer.order_id, false)} className="w-full rounded-lg border p-2 text-sm disabled:opacity-50">{busy === offer.order_id ? 'Working…' : 'Reject order'}</button>
         </div>}
         {offer.status === 'accepted' && <button onClick={() => router.push('/rider-portal/dashboard/delivery/' + offer.order_id)} className="w-full rounded-lg p-2 text-sm text-white" style={{ background: 'var(--orange)' }}>Open delivery</button>}
-      </div>)}
+      </div>))}
   </div>;
 }
