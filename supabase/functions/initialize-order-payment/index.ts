@@ -299,7 +299,8 @@ Deno.serve(async (req: Request) => {
     // ---- Multi-restaurant: order_group + up-to-3-restaurant delivery_batches ----
     const restaurantById = new Map(restaurants.map((r) => [r.id, r]));
     const clusterable = restaurants.map((r) => ({ id: r.id, latitude: r.latitude!, longitude: r.longitude! }));
-    const batches = clusterRestaurants(clusterable);
+    // Each restaurant is its own delivery: separate rider assignment and drop-off code.
+    const batches = clusterable.map((restaurant) => [restaurant]);
 
     let totalAmount = groupComputations.reduce((s, g) => s + g.subtotal, 0) + platformFee * groups.length;
     const batchPlans = batches.map((batchRestaurants) => {
