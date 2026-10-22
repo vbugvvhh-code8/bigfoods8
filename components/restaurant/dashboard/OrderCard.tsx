@@ -84,7 +84,7 @@ export default function OrderCard({
               background: order.rider_id ? 'var(--teal)' : order.payment_status !== 'paid' ? 'var(--peach)' : assignmentReady && assignmentEnabled && !assignmentMessage && eligibleRiders.length > 0 ? 'var(--green)' : 'var(--peach)',
               color: order.rider_id || (assignmentReady && assignmentEnabled && !assignmentMessage && eligibleRiders.length > 0) ? 'white' : order.payment_status !== 'paid' || (assignmentReady && assignmentMessage) ? 'var(--red)' : 'var(--orange)'
             }}>
-              {order.rider_id ? 'Rider assigned' : order.payment_status !== 'paid' ? 'Payment not confirmed' : !assignmentReady ? 'Checking rider…' : assignmentMessage ? 'Check rider status' : !assignmentEnabled ? 'Assignment disabled' : eligibleRiders.length > 0 ? 'Ready to assign' : 'Waiting for rider'}
+              {order.rider_id ? 'Rider assigned' : order.payment_status !== 'paid' ? 'Payment not confirmed' : !assignmentReady ? 'Checking rider…' : assignmentMessage ? 'Check rider status' : !assignmentEnabled ? 'Awaiting admin assignment' : eligibleRiders.length > 0 ? 'Ready to assign' : 'Waiting for rider'}
             </span>
           )}
           {['delivered', 'cancelled'].includes(order.status) && (
@@ -112,7 +112,7 @@ export default function OrderCard({
           </div>
           {!assignmentReady && <p role="status" className="text-xs" style={{ color: 'var(--gray)' }}>Loading available riders…</p>}
           {assignmentReady && assignmentMessage && <p role="status" className="text-xs" style={{ color: 'var(--red)' }}>{assignmentMessage}</p>}
-          {assignmentReady && !assignmentMessage && !assignmentEnabled && <p role="status" className="text-xs" style={{ color: 'var(--gray)' }}>Restaurant rider assignment is currently disabled.</p>}
+          {assignmentReady && !assignmentMessage && !assignmentEnabled && <p role="status" className="text-xs" style={{ color: 'var(--gray)' }}>An administrator will assign a rider to this order.</p>}
           {assignmentReady && assignmentEnabled && eligibleRiders.length > 0 && (
             <div className="flex gap-2">
               <select aria-label="Select delivery rider" value={selectedRider} onChange={e => setSelectedRider(e.target.value)} className="min-w-0 flex-1 rounded-lg border p-2 text-xs" style={{ borderColor: 'var(--line)', background: 'var(--white)' }}>
