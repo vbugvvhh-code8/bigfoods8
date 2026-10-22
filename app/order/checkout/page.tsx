@@ -24,7 +24,8 @@ function CheckoutContent() {
 
   const [deliveryPoint, setDeliveryPoint] = useState<DeliveryPoint | null>(null);
   const [note, setNote] = useState('');
-  const [tipAmount, setTipAmount] = useState(0);\n  const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
+  const [tipAmount, setTipAmount] = useState(0);
+  const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
 
   // Rough client-side estimate only -- the real fee (with proper batch
   // clustering for 3+ restaurants) is computed server-side at payment init.
@@ -37,7 +38,8 @@ function CheckoutContent() {
     restaurant: availableRestaurants.find((restaurant) => restaurant.id === group.restaurantId),
   }));
 
-  const minDeliveryFee = prices.minimum_delivery_fee ?? 1000;\n\n  // Open the share modal only after the link has actually been created.\n  const hasPaymentLink = Boolean(paymentLink);
+  const minDeliveryFee = prices.minimum_delivery_fee ?? 1000;\n\n  // Open the share modal only after the link has actually been created.
+  const hasPaymentLink = Boolean(paymentLink);
   const platformFee = (prices.platform_fee ?? 500) * groups.length;
 
   const estimatedDeliveryFee = useMemo(() => {
