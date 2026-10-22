@@ -303,8 +303,19 @@ Deno.serve(async (req: Request) => {
 
     let totalAmount = groupComputations.reduce((s, g) => s + g.subtotal, 0) + platformFee * groups.length;
     const batchPlans = batches.map((batchRestaurants) => {
-      const { sequence, totalKm } = sequenceRoute(batchRestaurants, delivery_lat, delivery_lng);
-      const deliveryFee = Math.max(Math.round(totalKm * rate), minDeliveryFee);
+      const { sequence } = sequenceRoute(batchRestaurants, delivery_lat, delivery_lng);
+      // Match checkout's displayed delivery estimate: charge each restaurant's
+      // restaurant-to-customer distance, with the configured minimum per restaurant.
+      // A shared rider batch must not silently reduce the amount shown at checkout.
+      const deliveryFee = batchRestaurants.reduce((sum, restaurant) => {
+        const distanceKm = haversineKm(
+          restaurant.latitude,
+          restaurant.longitude,
+          delivery_lat,
+          delivery_lng,
+        );
+        return sum + Math.max(Math.round(distanceKm * rate), minDeliveryFee);
+      }, 0);
       totalAmount += deliveryFee;
       return { sequence, deliveryFee };
     });
