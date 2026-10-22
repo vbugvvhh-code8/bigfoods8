@@ -84,7 +84,7 @@ export default function Sidebar({ riderName }: { riderName?: string }) {
       </div>
 
       {/* Mobile: top bar with menu toggle */}
-      <div className="md:hidden flex items-center justify-between px-4 py-3" style={{ background: 'var(--ink)' }}>
+      <div className="md:hidden sticky top-0 z-[10000] flex items-center justify-between px-4 py-3" style={{ background: 'var(--ink)' }}>
         <BrandBlock />
         <button onClick={() => setOpen(true)} aria-label="Open menu" style={{ color: 'white' }}>
           <Menu className="w-5 h-5" />
@@ -93,8 +93,8 @@ export default function Sidebar({ riderName }: { riderName?: string }) {
 
       {/* Mobile: slide-in drawer */}
       {open && (
-        <div className="md:hidden fixed inset-0 z-50 flex">
-          <div className="w-[240px] flex flex-col py-5 px-3.5" style={{ background: 'var(--ink)', color: '#D8D2CB' }}>
+        <div className="md:hidden fixed inset-0 z-[10001] flex" style={{ isolation: 'isolate' }}>
+          <div className="relative z-[10002] h-[100dvh] w-[240px] flex flex-col py-5 px-3.5 overflow-y-auto overscroll-contain" style={{ background: 'var(--ink)', color: '#D8D2CB' }}>
             <div className="flex items-center justify-between mb-7 px-1.5">
               <span className="font-semibold text-[14px] text-white tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
                 BigFoods
