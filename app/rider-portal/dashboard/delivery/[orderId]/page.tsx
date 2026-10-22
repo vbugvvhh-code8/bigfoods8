@@ -32,6 +32,7 @@ export default function DeliveryDetailPage() {
   const [customer, setCustomer] = useState<Profile | null>(null);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const { prices } = usePricingConfig(['cancellation_penalty_pct']);
@@ -49,7 +50,7 @@ export default function DeliveryDetailPage() {
       body: { order_id: orderId, action, delivery_code: action === 'delivered' ? code : undefined },
     });
     setBusy(false);
-    if (fnError) { setError(fnError.message); return; }
+    if (fnError) { setError('Could not reach the delivery service. Check your connection and try again.'); return; }
     if (data?.error) { setError(data.error); return; }
     if (action === 'delivered') { router.push('/rider-portal/dashboard'); return; }
     setOrder(data.order as Order);
@@ -60,7 +61,7 @@ export default function DeliveryDetailPage() {
     setBusy(true);
     const { data, error: fnError } = await supabase.functions.invoke('rider-cancel-delivery', { body: { order_id: orderId } });
     setBusy(false);
-    if (fnError) { setError(fnError.message); return; }
+    if (fnError) { setError('Could not reach the delivery service. Check your connection and try again.'); return; }
     if (data?.error) { setError(data.error); return; }
     router.push('/rider-portal/dashboard');
   }
@@ -84,28 +85,62 @@ export default function DeliveryDetailPage() {
         {stage === 'to_pickup' ? restaurant?.name ?? 'Restaurant' : customer?.full_name ?? 'Customer'}
       </h2>
 
-      <div className="overflow-hidden rounded-[14px] mb-3" style={{ border: '1px solid var(--line)', background: '#f5f5f5' }}>
-        {destLat != null && destLng != null || destAddress ? (
-          <iframe
-            title={stage === 'to_pickup' ? 'Map to restaurant pickup' : 'Map to customer drop-off'}
-            src={`https://maps.google.com/maps?q=${encodeURIComponent(destLat != null && destLng != null ? `${destLat},${destLng}` : destAddress ?? '')}&output=embed`}
-            className="h-[250px] w-full border-0"
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            allowFullScreen
-          />
-        ) : (
-          <div className="flex h-[250px] items-center justify-center px-5 text-center text-sm text-gray-600">Map unavailable because this destination has no address or coordinates yet.</div>
-        )}
-        <div className="p-3.5">
-          <p className="text-[12px] mb-3" style={{ color: 'var(--ink)' }}>{destAddress ?? (destLat != null && destLng != null ? `${destLat}, ${destLng}` : 'Address not available')}</p>
+      <div className="overflow-hidden rounded-[22px] mb-4" style={{ border: '1px solid var(--line)', background: '#f5f5f5' }}>
+        <div className="relative">
+          {destLat != null && destLng != null ? (
+            <iframe
+              title={stage === 'to_pickup' ? 'Exact restaurant pickup location' : 'Exact customer drop-off location'}
+              src={`https://maps.google.com/maps?q=${destLat},${destLng}&z=18&output=embed`}
+              className="h-[300px] w-full border-0"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              allowFullScreen
+            />
+          ) : destAddress ? (
+            <iframe
+              title={stage === 'to_pickup' ? 'Approximate restaurant pickup map' : 'Approximate customer drop-off map'}
+              src={`https://maps.google.com/maps?q=${encodeURIComponent(destAddress)}&z=16&output=embed`}
+              className="h-[300px] w-full border-0"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              allowFullScreen
+            />
+          ) : (
+            <div className="flex h-[300px] items-center justify-center px-5 text-center text-sm" style={{ color: 'var(--gray)' }}>This destination has no saved address or GPS coordinates yet.</div>
+          )}
+        </div>
+        <div className="p-4" style={{ background: '#111111', color: '#ffffff' }}>
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full" style={{ background: '#343434', color: '#ffffff' }}>
+              <span className="text-lg" aria-hidden="true">⌖</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#ff7900' }}>
+                {stage === 'to_pickup' ? 'Pickup location' : 'Customer drop-off'}
+              </p>
+              <p className="mt-1 text-[15px] font-semibold">{stage === 'to_pickup' ? restaurant?.name ?? 'Restaurant' : customer?.full_name ?? 'Customer'}</p>
+              <p className="mt-1 text-[12px] leading-5" style={{ color: '#d1d5db' }}>
+                {destAddress ?? (destLat != null && destLng != null ? 'GPS location saved' : 'Address not available')}
+              </p>
+              {destLat != null && destLng != null ? (
+                <p className="mt-1 text-[10px]" style={{ color: '#9ca3af' }}>GPS pin: {destLat.toFixed(6)}, {destLng.toFixed(6)}</p>
+              ) : (
+                <p className="mt-1 text-[10px]" style={{ color: '#fbbf24' }}>Exact pin unavailable — this map uses the address only.</p>
+              )}
+            </div>
+            {stage === 'to_dropoff' && customer?.phone && (
+              <a href={`tel:${customer.phone}`} aria-label="Call customer" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full" style={{ background: '#343434', color: '#ffffff' }}>
+                <span aria-hidden="true">☎</span>
+              </a>
+            )}
+          </div>
           <a
             href={mapsUrl(destLat, destLng, destAddress)}
             target="_blank" rel="noreferrer"
-            className="flex w-full items-center justify-center rounded-full py-3 text-[12.5px] font-semibold text-white"
-            style={{ background: 'var(--orange)' }}
+            className="mt-4 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-[14px] font-semibold"
+            style={{ background: '#ff7900', color: '#ffffff' }}
           >
-            Navigate to {stage === 'to_pickup' ? 'pickup' : 'customer'} in Maps →
+            Navigate to {stage === 'to_pickup' ? 'pickup' : 'drop-off'} in Maps <span aria-hidden="true">→</span>
           </a>
         </div>
       </div>
@@ -117,7 +152,7 @@ export default function DeliveryDetailPage() {
         </div>
       )}
 
-      {error && <p className="text-[11.5px] mb-3" style={{ color: 'var(--red)' }}>{error}</p>}
+      {error && <div role="alert" className="rounded-xl p-3 mb-3" style={{ background: '#fff0e8', color: '#b42318' }}><p className="text-[12px]">{error}</p><button type="button" onClick={() => void advance(stage === 'to_pickup' ? 'picked_up' : 'delivered')} disabled={busy} className="mt-2 rounded-lg px-3 py-2 text-[12px] font-semibold disabled:opacity-50" style={{ background: '#ff7900', color: '#fff' }}>Try again</button></div>}
 
       {stage === 'to_pickup' ? (
         <button onClick={() => advance('picked_up')} disabled={busy}
