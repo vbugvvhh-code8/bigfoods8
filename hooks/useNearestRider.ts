@@ -16,13 +16,13 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
 // Assumed average moped speed in Nigerian urban traffic, for a rough ETA only.
 const ASSUMED_SPEED_KMH = 25;
 
-export default function useNearestRider(latitude?: number, longitude?: number) {
+export default function useNearestRider(latitude?: number, longitude?: number, zone?: string | null) {
   const supabase = getBrowserSupabase();
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!latitude || !longitude) {
+    if (latitude == null || longitude == null || !zone?.trim()) {
       setLoading(false);
       return;
     }
@@ -31,7 +31,11 @@ export default function useNearestRider(latitude?: number, longitude?: number) {
     supabase
       .from('riders')
       .select('lat, lng')
+      .eq('zone', zone.trim())
       .eq('status', 'online')
+      .eq('approval_status', 'approved')
+      .eq('waiver_completed', true)
+      .eq('dispatch_disabled', false)
       .not('lat', 'is', null)
       .not('lng', 'is', null)
       .then(({ data }) => {
@@ -50,7 +54,7 @@ export default function useNearestRider(latitude?: number, longitude?: number) {
     return () => {
       cancelled = true;
     };
-  }, [latitude, longitude, supabase]);
+  }, [latitude, longitude, zone, supabase]);
 
   return { etaMinutes, loading };
 }
