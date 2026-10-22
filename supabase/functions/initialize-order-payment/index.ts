@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { areAllServiceAreasActive, type ServiceLocation } from "../_shared/service-area.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -86,8 +87,22 @@ Deno.serve(async (req: Request) => {
     if (!Array.isArray(groups) || groups.length === 0) {
       return json({ error: "At least one restaurant group is required" }, 400);
     }
-    if (typeof delivery_lat !== "number" || typeof delivery_lng !== "number") {
-      return json({ error: "delivery_lat and delivery_lng are required" }, 400);
+    if (
+      typeof delivery_lat !== "number" ||
+      typeof delivery_lng !== "number" ||
+      !Number.isFinite(delivery_lat) ||
+      !Number.isFinite(delivery_lng) ||
+      delivery_lat < -90 || delivery_lat > 90 ||
+      delivery_lng < -180 || delivery_lng > 180
+    ) {
+      return json({ error: "A valid delivery latitude and longitude are required" }, 400);
+    }
+    if (groups.some((g: any) => !g || typeof g.restaurant_id !== "string" || !Array.isArray(g.items) || g.items.length === 0)) {
+      return json({ error: "Each restaurant group must include a restaurant and at least one item" }, 400);
+    }
+    const requestedRestaurantIds = groups.map((g: any) => g.restaurant_id);
+    if (new Set(requestedRestaurantIds).size !== requestedRestaurantIds.length) {
+      return json({ error: "Each restaurant can appear only once in checkout" }, 400);
     }
     if (!PAYSTACK_SECRET_KEY) return json({ error: "Payments aren't configured yet." }, 502);
 
@@ -96,7 +111,7 @@ Deno.serve(async (req: Request) => {
     const restaurantIds = groups.map((g: any) => g.restaurant_id);
     const { data: restaurants } = await admin
       .from("restaurants")
-      .select("id, latitude, longitude, is_accepting_orders, zone")
+      .select("id, latitude, longitude, is_accepting_orders, zone, state, delivery_radius_km")
       .in("id", restaurantIds);
     if (!restaurants || restaurants.length !== restaurantIds.length) {
       return json({ error: "One or more restaurants weren't found" }, 404);
@@ -105,6 +120,31 @@ Deno.serve(async (req: Request) => {
     if (notAccepting) return json({ error: "One of the restaurants in your cart isn't accepting orders right now" }, 400);
     const missingLocation = restaurants.find((r) => r.latitude == null || r.longitude == null);
     if (missingLocation) return json({ error: "One of the restaurants doesn't have its location set up yet" }, 400);
+
+    // Enforce admin-controlled active delivery areas at the payment boundary.
+    const { data: serviceLocations, error: serviceLocationsError } = await admin
+      .from("locations")
+      .select("state, lga, is_active");
+    if (serviceLocationsError || !serviceLocations) {
+      return json({ error: "Unable to verify active delivery coverage. Please try again later." }, 503);
+    }
+    if (!areAllServiceAreasActive(
+      restaurants.map((restaurant) => ({ state: restaurant.state, zone: restaurant.zone })),
+      serviceLocations as ServiceLocation[],
+    )) {
+      return json({ error: "One or more restaurants are outside an active delivery area" }, 400);
+    }
+
+    // Require the pinned delivery point to fall within any configured radius.
+    const outsideDeliveryRadius = restaurants.find((restaurant) => {
+      if (restaurant.delivery_radius_km == null) return false;
+      const radius = Number(restaurant.delivery_radius_km);
+      if (!Number.isFinite(radius) || radius <= 0) return true;
+      return haversineKm(restaurant.latitude, restaurant.longitude, delivery_lat, delivery_lng) > radius;
+    });
+    if (outsideDeliveryRadius) {
+      return json({ error: "Your delivery location is outside one or more restaurants' delivery range" }, 400);
+    }
 
     const { data: pricingRows } = await admin
       .from("pricing_config")
