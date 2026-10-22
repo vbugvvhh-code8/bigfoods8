@@ -82,9 +82,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Unable to create a payment link right now." }, 503);
     }
 
-    const origin = req.headers.get("origin");
-    if (!origin || !/^https?:\/\//i.test(origin)) return json({ error: "Unable to determine the application URL. Please try again from the app." }, 400);
-    return json({ success: true, payment_url: `${origin.replace(/\/$/, "")}/order/pay/${token}`, expires_at: expiresAt });
+    return json({ success: true, payment_url: `${origin}/order/pay/${token}`, expires_at: expiresAt });
   } catch (error) {
     console.error("PAYMENT_LINK_CREATE_ERROR", String(error));
     return json({ error: "Unexpected error creating the payment link." }, 500);
