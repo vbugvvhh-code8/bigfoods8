@@ -305,7 +305,7 @@ Deno.serve(async (req: Request) => {
     });
     // Tip splits evenly across however many separate deliveries this becomes.
     const tipPerBatch = batchPlans.length ? Math.round(tipAmount / batchPlans.length) : 0;
-    totalAmount += tipPerBatch * batchPlans.length;
+    totalAmount += tipAmount;
 
     const { data: group, error: groupError } = await admin
       .from("order_groups")
