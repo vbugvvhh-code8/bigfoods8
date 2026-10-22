@@ -68,7 +68,9 @@ export function useRestaurants(options?: {
           .lte('starts_at', now)
           .gt('ends_at', now);
         if (promotionsError) throw promotionsError;
-        const promotedIds = [...new Set((livePromotions ?? []).map((p) => p.restaurant_id))];
+        const promotedIds = (livePromotions ?? [])
+          .map((p) => p.restaurant_id)
+          .filter((id, index, ids) => Boolean(id) && ids.indexOf(id) === index);
         if (promotedIds.length === 0) return [];
         query = query.in('id', promotedIds);
       }
