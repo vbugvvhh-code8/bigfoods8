@@ -66,7 +66,24 @@ Deno.serve(async (req: Request) => {
       }
       const { data, error } = await userClient.rpc("rider_nearby_order_offers");
       if (error) return json({ error: "Could not load order offers" }, 500);
-      return json({ offers: data ?? [] });
+
+      // The offer table can retain accepted rows after an order is delivered.
+      // Never return those stale rows as the rider's current commitment: only
+      // prioritize accepted offers whose order is still active and assigned.
+      const returnedOffers = (data ?? []) as Array<{ order_id: string; status: string }>;
+      const acceptedOffers = returnedOffers.filter(offer => offer.status === "accepted");
+      if (acceptedOffers.length && rider?.id) {
+        const { data: activeOrders, error: activeOrdersError } = await admin.from("orders")
+          .select("id")
+          .in("id", acceptedOffers.map(offer => offer.order_id))
+          .eq("rider_id", rider.id)
+          .in("status", ["placed", "preparing", "picked_up"]);
+        if (activeOrdersError) return json({ error: "Could not verify accepted deliveries" }, 500);
+        const activeIds = new Set((activeOrders ?? []).map(order => order.id));
+        const currentOffers = returnedOffers.filter(offer => offer.status !== "accepted" || activeIds.has(offer.order_id));
+        return json({ offers: currentOffers });
+      }
+      return json({ offers: returnedOffers });
     }
 
     if (action === "respond_offer") {
