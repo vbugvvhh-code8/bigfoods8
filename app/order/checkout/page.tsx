@@ -20,7 +20,7 @@ function CheckoutContent() {
   const router = useRouter();
   const {items, groups, total: subtotal, isMultiRestaurant} = useCart();
   const {prices} = usePricingConfig(['platform_fee', 'delivery_rate_per_km', 'minimum_delivery_fee']);
-  const {initializePayment, isSubmitting, error: paymentError} = useCheckout();
+  const {initializePayment, createPaymentLink, paymentLink, isSubmitting, error: paymentError} = useCheckout();
 
   const [deliveryPoint, setDeliveryPoint] = useState<DeliveryPoint | null>(null);
   const [note, setNote] = useState('');
@@ -81,6 +81,10 @@ function CheckoutContent() {
     );
   }
 
+  const handleCreatePaymentLink = () => {
+    if (!deliveryPoint) return;
+    createPaymentLink({groups: groups.map((g) => ({restaurant_id: g.restaurantId, items: g.items.map((i) => ({menu_item_id: i.id, quantity: i.quantity}))})), deliveryAddress: deliveryPoint.label + (note ? ` — ${note}` : ''), deliveryLat: deliveryPoint.lat, deliveryLng: deliveryPoint.lng, deliveryNote: note, tipAmount});
+  };
   const handlePay = () => {
     if (!deliveryPoint) return;
     initializePayment({
@@ -142,6 +146,7 @@ function CheckoutContent() {
         </p>
       )}
 
+      {paymentLink && <div className="mt-4 p-3 rounded-xl border text-[12px]" style={{borderColor: 'var(--orange)', background: 'var(--peach)', color: 'var(--ink)'}}><p className="font-semibold">Payment link ready — share it with the person helping you pay.</p><p className="mt-2 break-all">{paymentLink}</p><button onClick={() => navigator.clipboard.writeText(paymentLink)} className="w-full mt-2 py-2 rounded-lg font-semibold text-white" style={{background: 'var(--orange)'}}>Copy payment link</button>{typeof navigator !== 'undefined' && !!navigator.share && <button onClick={() => navigator.share({title: 'Big Foods payment link', url: paymentLink})} className="w-full mt-2 py-2 rounded-lg border font-semibold">Share payment link</button>}</div>}
       <div className="fixed bottom-20 lg:bottom-4 left-0 right-0 px-4 z-30">
         <div className="max-w-[380px] lg:max-w-2xl mx-auto">
           <p className="text-[11px] text-center mb-2" style={{color: 'var(--gray)'}}>
@@ -161,6 +166,7 @@ function CheckoutContent() {
               ? `Continue to payment · est. ₦${(subtotal + platformFee + (estimatedDeliveryFee ?? 0) + tipAmount).toLocaleString()}`
               : 'Choose a delivery location to continue'}
           </button>
+          <button onClick={handleCreatePaymentLink} disabled={!deliveryPoint || isSubmitting} className="w-full mt-2 py-3 rounded-xl text-[12.5px] font-semibold border disabled:opacity-50" style={{borderColor: 'var(--ink)', color: 'var(--ink)', background: 'white'}}>{isSubmitting ? 'Preparing payment link…' : 'Need help paying? Create a shareable link'}</button>
         </div>
       </div>
     </div>
