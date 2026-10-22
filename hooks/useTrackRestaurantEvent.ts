@@ -7,7 +7,7 @@ import getBrowserSupabase from '@/lib/supabase/client';
  * Fire-and-forget — never blocks or breaks the UI if it fails (a missed
  * analytics event is not worth showing an error or retry to the customer).
  */
-export function trackRestaurantEvent(restaurantId: string, eventType: 'card_click' | 'page_view') {
+export function trackRestaurantEvent(restaurantId: string, eventType: 'card_impression' | 'card_click' | 'page_view') {
   const supabase = getBrowserSupabase();
   supabase.from('restaurant_events').insert({ restaurant_id: restaurantId, event_type: eventType }).then(
     () => {},
