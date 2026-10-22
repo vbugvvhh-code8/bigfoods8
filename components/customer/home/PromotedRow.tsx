@@ -1,6 +1,8 @@
 'use client';
 
+import {useEffect} from 'react';
 import Link from 'next/link';
+import {trackRestaurantEvent} from '@/hooks/useTrackRestaurantEvent';
 import type {RestaurantWithMeta} from '@/lib/customer/types';
 
 interface PromotedRowProps {
@@ -8,6 +10,34 @@ interface PromotedRowProps {
 }
 
 export function PromotedRow({restaurants}: PromotedRowProps) {
+  useEffect(() => {
+    const cards = document.querySelectorAll<HTMLElement>('[data-promotion-impression]');
+    if (!('IntersectionObserver' in window)) {
+      cards.forEach((card) => {
+        const id = card.dataset.restaurantId;
+        if (id && card.dataset.impressionTracked !== 'true') {
+          card.dataset.impressionTracked = 'true';
+          trackRestaurantEvent(id, 'card_impression');
+        }
+      });
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const card = entry.target as HTMLElement;
+        const id = card.dataset.restaurantId;
+        if (id && card.dataset.impressionTracked !== 'true') {
+          card.dataset.impressionTracked = 'true';
+          trackRestaurantEvent(id, 'card_impression');
+        }
+        observer.unobserve(card);
+      });
+    }, {threshold: 0.5});
+    cards.forEach((card) => observer.observe(card));
+    return () => observer.disconnect();
+  }, [restaurants]);
+
   if (restaurants.length === 0) return null;
 
   return (
@@ -17,7 +47,7 @@ export function PromotedRow({restaurants}: PromotedRowProps) {
       </h2>
       <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
         {restaurants.map((r) => (
-          <Link key={r.id} href={`/order/restaurant/${r.id}`} className="flex-shrink-0 w-[150px] text-left">
+          <Link key={r.id} href={`/order/restaurant/${r.id}`} data-promotion-impression data-restaurant-id={r.id} onClick={() => trackRestaurantEvent(r.id, 'card_click')} className="flex-shrink-0 w-[150px] text-left">
             <div
               className="w-[150px] h-[100px] rounded-xl relative overflow-hidden mb-2 bg-cover bg-center"
               style={
