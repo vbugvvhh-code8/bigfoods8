@@ -47,6 +47,9 @@ Deno.serve(async (req: Request) => {
       return json({ error: "This payment attempt is not linked to exactly one order or order group." }, 409);
     }
 
+    const origin = req.headers.get("origin");
+    if (!origin || !/^https?:\\/\\//i.test(origin)) return json({ error: "Unable to determine the application URL. Please try again from the app." }, 400);
+
     // Avoid issuing multiple active links for the same transaction.
     const { data: existing } = await admin.from("order_payment_links")
       .select("id").eq("transaction_id", txn.id).is("consumed_at", null).gt("expires_at", new Date().toISOString()).limit(1);
