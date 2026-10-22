@@ -52,13 +52,7 @@ export function useRestaurants(options?: {
       if (options?.category && options.category !== 'All') {
         query = query.eq('category', options.category);
       }
-      if (options?.customerState) {
-        query = query.eq('state', options.customerState);
-      }
-
-      // Paid promotion placement is determined by a valid promotion period,
-      // not the legacy is_featured flag. Otherwise paid restaurants can be
-      // omitted and expired ones can linger if that flag becomes stale.
+      // Paid placement depends on promotion dates, not the legacy is_featured flag.
       if (options?.featuredOnly) {
         const now = new Date().toISOString();
         const {data: livePromotions, error: promotionsError} = await supabase
@@ -74,10 +68,12 @@ export function useRestaurants(options?: {
         if (promotedIds.length === 0) return [];
         query = query.in('id', promotedIds);
       }
+      if (options?.customerState) {
+        query = query.eq('state', options.customerState);
+      }
 
       const {data, error} = await query;
       if (error) throw error;
-
       return data as Restaurant[];
     }
   );
