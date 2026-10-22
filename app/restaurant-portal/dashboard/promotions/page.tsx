@@ -69,10 +69,18 @@ export default function PromotionsPage() {
       .order('starts_at', { ascending: false, nullsFirst: false });
     const rows = (data as PromotionRow[]) ?? [];
     const now = Date.now();
+    // Prefer a promotion that is actually running now over future-dated
+    // records. Old duplicate/scheduled rows must not hide a current paid plan.
     const currentPromotion = rows.find((r) =>
-      r.status === 'pending' ||
-      (r.status === 'active' && (!r.ends_at || new Date(r.ends_at).getTime() > now))
-    );
+      r.status === 'active' &&
+      (!r.starts_at || new Date(r.starts_at).getTime() <= now) &&
+      (!r.ends_at || new Date(r.ends_at).getTime() > now)
+    ) ?? rows.find((r) =>
+      (r.status === 'pending' || r.status === 'active') &&
+      !!r.starts_at &&
+      new Date(r.starts_at).getTime() > now &&
+      (!r.ends_at || new Date(r.ends_at).getTime() > now)
+    ) ?? rows.find((r) => r.status === 'pending');
     // Keep the latest expired promotion visible when there is no live or scheduled one.
     const latestExpired = rows.find((r) =>
       r.status === 'active' && !!r.ends_at && new Date(r.ends_at).getTime() <= now
