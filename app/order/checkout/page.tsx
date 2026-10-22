@@ -26,6 +26,7 @@ function CheckoutContent() {
   const [note, setNote] = useState('');
   const [tipAmount, setTipAmount] = useState(0);
   const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
+  const [shareError, setShareError] = useState('');
 
   // Rough client-side estimate only -- the real fee (with proper batch
   // clustering for 3+ restaurants) is computed server-side at payment init.
@@ -185,7 +186,8 @@ function CheckoutContent() {
               <button aria-label="Close payment link dialog" onClick={() => setShowPaymentLinkModal(false)} className="rounded-full p-1.5" style={{color: 'var(--gray)'}}><X className="h-5 w-5" /></button>
             </div>
             <div className="break-all rounded-xl border p-3 text-[12px]" style={{borderColor: '#E9E9E9', color: 'var(--ink)'}}>{paymentLink}</div>
-            <button onClick={async () => { try { await navigator.clipboard.writeText(paymentLink); setShowPaymentLinkModal(false); } catch { setError('Could not copy the link. Please select and copy it manually.'); } }} className="mt-3 w-full rounded-xl py-3 text-[13px] font-bold text-white" style={{background: 'var(--ink)'}}>Copy link</button>
+            {shareError && <p role="alert" className="mt-2 text-[12px]" style={{color: 'var(--red, #C1453A)'}}>{shareError}</p>}
+            <button onClick={async () => { try { await navigator.clipboard.writeText(paymentLink); setShowPaymentLinkModal(false); } catch { setShareError('Could not copy the link. Please select and copy it manually.'); } }} className="mt-3 w-full rounded-xl py-3 text-[13px] font-bold text-white" style={{background: 'var(--ink)'}}>Copy link</button>
             {typeof navigator !== 'undefined' && !!navigator.share && <button onClick={() => navigator.share({title: 'Big Foods payment link', text: 'Please help me pay for my Big Foods order.', url: paymentLink}).catch(() => {})} className="mt-2 w-full rounded-xl border py-3 text-[13px] font-semibold" style={{borderColor: 'var(--ink)', color: 'var(--ink)'}}>Share link</button>}
           </section>
         </div>
