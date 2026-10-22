@@ -58,12 +58,12 @@ Deno.serve(async (req: Request) => {
 
     const { data: customer } = await admin.auth.admin.getUserById(link.customer_id);
     const email = customer.user?.email;
-    if (!email) return json({ error: "The order owner has no payment email configured. Please contact support." }, 409);
+    if (!email) {
+      await admin.rpc("release_order_payment_link_claim", { p_token_hash: tokenHash });
+      return json({ error: "The order owner has no payment email configured. Please contact support." }, 409);
+    }
 
-    const appOrigin = typeof callbackOrigin === "string" && /^https?:\/\//i.test(callbackOrigin)
-      ? callbackOrigin.replace(/\/$/, "")
-      : null;
-    if (!appOrigin) return json({ error: "The application callback URL is required." }, 400);
+    const appOrigin = configuredOrigin;
 
     const response = await fetch("https://api.paystack.co/transaction/initialize", {
       method: "POST",
@@ -80,6 +80,7 @@ Deno.serve(async (req: Request) => {
     const payload = await response.json();
     if (!response.ok || !payload?.status || typeof payload?.data?.authorization_url !== "string") {
       console.error("PAYMENT_LINK_PAYSTACK_INIT_FAILED", { linkId: link.id, message: payload?.message });
+      await admin.rpc("release_order_payment_link_claim", { p_token_hash: tokenHash });
       await admin.rpc("release_order_payment_link_claim", { p_token_hash: tokenHash });
       return json({ error: "Unable to start payment. The link is available to retry; no payment confirmation was recorded." }, 502);
     }
