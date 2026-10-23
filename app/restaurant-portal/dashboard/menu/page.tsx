@@ -51,7 +51,7 @@ export default function MenuBuilderPage() {
       ? menuItems
       : menuItems.filter((item) => (item.category?.trim() || UNCATEGORIZED) === categoryFilter);
     const values = new Set(relevantItems.map((item) => (item as any).subcategory?.trim() || NO_SUBCATEGORY));
-    return [...values].sort((a, b) =>
+    return Array.from(values).sort((a, b) =>
       a === NO_SUBCATEGORY ? 1 : b === NO_SUBCATEGORY ? -1 : a.localeCompare(b)
     );
   }, [menuItems, categoryFilter]);
