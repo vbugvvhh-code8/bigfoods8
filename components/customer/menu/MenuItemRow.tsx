@@ -42,8 +42,8 @@ export function MenuItemRow({item, restaurant}: MenuItemRowProps) {
       tabIndex={canOrder ? 0 : undefined}
       onClick={openDetails}
       onKeyDown={(event) => { if (canOrder && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); openDetails(); } }}
-      className={`min-w-0 overflow-hidden rounded-2xl bg-white ${canOrder ? 'cursor-pointer' : 'cursor-not-allowed opacity-40 grayscale'}`}
-      style={{border: '1px solid var(--line)'}}
+      className={`min-w-0 overflow-hidden rounded-2xl transition-shadow ${canOrder ? 'cursor-pointer hover:shadow-md' : 'cursor-not-allowed'}`}
+      style={{border: `1px solid ${canOrder ? 'var(--line)' : '#F2C6A5'}`, background: canOrder ? '#FFFFFF' : '#FFF7ED'}}
       aria-label={canOrder ? `View ${item.name} details` : `${item.name} unavailable`}
     >
       <div
@@ -53,12 +53,12 @@ export function MenuItemRow({item, restaurant}: MenuItemRowProps) {
       >
         {!imageUrls.length && <span className="absolute inset-0 flex items-center justify-center" style={{color:'var(--gray)'}}><ImageIcon className="h-8 w-8 opacity-50" /></span>}
         {imageUrls.length > 1 && <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-1 text-[10px] font-semibold text-white">{imageUrls.length} photos</span>}
-        {!canOrder && <span className="absolute inset-0 flex items-center justify-center bg-white/25 text-center text-xs font-bold text-gray-800">Unavailable</span>}
+        {!canOrder && <span className="absolute left-2 top-2 rounded-full border border-orange-200 bg-orange-100 px-2.5 py-1 text-[10px] font-bold text-orange-800 shadow-sm">Unavailable</span>}
       </div>
       <div className="p-2.5 sm:p-3">
         <h2 className="line-clamp-2 text-sm font-semibold" style={{color:'var(--ink)'}}>{item.name}</h2>
         <p className="mt-1 text-xs font-medium" style={{color:'var(--orange)'}}>₦{item.price.toLocaleString()}</p>
-        {!canOrder && <p className="mt-1 text-[11px] font-semibold" style={{color:'var(--red, #C1453A)'}}>{item.is_available === false ? 'Currently unavailable' : !withinSchedule ? 'Outside scheduled hours' : 'Restaurant not accepting orders'}</p>}
+        {!canOrder && <p className="mt-1 inline-flex rounded-md bg-orange-100 px-2 py-1 text-[11px] font-semibold text-orange-800">{item.is_available === false ? 'Currently unavailable' : !withinSchedule ? 'Available during scheduled hours' : 'Restaurant not accepting orders'}</p>}
         {canOrder && <div className="mt-3">
           {hasOptions ? (
             <button type="button" onClick={(event) => { event.stopPropagation(); openDetails(); }} className="min-h-10 w-full rounded-full px-2 py-2 text-[11px] font-semibold text-white sm:text-xs" style={{background:'var(--orange)'}}>Choose options</button>
