@@ -49,6 +49,16 @@ export default function MenuBuilderPage() {
     );
   }, [menuItems, categoryFilter]);
 
+  const selectedSubcategoryOptions = useMemo(() => {
+    if (bulkCategory) return MENU_CATEGORY_PRESETS[bulkCategory.toLowerCase()] ?? [];
+    return Array.from(new Set(
+      menuItems
+        .filter((item) => selectedItemIds.has(item.id))
+        .map((item) => (item as any).subcategory)
+        .filter((value): value is string => typeof value === 'string' && value.length > 0)
+    ));
+  }, [bulkCategory, menuItems, selectedItemIds]);
+
   const filteredItems = useMemo(() => {
     const query = menuSearch.trim().toLocaleLowerCase();
     return menuItems.filter((item) => {
@@ -292,7 +302,7 @@ export default function MenuBuilderPage() {
                   <p className="mt-2 text-[11px]" style={{color:'var(--gray)'}}>Choose a category or Custom. Leave unselected to keep each item's category.</p>
                 </div>
                 <div className="rounded-xl border p-3" style={{borderColor:'var(--line)',background:'var(--white)'}}>
-                  <ChipPicker label="Set subcategory" options={bulkCategory ? (MENU_CATEGORY_PRESETS[bulkCategory.toLowerCase()] ?? []) : Array.from(new Set(menuItems.filter((item) => selectedItemIds.has(item.id)).map((item) => (item as any).subcategory).filter((value): value is string => typeof value === 'string' && value.length > 0)))} value={bulkSubcategory} onChange={setBulkSubcategory} />
+                  <ChipPicker label="Set subcategory" options={selectedSubcategoryOptions} value={bulkSubcategory} onChange={setBulkSubcategory} />
                   <p className="mt-2 text-[11px]" style={{color:'var(--gray)'}}>Leave unselected to keep each item's subcategory.</p>
                 </div>
               </div>
