@@ -443,7 +443,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
 
       <section className="mb-4 rounded-xl border p-4" style={{display: step === 4 ? undefined : "none", borderColor:'var(--line)', background:'var(--white)'}}>
         <h3 className="mb-2 text-sm font-bold" style={{color:'var(--ink)'}}>Main dish stock</h3>
-        <p className="mb-3 text-xs leading-5" style={{color:'var(--gray)'}}>Leave quantity blank if this dish is not stock-tracked. Enter 0 to mark it out of stock. This setting is saved with the item. Stock reservation during checkout is the next implementation step.</p>
+        <p className="mb-3 text-xs leading-5" style={{color:'var(--gray)'}}>Leave quantity blank if this dish is not stock-tracked. Enter 0 to mark it out of stock. This setting is saved with the item. Stock is reserved when checkout starts, released after a failed or abandoned payment, and deducted when payment succeeds.</p>
         <label className="block text-xs font-semibold" style={{color:'var(--ink)'}}>Available quantity <span className="font-normal" style={{color:'var(--gray)'}}>(optional)</span></label>
         <input type="number" min={0} step={1} value={stockQuantity} onChange={(e)=>setStockQuantity(e.target.value)} placeholder="Leave blank for unlimited / not tracked" className="mt-1.5 w-full rounded-lg border px-3 py-2.5 text-sm" style={{borderColor:'var(--line)'}} />
         {!hasValidStockQuantity && <p className="mt-2 text-xs" style={{color:'var(--red)'}}>Stock must be a whole number of zero or greater.</p>}
