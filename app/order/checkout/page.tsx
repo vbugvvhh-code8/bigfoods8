@@ -120,6 +120,7 @@ function CheckoutContent() {
       deliveryLng: deliveryPoint.lng,
       deliveryNote: note,
       tipAmount,
+      expectedTotal: estimatedDeliveryFee == null ? undefined : subtotal + platformFee + estimatedDeliveryFee + tipAmount,
     });
   };
 
