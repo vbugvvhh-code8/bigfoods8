@@ -74,6 +74,9 @@ export function useMenuItems(restaurantId?: string) {
 
   async function addMenuItem(item: NewMenuItem) {
     if (!restaurantId) throw new Error('Missing restaurant');
+    const { data: lastOrderedItem, error: orderError } = await supabase.from('menu_items').select('display_order').eq('restaurant_id', restaurantId).order('display_order', { ascending: false }).limit(1).maybeSingle();
+    if (orderError) throw orderError;
+    const nextDisplayOrder = item.display_order ?? Number(lastOrderedItem?.display_order ?? -1) + 1;
     const { data, error } = await supabase
       .from('menu_items')
       .insert({
@@ -99,7 +102,7 @@ export function useMenuItems(restaurantId?: string) {
         promotion_starts_at: item.promotion_starts_at ?? null,
         promotion_ends_at: item.promotion_ends_at ?? null,
         complementary_item_ids: item.complementary_item_ids ?? [],
-        display_order: item.display_order ?? 0,
+        display_order: nextDisplayOrder,
       })
       .select()
       .single();
