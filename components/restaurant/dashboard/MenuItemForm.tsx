@@ -112,6 +112,9 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   type AvailabilityWindow = { day: number; start: string; end: string };
   const [scheduleEnabled, setScheduleEnabled] = useState(Boolean((existingItem as any)?.availability_schedule_enabled));
   const [scheduleWindows, setScheduleWindows] = useState<AvailabilityWindow[]>(() => Array.isArray((existingItem as any)?.availability_schedule) ? (existingItem as any).availability_schedule : []);
+  type AvailabilityWindow = { day: number; start: string; end: string };
+  const [scheduleEnabled, setScheduleEnabled] = useState(Boolean((existingItem as any)?.availability_schedule_enabled));
+  const [scheduleWindows, setScheduleWindows] = useState<AvailabilityWindow[]>(() => Array.isArray((existingItem as any)?.availability_schedule) ? (existingItem as any).availability_schedule : []);
   const [error, setError] = useState<string | null>(null);
 
   const subcategoryOptions = category ? MENU_CATEGORY_PRESETS[category.toLowerCase()] ?? [] : [];
@@ -207,6 +210,8 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
           serving_size: servingSize.trim() || null,
           preparation_time_minutes: preparationTime.trim() ? Number(preparationTime) : null,
           stock_quantity: parsedStockQuantity,
+          availability_schedule_enabled: scheduleEnabled,
+          availability_schedule: scheduleEnabled ? scheduleWindows : [],
           availability_schedule_enabled: scheduleEnabled,
           availability_schedule: scheduleEnabled ? scheduleWindows : [],
           availability_schedule_enabled: scheduleEnabled,
@@ -477,6 +482,25 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
             </div>;
           })}
           {scheduleWindows.some((w)=>!Number.isInteger(w.day)||w.day<0||w.day>6||!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(w.start)||!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(w.end)||w.start>=w.end) && <p className="text-xs" style={{color:'var(--red)'}}>Each time window must have valid times, with the end later than the start on the same day.</p>}
+        </div>}
+      </section>
+      <section className="mb-4 rounded-xl border p-4" style={{display: step === 4 ? undefined : "none", borderColor:'var(--line)', background:'var(--white)'}}>
+        <h3 className="mb-2 text-sm font-bold" style={{color:'var(--ink)'}}>Scheduled availability</h3>
+        <p className="mb-3 text-xs leading-5" style={{color:'var(--gray)'}}>Set weekly order windows in Nigeria time. Multiple windows per day are supported. The existing unavailable switch still takes priority.</p>
+        <label className="flex min-h-11 items-center gap-3 rounded-xl border p-3 text-sm font-semibold" style={{borderColor:'var(--line)',color:'var(--ink)'}}>
+          <input type="checkbox" checked={scheduleEnabled} onChange={(e)=>setScheduleEnabled(e.target.checked)} className="h-4 w-4" /> Enable weekly schedule
+        </label>
+        {scheduleEnabled && <div className="mt-3 space-y-3">
+          {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((dayName, day) => <div key={day} className="rounded-xl border p-3" style={{borderColor:'var(--line)'}}>
+            <div className="mb-2 flex items-center justify-between"><strong className="text-sm">{dayName}</strong><button type="button" onClick={()=>setScheduleWindows((prev)=>[...prev,{day,start:'09:00',end:'17:00'}])} className="rounded-lg border px-3 py-2 text-xs" style={{borderColor:'var(--line)',color:'var(--orange)'}}>+ Add time</button></div>
+            {scheduleWindows.filter((w)=>w.day===day).map((w)=>{const ix=scheduleWindows.indexOf(w);return <div key={ix} className="mb-2 grid grid-cols-2 gap-2">
+              <label className="text-xs">From<input type="time" value={w.start} onChange={(e)=>setScheduleWindows((prev)=>prev.map((v,i)=>i===ix?{...v,start:e.target.value}:v))} className="mt-1 min-h-10 w-full rounded-lg border px-2" style={{borderColor:'var(--line)'}} /></label>
+              <label className="text-xs">Until<input type="time" value={w.end} onChange={(e)=>setScheduleWindows((prev)=>prev.map((v,i)=>i===ix?{...v,end:e.target.value}:v))} className="mt-1 min-h-10 w-full rounded-lg border px-2" style={{borderColor:'var(--line)'}} /></label>
+              <button type="button" onClick={()=>setScheduleWindows((prev)=>prev.filter((_,i)=>i!==ix))} className="col-span-2 min-h-9 rounded-lg border text-xs" style={{borderColor:'var(--line)',color:'var(--red)'}}>Remove time window</button>
+            </div>})}
+            {scheduleWindows.every((w)=>w.day!==day) && <p className="text-xs" style={{color:'var(--gray)'}}>No ordering times configured</p>}
+          </div>)}
+          {scheduleWindows.some((w)=>w.start>=w.end) && <p className="text-xs" style={{color:'var(--red)'}}>Each end time must be later than its start time on the same day.</p>}
         </div>}
       </section>
       <section className="mb-4 rounded-xl border p-4" style={{display: step === 4 ? undefined : "none", borderColor:'var(--line)', background:'var(--white)'}}>
