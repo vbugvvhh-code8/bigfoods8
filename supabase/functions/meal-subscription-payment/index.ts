@@ -8,6 +8,13 @@ const paystackKey = Deno.env.get("PAYSTACK_SECRET_KEY");
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
+function haversineKm(lat1:number,lng1:number,lat2:number,lng2:number) {
+  const toRad=(value:number)=>value*Math.PI/180;
+  const dLat=toRad(lat2-lat1), dLng=toRad(lng2-lng1);
+  const a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
+  return 6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
 function getDeliveryDates(days: number[], weeks: number) {
   const dates: string[] = [];
   const cursor = new Date();
@@ -42,7 +49,7 @@ Deno.serve(async (req: Request) => {
       const deliveryTime = String(body.delivery_time ?? "lunch");
       const rawItems = Array.isArray(body.items) ? body.items : [];
       if (!restaurantId || !Number.isInteger(packageWeeks) || packageWeeks < 1 || packageWeeks > 12 || !days.length || !["breakfast","lunch","dinner"].includes(deliveryTime) || !rawItems.length) return json({ error: "Choose a kitchen, package duration, at least one delivery day, meal time and menu item." }, 400);
-      const { data: restaurant, error: restaurantError } = await admin.from("restaurants").select("id,name,owner_id,approval_status,is_accepting_orders").eq("id", restaurantId).maybeSingle();
+      const { data: restaurant, error: restaurantError } = await admin.from("restaurants").select("id,name,owner_id,approval_status,is_accepting_orders,latitude,longitude,delivery_radius_km").eq("id", restaurantId).maybeSingle();
       if (restaurantError || !restaurant || restaurant.approval_status !== "approved" || restaurant.is_accepting_orders === false) return json({ error: "This kitchen is not currently accepting subscription orders." }, 400);
       if (restaurant.owner_id === user.id) return json({ error: "Restaurant owners cannot subscribe to their own kitchen." }, 403);
       const addressId = String(body.saved_address_id ?? "");
@@ -51,6 +58,17 @@ Deno.serve(async (req: Request) => {
       if (addressError || !savedAddress || savedAddress.lat == null || savedAddress.lng == null) {
         return json({ error: "Choose a saved delivery address with a map location before subscribing." }, 400);
       }
+      if (restaurant.latitude == null || restaurant.longitude == null) return json({ error: "This kitchen has no verified delivery location yet." }, 400);
+      const distanceKm = haversineKm(Number(restaurant.latitude), Number(restaurant.longitude), Number(savedAddress.lat), Number(savedAddress.lng));
+      if (restaurant.delivery_radius_km != null && distanceKm > Number(restaurant.delivery_radius_km)) return json({ error: "Your saved address is outside this kitchen's delivery range." }, 400);
+      const { data: pricingRows, error: pricingError } = await admin.from("pricing_config").select("key,value").in("key", ["platform_fee","delivery_rate_per_km","minimum_delivery_fee"]);
+      if (pricingError || !pricingRows) return json({ error: "Unable to load delivery pricing. Please try again later." }, 503);
+      const pricing = (key: string) => Number(pricingRows.find((row:any)=>row.key===key)?.value);
+      const platformFee = pricing("platform_fee");
+      const deliveryRate = pricing("delivery_rate_per_km");
+      const minimumDeliveryFee = pricing("minimum_delivery_fee");
+      if (![platformFee,deliveryRate,minimumDeliveryFee].every(value=>Number.isSafeInteger(value)&&value>=0)) return json({ error: "Delivery pricing is not configured correctly." }, 503);
+      const deliveryFee = Math.max(Math.round(distanceKm*deliveryRate),minimumDeliveryFee);
       const quantities = new Map<string,number>();
       for (const item of rawItems) {
         const id = String(item?.menu_item_id ?? "");
@@ -75,12 +93,13 @@ Deno.serve(async (req: Request) => {
       }
       const dates = getDeliveryDates(days, packageWeeks);
       if (!dates.length) return json({ error: "Could not generate your delivery schedule. Try again." }, 400);
-      const totalAmount = Math.round(perDeliveryTotal * dates.length * 100) / 100;
+      const perDeliveryTotalWithFees = perDeliveryTotal + platformFee + deliveryFee;
+      const totalAmount = Math.round(perDeliveryTotalWithFees * dates.length * 100) / 100;
       const reference = crypto.randomUUID();
       const { data: subscription, error: insertError } = await admin.from("meal_subscriptions").insert({
         customer_id: user.id, restaurant_id: restaurantId, saved_address_id: savedAddress.id, delivery_address: savedAddress.address, delivery_lat: savedAddress.lat, delivery_lng: savedAddress.lng, package_weeks: packageWeeks,
         delivery_days: days, delivery_time: deliveryTime, selected_items: selectedItems,
-        total_deliveries: dates.length, scheduled_dates: dates, total_amount: totalAmount, currency: "NGN",
+        total_deliveries: dates.length, scheduled_dates: dates, meal_subtotal_per_delivery: perDeliveryTotal, platform_fee_per_delivery: platformFee, delivery_fee_per_delivery: deliveryFee, delivery_distance_km: distanceKm, total_amount: totalAmount, currency: "NGN",
         status: "pending_payment", payment_reference: reference, starts_on: dates[0], ends_on: dates[dates.length-1]
       }).select("id,total_amount,total_deliveries,starts_on,ends_on").single();
       if (insertError || !subscription) throw insertError ?? new Error("Could not create subscription.");
