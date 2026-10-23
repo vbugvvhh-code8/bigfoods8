@@ -22,15 +22,14 @@ export default function RestaurantMenuPage() {
   useTrackRestaurantPageView(restaurant?.id);
   const {menuItems, isLoading: menuLoading, error: menuError} = useMenuItems(id);
 
-  const availableItems = useMemo(() => menuItems.filter((item) => item.is_available !== false), [menuItems]);
-
+  // Show unavailable dishes with a clear status instead of hiding them; MenuItemRow prevents adding them to the cart.
   const categories = useMemo(
-    () => Array.from(new Set(availableItems.map((m) => m.category).filter((c): c is string => !!c))).sort(),
-    [availableItems]
+    () => Array.from(new Set(menuItems.map((m) => m.category).filter((c): c is string => !!c))).sort(),
+    [menuItems]
   );
 
   const visibleItems =
-    activeCategory === 'All' ? availableItems : availableItems.filter((m) => m.category === activeCategory);
+    activeCategory === 'All' ? menuItems : menuItems.filter((m) => m.category === activeCategory);
 
   const isLoading = restaurantLoading || menuLoading;
 
@@ -83,7 +82,7 @@ export default function RestaurantMenuPage() {
             <EmptyState
               icon={<UtensilsCrossed className="w-5 h-5" />}
               title="Nothing here yet"
-              message="This restaurant hasn't added items to this category."
+              message="This restaurant hasn't added items to this category yet."
             />
           )}
 
