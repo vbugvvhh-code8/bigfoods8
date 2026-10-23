@@ -128,7 +128,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   });
   const hasValidFields = name.trim().length > 0 && price.trim().length > 0 &&
     Number.isSafeInteger(parsedPrice) && parsedPrice > 0 && hasValidPreparationTime && hasValidOptionGroups;
-  const canSubmit = hasValidFields && totalImageCount >= 2 && totalImageCount <= 3;
+  const canSubmit = hasValidFields && totalImageCount >= 1 && totalImageCount <= 3;
 
   function handleFilesSelected(files: FileList | null) {
     if (!files) return;
@@ -163,7 +163,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
       else if (!price.trim() || !Number.isSafeInteger(parsedPrice) || parsedPrice <= 0) setError('Enter a valid price greater than ₦0.');
       else if (!hasValidPreparationTime) setError('Preparation time must be a whole number greater than 0, or leave it blank.');
       else if (!hasValidOptionGroups) setError('Each option group needs a name, at least two named options, and valid non-negative extra prices.');
-      else if (totalImageCount < 2) setError('Add at least 2 photos before saving.');
+      else if (totalImageCount < 1) setError('Add at least 1 photo before saving.');
       else if (totalImageCount > 3) setError('A menu item can have no more than 3 photos.');
       return;
     }
@@ -371,7 +371,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
       </section>
 
       <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
-        Photos (2–3 required)
+        Photos (1–3 required)
       </label>
       <div className="flex gap-2 mb-2 flex-wrap">
         {existingImageUrls.map((url, i) => (
@@ -415,7 +415,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
         )}
       </div>
       <p className="text-[11px] mb-3" style={{ color: 'var(--gray)' }}>
-        {totalImageCount}/3 photos
+        {totalImageCount}/3 photos · At least one photo is required.
       </p>
 
       {error && (
