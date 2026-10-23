@@ -20,13 +20,15 @@ export default function RestaurantMenuPage() {
   const {restaurant, isLoading: restaurantLoading, error: restaurantError} = useRestaurant(id);
   const {menuItems, isLoading: menuLoading, error: menuError} = useMenuItems(id);
 
+  const availableItems = useMemo(() => menuItems.filter((item) => item.is_available !== false), [menuItems]);
+
   const categories = useMemo(
-    () => Array.from(new Set(menuItems.map((m) => m.category).filter((c): c is string => !!c))).sort(),
-    [menuItems]
+    () => Array.from(new Set(availableItems.map((m) => m.category).filter((c): c is string => !!c))).sort(),
+    [availableItems]
   );
 
   const visibleItems =
-    activeCategory === 'All' ? menuItems : menuItems.filter((m) => m.category === activeCategory);
+    activeCategory === 'All' ? availableItems : availableItems.filter((m) => m.category === activeCategory);
 
   const isLoading = restaurantLoading || menuLoading;
 
