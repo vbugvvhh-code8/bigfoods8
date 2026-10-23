@@ -102,7 +102,10 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   const subcategoryOptions = category ? MENU_CATEGORY_PRESETS[category.toLowerCase()] ?? [] : [];
   const totalImageCount = existingImageUrls.length + newImages.length;
   const canAddMoreImages = totalImageCount < 3;
-  const canSubmit = !!(name && price && totalImageCount >= 2 && totalImageCount <= 3);
+  const parsedPrice = Number(price);
+  const hasValidFields = name.trim().length > 0 && price.trim().length > 0 &&
+    Number.isSafeInteger(parsedPrice) && parsedPrice > 0;
+  const canSubmit = hasValidFields && totalImageCount >= 2 && totalImageCount <= 3;
 
   function handleFilesSelected(files: FileList | null) {
     if (!files) return;
@@ -119,7 +122,13 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   }
 
   async function handleSubmit() {
-    if (!canSubmit) return;
+    if (!canSubmit || saving) {
+      if (!name.trim()) setError('Enter a dish name.');
+      else if (!price.trim() || !Number.isSafeInteger(parsedPrice) || parsedPrice <= 0) setError('Enter a valid price greater than ₦0.');
+      else if (totalImageCount < 2) setError('Add at least 2 photos before saving.');
+      else if (totalImageCount > 3) setError('A menu item can have no more than 3 photos.');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -137,16 +146,16 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
 
       if (isEditing && existingItem && onUpdate) {
         await onUpdate(existingItem.id, {
-          name,
-          price: Number(price),
+          name: name.trim(),
+          price: parsedPrice,
           category: category.trim() || null,
           subcategory: subcategory.trim() || null,
           image_urls: finalImageUrls,
         });
       } else {
         await onSubmit({
-          name,
-          price: Number(price),
+          name: name.trim(),
+          price: parsedPrice,
           category: category.trim() || undefined,
           subcategory: subcategory.trim() || undefined,
           image_urls: finalImageUrls,
@@ -283,7 +292,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
           style={{ background: 'var(--orange)' }}
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-          {isEditing ? 'Save changes' : 'Add item'}
+          {saving ? (isEditing ? 'Saving changes…' : 'Adding item…') : isEditing ? 'Save changes' : 'Add item'}
         </button>
       </div>
     </div>
