@@ -108,6 +108,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   const [newImages, setNewImages] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState(1);
+  const [stockQuantity, setStockQuantity] = useState(existingItem?.stock_quantity == null ? '' : String(existingItem.stock_quantity));
   const [error, setError] = useState<string | null>(null);
 
   const subcategoryOptions = category ? MENU_CATEGORY_PRESETS[category.toLowerCase()] ?? [] : [];
@@ -117,13 +118,15 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   const parsedPreparationTime = preparationTime.trim() ? Number(preparationTime) : null;
   const hasValidPreparationTime = parsedPreparationTime === null ||
     (Number.isSafeInteger(parsedPreparationTime) && parsedPreparationTime > 0);
+  const parsedStockQuantity = stockQuantity.trim() ? Number(stockQuantity) : null;
+  const hasValidStockQuantity = parsedStockQuantity === null || (Number.isSafeInteger(parsedStockQuantity) && parsedStockQuantity >= 0);
   const hasValidOptionGroups = optionGroups.every((group) => {
     const minimum = group.required ? Math.max(1, group.min_select ?? 1) : (group.min_select ?? 0);
     const maximum = group.selection_type === 'single' ? 1 : (group.max_select ?? group.options.length);
     return group.name.trim().length > 0 &&
       ['single', 'multiple'].includes(group.selection_type) &&
       group.options.length >= 2 &&
-      group.options.every((option) => option.name.trim().length > 0 && Number.isSafeInteger(option.price) && option.price >= 0) &&
+      group.options.every((option) => option.name.trim().length > 0 && Number.isSafeInteger(option.price) && option.price >= 0 && (option.stock_quantity == null || (Number.isSafeInteger(option.stock_quantity) && option.stock_quantity >= 0))) &&
       Number.isSafeInteger(minimum) && Number.isSafeInteger(maximum) &&
       minimum >= 0 && minimum <= maximum && maximum <= group.options.length;
   });
@@ -196,6 +199,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
           ingredients: ingredients.trim() || null,
           serving_size: servingSize.trim() || null,
           preparation_time_minutes: preparationTime.trim() ? Number(preparationTime) : null,
+          stock_quantity: parsedStockQuantity,
           allergens: allergens.split(',').map((value) => value.trim()).filter(Boolean),
           dietary_tags: dietaryTags.split(',').map((value) => value.trim()).filter(Boolean),
           option_groups: optionGroups,
@@ -211,6 +215,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
           ingredients: ingredients.trim() || null,
           serving_size: servingSize.trim() || null,
           preparation_time_minutes: preparationTime.trim() ? Number(preparationTime) : null,
+          stock_quantity: parsedStockQuantity,
           allergens: allergens.split(',').map((value) => value.trim()).filter(Boolean),
           dietary_tags: dietaryTags.split(',').map((value) => value.trim()).filter(Boolean),
           option_groups: optionGroups,
@@ -249,10 +254,10 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
     <div className="rounded-[16px] p-4 sm:p-6" style={{ border: '1px solid var(--line)', background: 'var(--white)' }}>
       <div className="mb-6">
         <div className="mb-4 flex items-start justify-between gap-3">
-          <div><p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: 'var(--orange)' }}>{isEditing ? 'Edit menu item' : 'New menu item'}</p><h2 className="mt-1 text-xl font-bold" style={{ color: 'var(--ink)' }}>{['Basic information','Photos','Variants & extras','Preparation & details','Review & save'][step-1]}</h2><p className="mt-1 text-xs" style={{color:'var(--gray)'}}>Step {step} of 5 · Your progress stays here while you move between steps.</p></div>
-          <span className="rounded-full px-3 py-1 text-xs font-bold" style={{background:'var(--peach)',color:'var(--ink)'}}>{Math.round(step/5*100)}%</span>
+          <div><p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: 'var(--orange)' }}>{isEditing ? 'Edit menu item' : 'New menu item'}</p><h2 className="mt-1 text-xl font-bold" style={{ color: 'var(--ink)' }}>{['Basic information','Photos','Variants & extras','Stock & availability','Preparation & details','Review & save'][step-1]}</h2><p className="mt-1 text-xs" style={{color:'var(--gray)'}}>Step {step} of 6 · Your progress stays here while you move between steps.</p></div>
+          <span className="rounded-full px-3 py-1 text-xs font-bold" style={{background:'var(--peach)',color:'var(--ink)'}}>{Math.round(step/6*100)}%</span>
         </div>
-        <div className="grid grid-cols-5 gap-1.5" aria-label="Form progress">{[1,2,3,4,5].map((n)=><div key={n} className="h-1.5 rounded-full" style={{background:n<=step?'var(--orange)':'var(--line)'}} />)}</div>
+        <div className="grid grid-cols-5 gap-1.5" aria-label="Form progress">{[1,2,3,4,5,6].map((n)=><div key={n} className="h-1.5 rounded-full" style={{background:n<=step?'var(--orange)':'var(--line)'}} />)}</div>
       </div>
       <div className="mb-3" style={{ display: step === 1 ? undefined : "none" }}>
         <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
@@ -364,9 +369,10 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
               </div>}
               <div className="space-y-2">
                 {group.options.map((option) => (
-                  <div key={option.id} className="grid grid-cols-[minmax(0,1fr)_100px_34px] items-center gap-2">
+                  <div key={option.id} className="grid grid-cols-[minmax(0,1fr)_78px_92px_34px] items-center gap-2">
                     <input value={option.name} onChange={(e) => setOptionGroups((prev) => prev.map((g) => g.id === group.id ? { ...g, options: g.options.map((o) => o.id === option.id ? { ...o, name: e.target.value } : o) } : g))} maxLength={80} placeholder="e.g. Chicken, Beef, Fish" className="min-w-0 rounded-lg border px-2.5 py-2 text-[12px]" style={{ borderColor: 'var(--line)', color: 'var(--ink)' }} />
-                    <input type="number" min={0} step={1} value={option.price} onChange={(e) => setOptionGroups((prev) => prev.map((g) => g.id === group.id ? { ...g, options: g.options.map((o) => o.id === option.id ? { ...o, price: e.target.value === '' ? 0 : Number(e.target.value) } : o) } : g))} aria-label={`Extra price for ${option.name || 'option'}`} className="w-full rounded-lg border px-2 py-2 text-[12px]" style={{ borderColor: 'var(--line)', color: 'var(--ink)' }} />
+                    <input type="number" min={0} step={1} value={option.price} onChange={(e) => setOptionGroups((prev) => prev.map((g) => g.id === group.id ? { ...g, options: g.options.map((o) => o.id === option.id ? { ...o, price: e.target.value === '' ? 0 : Number(e.target.value) } : o) } : g))} aria-label={`Extra price for ${option.name || 'option'}`} placeholder="₦ extra" className="w-full rounded-lg border px-2 py-2 text-[12px]" style={{ borderColor: 'var(--line)', color: 'var(--ink)' }} />
+                    <input type="number" min={0} step={1} value={option.stock_quantity == null ? '' : option.stock_quantity} onChange={(e) => setOptionGroups((prev) => prev.map((g) => g.id === group.id ? { ...g, options: g.options.map((o) => o.id === option.id ? { ...o, stock_quantity: e.target.value === '' ? null : Number(e.target.value) } : o) } : g))} aria-label={`Stock quantity for ${option.name || 'option'}`} placeholder="∞ stock" className="w-full rounded-lg border px-2 py-2 text-[12px]" style={{ borderColor: 'var(--line)', color: 'var(--ink)' }} />
                     <button type="button" onClick={() => setOptionGroups((prev) => prev.map((g) => g.id === group.id ? { ...g, options: g.options.filter((o) => o.id !== option.id) } : g))} aria-label={`Remove ${option.name || 'option'}`} className="flex h-8 w-8 items-center justify-center rounded-lg border text-sm" style={{ borderColor: 'var(--line)', color: 'var(--red, #C1453A)' }}>×</button>
                   </div>
                 ))}
@@ -434,22 +440,33 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
         </p>
       )}
 
-      <section className="mb-4 rounded-xl p-4" style={{display: step === 5 ? undefined : "none", background: 'var(--peach)'}}>
+      <section className="mb-4 rounded-xl border p-4" style={{display: step === 4 ? undefined : "none", borderColor:'var(--line)', background:'var(--white)'}}>
+        <h3 className="mb-2 text-sm font-bold" style={{color:'var(--ink)'}}>Main dish stock</h3>
+        <p className="mb-3 text-xs leading-5" style={{color:'var(--gray)'}}>Leave quantity blank if this dish is not stock-tracked. Enter 0 to mark it out of stock. This setting is saved with the item; checkout reservation protection is being wired separately.</p>
+        <label className="block text-xs font-semibold" style={{color:'var(--ink)'}}>Available quantity <span className="font-normal" style={{color:'var(--gray)'}}>(optional)</span></label>
+        <input type="number" min={0} step={1} value={stockQuantity} onChange={(e)=>setStockQuantity(e.target.value)} placeholder="Leave blank for unlimited / not tracked" className="mt-1.5 w-full rounded-lg border px-3 py-2.5 text-sm" style={{borderColor:'var(--line)'}} />
+        {!hasValidStockQuantity && <p className="mt-2 text-xs" style={{color:'var(--red)'}}>Stock must be a whole number of zero or greater.</p>}
+        <p className="mt-3 text-xs leading-5" style={{color:'var(--gray)'}}>Variant stock is configured beside each variant in the previous step. Blank variant quantities mean not tracked.</p>
+      </section>
+      <section className="mb-4" style={{display: step === 5 ? undefined : "none"}}>
+      <div className="rounded-xl p-4" style={{background: 'var(--peach)'}}>
         <h3 className="mb-3 text-sm font-bold" style={{color:'var(--ink)'}}>Review your item</h3>
         <div className="flex items-start gap-3">{(existingImageUrls[0] || newImages[0]) && <img src={existingImageUrls[0] || URL.createObjectURL(newImages[0])} alt="" className="h-20 w-20 rounded-xl object-cover" />}<div><p className="font-bold" style={{color:'var(--ink)'}}>{name.trim() || 'Untitled dish'}</p><p className="mt-1 text-sm font-semibold" style={{color:'var(--orange)'}}>₦{Number(price || 0).toLocaleString()}</p><p className="mt-1 text-xs" style={{color:'var(--gray)'}}>{category || 'No category'}{subcategory ? ' · ' + subcategory : ''}</p><p className="mt-1 text-xs" style={{color:'var(--gray)'}}>{totalImageCount} photo(s) · {optionGroups.length} option group(s)</p></div></div>
+      </div>
       </section>
       <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-2">
           {onCancel && <button type="button" onClick={onCancel} disabled={saving} className="rounded-[10px] border px-4 py-2.5 text-[12.5px] font-semibold disabled:opacity-50" style={{borderColor:'var(--line)',color:'var(--gray)'}}>Cancel</button>}
           {step > 1 && <button type="button" onClick={() => { setError(null); setStep((s)=>Math.max(1,s-1)); }} disabled={saving} className="rounded-[10px] border px-5 py-2.5 text-[12.5px] font-semibold" style={{borderColor:'var(--line)',color:'var(--ink)'}}>Back</button>}
         </div>
-        {step < 5 ? <button type="button" onClick={() => {
+        {step < 6 ? <button type="button" onClick={() => {
           setError(null);
           if (step === 1 && (!name.trim() || !price.trim() || !Number.isSafeInteger(parsedPrice) || parsedPrice <= 0)) { setError(!name.trim() ? 'Enter a dish name.' : 'Enter a valid price greater than ₦0.'); return; }
           if (step === 2 && (totalImageCount < 1 || totalImageCount > 3)) { setError('Add between 1 and 3 photos.'); return; }
           if (step === 3 && !hasValidOptionGroups) { setError('Each option group needs a name, at least two named options, and valid non-negative extra prices.'); return; }
-          if (step === 4 && !hasValidPreparationTime) { setError('Preparation time must be a whole number greater than 0, or leave it blank.'); return; }
-          setStep((s)=>Math.min(5,s+1));
+          if (step === 4 && !hasValidStockQuantity) { setError('Stock quantity must be a whole number of zero or greater, or leave it blank.'); return; }
+          if (step === 5 && !hasValidPreparationTime) { setError('Preparation time must be a whole number greater than 0, or leave it blank.'); return; }
+          setStep((s)=>Math.min(6,s+1));
         }} className="flex items-center justify-center gap-2 rounded-[10px] px-6 py-2.5 text-[12.5px] font-bold text-white" style={{background:'var(--orange)'}}>Continue <span aria-hidden="true">→</span></button> : <button type="button" onClick={handleSubmit} disabled={!canSubmit || saving} className="flex items-center justify-center gap-2 rounded-[10px] px-6 py-2.5 text-[12.5px] font-bold text-white disabled:opacity-40" style={{background:'var(--orange)'}}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}{saving ? (isEditing ? 'Saving changes…' : 'Adding item…') : isEditing ? 'Save menu item' : 'Add menu item'}</button>}
       </div>
     </div>
