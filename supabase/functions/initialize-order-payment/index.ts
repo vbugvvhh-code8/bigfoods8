@@ -230,7 +230,7 @@ Deno.serve(async (req: Request) => {
       const uniqueMenuItemIds = [...new Set(g.items.map((i: any) => i.menu_item_id))];
       const { data: menuItems, error: itemsError } = await admin
         .from("menu_items")
-        .select("id, price, restaurant_id, is_available, option_groups, availability_schedule_enabled, availability_schedule")
+        .select("id, price, promotional_price, promotion_starts_at, promotion_ends_at, restaurant_id, is_available, option_groups, availability_schedule_enabled, availability_schedule")
         .in("id", uniqueMenuItemIds);
       if (itemsError) return json({ error: "Unable to validate cart items. Please try again later." }, 503);
       const invalid = menuItems?.find((m: any) => m.restaurant_id !== g.restaurant_id);
@@ -264,7 +264,11 @@ Deno.serve(async (req: Request) => {
         const menuItem = menuItemById.get(i.menu_item_id) as any;
         const rawPrice = Number(menuItem?.price);
         if (!Number.isFinite(rawPrice) || rawPrice <= 0) throw new Error("Invalid menu item price");
-        const basePrice = Math.round(rawPrice);
+        const now = Date.now();
+        const promotionStart = menuItem?.promotion_starts_at ? new Date(menuItem.promotion_starts_at).getTime() : null;
+        const promotionEnd = menuItem?.promotion_ends_at ? new Date(menuItem.promotion_ends_at).getTime() : null;
+        const promotionActive = menuItem?.promotional_price != null && Number.isSafeInteger(Number(menuItem.promotional_price)) && Number(menuItem.promotional_price) > 0 && Number(menuItem.promotional_price) < rawPrice && (promotionStart === null || (Number.isFinite(promotionStart) && promotionStart <= now)) && (promotionEnd === null || (Number.isFinite(promotionEnd) && promotionEnd > now));
+        const basePrice = Math.round(promotionActive ? Number(menuItem.promotional_price) : rawPrice);
         const optionGroups = Array.isArray(menuItem?.option_groups) ? menuItem.option_groups : [];
         if (optionGroups.some((group: any) =>
           !group || typeof group.id !== "string" || typeof group.name !== "string" ||
