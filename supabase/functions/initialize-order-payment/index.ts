@@ -234,6 +234,14 @@ Deno.serve(async (req: Request) => {
         if (!Number.isFinite(rawPrice) || rawPrice <= 0) throw new Error("Invalid menu item price");
         const basePrice = Math.round(rawPrice);
         const optionGroups = Array.isArray(menuItem?.option_groups) ? menuItem.option_groups : [];
+        if (optionGroups.some((group: any) =>
+          !group || typeof group.id !== "string" || typeof group.name !== "string" ||
+          !Array.isArray(group.options) || !["single", "multiple"].includes(group.selection_type) ||
+          group.options.some((option: any) => !option || typeof option.id !== "string" || typeof option.name !== "string" ||
+            !Number.isSafeInteger(Number(option.price)) || Number(option.price) < 0)
+        )) {
+          return json({ error: "A menu item's option setup is invalid. Please contact the restaurant." }, 409);
+        }
         const selections = Array.isArray(i.selected_options) ? i.selected_options : [];
         const selectionKeys = new Set<string>();
         const selectedSnapshots: any[] = [];
@@ -269,7 +277,7 @@ Deno.serve(async (req: Request) => {
           const count = countsByGroup.get(optionGroup.id) ?? 0;
           const minimum = optionGroup.required ? Math.max(1, Number(optionGroup.min_select ?? 1)) : Number(optionGroup.min_select ?? 0);
           const maximum = optionGroup.selection_type === "single" ? 1 : Number(optionGroup.max_select ?? optionGroup.options.length);
-          if (!Number.isInteger(minimum) || !Number.isInteger(maximum) || minimum < 0 || maximum < minimum || count < minimum || count > maximum) {
+          if (!Number.isInteger(minimum) || !Number.isInteger(maximum) || minimum < 0 || maximum < minimum || maximum > optionGroup.options.length || minimum > optionGroup.options.length || count < minimum || count > maximum) {
             return json({ error: `Please review your selection for "${optionGroup.name || "menu options"}".` }, 400);
           }
         }
