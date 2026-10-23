@@ -250,6 +250,10 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
           availability_schedule: scheduleEnabled ? scheduleWindows : [],
           allergens: allergens.split(',').map((value) => value.trim()).filter(Boolean),
           dietary_tags: dietaryTags.split(',').map((value) => value.trim()).filter(Boolean),
+          promotional_price: parsedPromotionalPrice,
+          promotion_starts_at: promotionStartsAt ? new Date(promotionStartsAt).toISOString() : null,
+          promotion_ends_at: promotionEndsAt ? new Date(promotionEndsAt).toISOString() : null,
+          complementary_item_ids: complementaryItemIds,
           option_groups: optionGroups,
           image_urls: finalImageUrls,
         });
