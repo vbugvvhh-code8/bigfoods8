@@ -45,6 +45,12 @@ Deno.serve(async (req: Request) => {
       const { data: restaurant, error: restaurantError } = await admin.from("restaurants").select("id,name,owner_id,approval_status,is_accepting_orders").eq("id", restaurantId).maybeSingle();
       if (restaurantError || !restaurant || restaurant.approval_status !== "approved" || restaurant.is_accepting_orders === false) return json({ error: "This kitchen is not currently accepting subscription orders." }, 400);
       if (restaurant.owner_id === user.id) return json({ error: "Restaurant owners cannot subscribe to their own kitchen." }, 403);
+      const addressId = String(body.saved_address_id ?? "");
+      const { data: savedAddress, error: addressError } = await admin.from("saved_addresses")
+        .select("id,address,lat,lng,label").eq("id", addressId).eq("customer_id", user.id).maybeSingle();
+      if (addressError || !savedAddress || savedAddress.lat == null || savedAddress.lng == null) {
+        return json({ error: "Choose a saved delivery address with a map location before subscribing." }, 400);
+      }
       const quantities = new Map<string,number>();
       for (const item of rawItems) {
         const id = String(item?.menu_item_id ?? "");
@@ -72,7 +78,7 @@ Deno.serve(async (req: Request) => {
       const totalAmount = Math.round(perDeliveryTotal * dates.length * 100) / 100;
       const reference = crypto.randomUUID();
       const { data: subscription, error: insertError } = await admin.from("meal_subscriptions").insert({
-        customer_id: user.id, restaurant_id: restaurantId, package_weeks: packageWeeks,
+        customer_id: user.id, restaurant_id: restaurantId, saved_address_id: savedAddress.id, delivery_address: savedAddress.address, delivery_lat: savedAddress.lat, delivery_lng: savedAddress.lng, package_weeks: packageWeeks,
         delivery_days: days, delivery_time: deliveryTime, selected_items: selectedItems,
         total_deliveries: dates.length, scheduled_dates: dates, total_amount: totalAmount, currency: "NGN",
         status: "pending_payment", payment_reference: reference, starts_on: dates[0], ends_on: dates[dates.length-1]
