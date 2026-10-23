@@ -46,30 +46,6 @@ BEGIN
       UPDATE public.menu_items
       SET stock_reserved = GREATEST(0, stock_reserved - r.quantity)
       WHERE id = r.menu_item_id;
-    ELSE
-      SELECT option_groups INTO groups_json
-      FROM public.menu_items WHERE id = r.menu_item_id FOR UPDATE;
-      IF groups_json IS NOT NULL THEN
-        SELECT ordinality INTO group_index
-        FROM jsonb_array_elements(groups_json) WITH ORDINALITY g(value, ordinality)
-        WHERE g.value->>'id' = r.option_group_id LIMIT 1;
-        IF group_index IS NOT NULL THEN
-          SELECT ordinality INTO option_index
-          FROM jsonb_array_elements(groups_json->(group_index - 1)->'options') WITH ORDINALITY o(value, ordinality)
-          WHERE o.value->>'id' = r.option_id LIMIT 1;
-          IF option_index IS NOT NULL THEN
-            UPDATE public.menu_items
-            SET option_groups = jsonb_set(
-              option_groups,
-              ARRAY[(group_index - 1)::text, 'options', (option_index - 1)::text, 'stock_quantity'],
-              to_jsonb(GREATEST(0, ((option_groups->(group_index - 1)->'options'->(option_index - 1)->>'stock_quantity')::integer) )),
-              false
-            )
-            WHERE id = r.menu_item_id
-              AND option_groups->(group_index - 1)->'options'->(option_index - 1)->>'stock_quantity' IS NOT NULL;
-          END IF;
-        END IF;
-      END IF;
     END IF;
     UPDATE public.menu_stock_reservations SET status = 'released' WHERE id = r.id AND status = 'reserved';
   END LOOP;
@@ -113,8 +89,8 @@ DECLARE
   group_json jsonb;
   option_json jsonb;
   requested_qty integer;
-  group_id text;
-  option_id text;
+  v_group_id text;
+  v_option_id text;
   option_stock integer;
   reserved_option integer;
 BEGIN
@@ -160,32 +136,32 @@ BEGIN
 
     FOR selection IN SELECT value FROM jsonb_array_elements(COALESCE(line->'selected_options', '[]'::jsonb))
     LOOP
-      group_id := selection->>'groupId';
-      option_id := selection->>'optionId';
+      v_group_id := selection->>'groupId';
+      v_option_id := selection->>'optionId';
       SELECT g.value INTO group_json
       FROM jsonb_array_elements(COALESCE(mi.option_groups, '[]'::jsonb)) g(value)
-      WHERE g.value->>'id' = group_id LIMIT 1;
+      WHERE g.value->>'id' = v_group_id LIMIT 1;
       IF group_json IS NULL THEN
         RAISE EXCEPTION USING MESSAGE = 'INVALID_SELECTED_OPTION', ERRCODE = 'P0001';
       END IF;
       SELECT o.value INTO option_json
       FROM jsonb_array_elements(COALESCE(group_json->'options', '[]'::jsonb)) o(value)
-      WHERE o.value->>'id' = option_id LIMIT 1;
+      WHERE o.value->>'id' = v_option_id LIMIT 1;
       IF option_json IS NULL OR option_json->>'is_available' = 'false' THEN
         RAISE EXCEPTION USING MESSAGE = 'INVALID_SELECTED_OPTION', ERRCODE = 'P0001';
       END IF;
       IF NULLIF(option_json->>'stock_quantity', '') IS NOT NULL THEN
         option_stock := (option_json->>'stock_quantity')::integer;
         SELECT COALESCE(SUM(quantity), 0)::integer INTO reserved_option
-        FROM public.menu_stock_reservations
-        WHERE menu_item_id = mi.id AND reservation_type = 'option'
-          AND option_group_id = group_id AND option_id = option_id
+        FROM public.menu_stock_reservations res
+        WHERE res.menu_item_id = mi.id AND res.reservation_type = 'option'
+          AND res.option_group_id = v_group_id AND res.option_id = v_option_id
           AND status = 'reserved' AND expires_at > now();
         IF option_stock - reserved_option < requested_qty THEN
           RAISE EXCEPTION USING MESSAGE = 'OUT_OF_STOCK: A selected variant or extra is out of stock.', ERRCODE = 'P0001';
         END IF;
         INSERT INTO public.menu_stock_reservations(payment_reference, menu_item_id, reservation_type, option_group_id, option_id, quantity)
-        VALUES (p_reference, mi.id, 'option', group_id, option_id, requested_qty);
+        VALUES (p_reference, mi.id, 'option', v_group_id, v_option_id, requested_qty);
       END IF;
     END LOOP;
   END LOOP;
