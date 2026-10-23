@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2, X, ImagePlus } from 'lucide-react';
 import getBrowserSupabase from '@/lib/supabase/client';
 import { compressImage } from '@/lib/compressImage';
@@ -98,6 +98,12 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   const [preparationTime, setPreparationTime] = useState(existingItem?.preparation_time_minutes ? String(existingItem.preparation_time_minutes) : '');
   const [allergens, setAllergens] = useState((existingItem?.allergens ?? []).join(', '));
   const [dietaryTags, setDietaryTags] = useState((existingItem?.dietary_tags ?? []).join(', '));
+  const [promotionalPrice, setPromotionalPrice] = useState(existingItem?.promotional_price == null ? '' : String(existingItem.promotional_price));
+  const [promotionStartsAt, setPromotionStartsAt] = useState(existingItem?.promotion_starts_at ? new Date(existingItem.promotion_starts_at).toISOString().slice(0,16) : '');
+  const [promotionEndsAt, setPromotionEndsAt] = useState(existingItem?.promotion_ends_at ? new Date(existingItem.promotion_ends_at).toISOString().slice(0,16) : '');
+  const [complementaryItemIds, setComplementaryItemIds] = useState<string[]>(existingItem?.complementary_item_ids ?? []);
+  const [availableMenuItems, setAvailableMenuItems] = useState<{id:string;name:string}[]>([]);
+  useEffect(() => { let active = true; void supabase.from('menu_items').select('id,name').eq('restaurant_id', restaurantId).order('name').then(({data}) => { if (active) setAvailableMenuItems((data ?? []).filter((row:any) => row.id !== existingItem?.id) as {id:string;name:string}[]); }); return () => { active = false; }; }, [restaurantId, existingItem?.id, supabase]);
   const [optionGroups, setOptionGroups] = useState<MenuItemOptionGroup[]>(existingItem?.option_groups ?? []);
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>(() => {
     const imageUrls = (existingItem as any)?.image_urls;
@@ -119,6 +125,9 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   const canAddMoreImages = totalImageCount < 3;
   const parsedPrice = Number(price);
   const parsedPreparationTime = preparationTime.trim() ? Number(preparationTime) : null;
+  const parsedPromotionalPrice = promotionalPrice.trim() ? Number(promotionalPrice) : null;
+  const hasValidPromotion = parsedPromotionalPrice === null || (Number.isSafeInteger(parsedPromotionalPrice) && parsedPromotionalPrice > 0 && parsedPromotionalPrice < parsedPrice);
+  const hasValidPromotionWindow = !promotionStartsAt || !promotionEndsAt || new Date(promotionEndsAt).getTime() > new Date(promotionStartsAt).getTime();
   const hasValidPreparationTime = parsedPreparationTime === null ||
     (Number.isSafeInteger(parsedPreparationTime) && parsedPreparationTime > 0);
   const parsedStockQuantity = stockQuantity.trim() ? Number(stockQuantity) : null;
@@ -143,7 +152,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
     /^([01]\d|2[0-3]):[0-5]\d$/.test(w.start) &&
     /^([01]\d|2[0-3]):[0-5]\d$/.test(w.end) && w.start < w.end
   );
-  const canSubmit = hasValidFields && hasValidStockQuantity && hasValidSchedule && totalImageCount >= 1 && totalImageCount <= 3;
+  const canSubmit = hasValidFields && hasValidStockQuantity && hasValidSchedule && hasValidPromotion && hasValidPromotionWindow && totalImageCount >= 1 && totalImageCount <= 3;
 
   function handleFilesSelected(files: FileList | null) {
     if (!files) return;
@@ -180,6 +189,8 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
       else if (!hasValidPreparationTime) setError('Preparation time must be a whole number greater than 0, or leave it blank.');
       else if (!hasValidOptionGroups) setError('Each option group needs a name, at least two named options, and valid non-negative extra prices.');
       else if (!hasValidSchedule) setError('Check each availability window: use valid times and set the end later than the start.');
+      else if (!hasValidPromotion) setError('Promotional price must be a whole number greater than zero and lower than the regular price.');
+      else if (!hasValidPromotionWindow) setError('Promotion end must be later than the start.');
       else if (totalImageCount < 1) setError('Add at least 1 photo before saving.');
       else if (totalImageCount > 3) setError('A menu item can have no more than 3 photos.');
       return;
@@ -217,6 +228,10 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
           availability_schedule: scheduleEnabled ? scheduleWindows : [],
           allergens: allergens.split(',').map((value) => value.trim()).filter(Boolean),
           dietary_tags: dietaryTags.split(',').map((value) => value.trim()).filter(Boolean),
+          promotional_price: parsedPromotionalPrice,
+          promotion_starts_at: promotionStartsAt ? new Date(promotionStartsAt).toISOString() : null,
+          promotion_ends_at: promotionEndsAt ? new Date(promotionEndsAt).toISOString() : null,
+          complementary_item_ids: complementaryItemIds,
           option_groups: optionGroups,
           image_urls: finalImageUrls,
         });
@@ -350,6 +365,13 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
         <label className="mb-1.5 block text-[12px] font-medium" style={{ color: 'var(--ink)' }}>Dietary tags (comma-separated)</label>
         <input value={dietaryTags} onChange={(e) => setDietaryTags(e.target.value)} maxLength={500} placeholder="e.g. vegetarian, spicy, halal" className="w-full rounded-[9px] px-3 py-2.5 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }} />
       </div>
+
+      <section className="mb-4 space-y-3 rounded-xl border p-3" style={{display:step === 5 ? undefined : "none",borderColor:'var(--line)',background:'var(--white)'}}>
+        <h3 className="text-sm font-bold" style={{color:'var(--ink)'}}>Promotions & recommendations</h3>
+        <div><label className="mb-1.5 block text-[12px] font-medium" style={{color:'var(--ink)'}}>Promotional price (₦, optional)</label><input inputMode="numeric" value={promotionalPrice} onChange={e=>setPromotionalPrice(e.target.value.replace(/[^\d]/g,''))} placeholder="Leave blank for regular price" className="w-full rounded-lg border px-3 py-2.5 text-sm" style={{borderColor:'var(--line)',background:'var(--white)',color:'var(--ink)'}}/><p className="mt-1 text-[11px]" style={{color:'var(--gray)'}}>Must be lower than the regular price. Leave blank to disable the discount.</p></div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><label className="text-[12px] font-medium" style={{color:'var(--ink)'}}>Promotion starts<input type="datetime-local" value={promotionStartsAt} onChange={e=>setPromotionStartsAt(e.target.value)} className="mt-1.5 w-full rounded-lg border px-2 py-2 text-sm" style={{borderColor:'var(--line)',background:'var(--white)',color:'var(--ink)'}}/></label><label className="text-[12px] font-medium" style={{color:'var(--ink)'}}>Promotion ends<input type="datetime-local" value={promotionEndsAt} onChange={e=>setPromotionEndsAt(e.target.value)} className="mt-1.5 w-full rounded-lg border px-2 py-2 text-sm" style={{borderColor:'var(--line)',background:'var(--white)',color:'var(--ink)'}}/></label></div>
+        <div><p className="mb-2 text-[12px] font-medium" style={{color:'var(--ink)'}}>Complementary items (optional)</p><p className="mb-2 text-[11px]" style={{color:'var(--gray)'}}>Recommend these items alongside this dish.</p><div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border p-2" style={{borderColor:'var(--line)'}}>{availableMenuItems.length ? availableMenuItems.map(option=><label key={option.id} className="flex items-center gap-2 py-1 text-sm" style={{color:'var(--ink)'}}><input type="checkbox" checked={complementaryItemIds.includes(option.id)} onChange={e=>setComplementaryItemIds(prev=>e.target.checked?[...prev,option.id]:prev.filter(id=>id!==option.id))} className="h-4 w-4 accent-orange-500"/>{option.name}</label>) : <p className="text-xs" style={{color:'var(--gray)'}}>Add other menu items first to create recommendations.</p>}</div></div>
+      </section>
 
       <section className="mb-4 rounded-xl border p-3" style={{ borderColor: 'var(--line)', background: 'var(--white)', display: step === 3 ? undefined : "none" }}>
         <div className="mb-1 flex items-center justify-between gap-3">
