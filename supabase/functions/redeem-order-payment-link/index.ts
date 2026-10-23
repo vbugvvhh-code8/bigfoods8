@@ -36,7 +36,7 @@ Deno.serve(async (req: Request) => {
     const isTrustedNetlifyPreview = requestedUrl?.protocol === "https:" &&
       requestedUrl.hostname.endsWith(".netlify.app") &&
       requestedUrl.hostname.length > ".netlify.app".length;
-    if (!configuredOrigin || !requestedOrigin ||
+    if (!requestedOrigin ||
         (requestedOrigin !== configuredOrigin && !isTrustedNetlifyPreview)) {
       return json({ error: "Payment callback URL is not configured for this application." }, 503);
     }
@@ -71,7 +71,9 @@ Deno.serve(async (req: Request) => {
       return json({ error: "The order owner has no payment email configured. Please contact support." }, 409);
     }
 
-    const appOrigin = configuredOrigin;
+    // Use the validated origin of the page redeeming this link. This supports
+    // trusted Netlify previews even when APP_URL is not configured in Supabase.
+    const appOrigin = requestedOrigin!;
 
     const response = await fetch("https://api.paystack.co/transaction/initialize", {
       method: "POST",
