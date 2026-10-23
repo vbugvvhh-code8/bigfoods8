@@ -45,7 +45,7 @@ export default function MenuItemDetailsPage() {
     setSelectedByGroup((prev) => {
       const current = prev[groupId] ?? [];
       const next = selectionType === 'single'
-        ? (current[0] === optionId ? [] : [optionId])
+        ? [optionId]
         : current.includes(optionId) ? current.filter((id) => id !== optionId) : [...current, optionId];
       return { ...prev, [groupId]: next };
     });
@@ -129,9 +129,9 @@ export default function MenuItemDetailsPage() {
                   <div className="flex items-center justify-between gap-4">
                     <span className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>In your cart</span>
                     <div className="flex items-center gap-4">
-                      <button type="button" onClick={() => updateQuantity(item.id, quantity - 1)} className="flex h-10 w-10 items-center justify-center rounded-full border" style={{ borderColor: 'var(--orange)', color: 'var(--orange)' }} aria-label="Remove one"><Minus className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => updateQuantity(cartKey, quantity - 1)} className="flex h-10 w-10 items-center justify-center rounded-full border" style={{ borderColor: 'var(--orange)', color: 'var(--orange)' }} aria-label="Remove one"><Minus className="h-4 w-4" /></button>
                       <span className="min-w-4 text-center font-bold">{quantity}</span>
-                      <button type="button" disabled={!canOrder} onClick={() => canOrder && updateQuantity(item.id, quantity + 1)} className="flex h-10 w-10 items-center justify-center rounded-full text-white disabled:opacity-40" style={{ background: 'var(--orange)' }} aria-label="Add one more"><Plus className="h-4 w-4" /></button>
+                      <button type="button" disabled={!canOrder} onClick={() => canOrder && updateQuantity(cartKey, quantity + 1)} className="flex h-10 w-10 items-center justify-center rounded-full text-white disabled:opacity-40" style={{ background: 'var(--orange)' }} aria-label="Add one more"><Plus className="h-4 w-4" /></button>
                     </div>
                   </div>
                 ) : <button type="button" disabled={!canOrder || !optionsValid} onClick={() => canOrder && optionsValid && addItem({ id: cartKey, menuItemId: item.id, name: item.name, price: unitPrice, selectedOptions, restaurantId: restaurant.id, restaurantName: restaurant.name })} className="w-full rounded-xl px-5 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40" style={{ background: 'var(--orange)' }}>{!canOrder ? 'Not available to order' : !optionsValid ? 'Choose required options' : `Add to cart · ₦${unitPrice.toLocaleString()}`}</button>}
