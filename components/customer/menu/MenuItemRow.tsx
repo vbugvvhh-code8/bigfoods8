@@ -36,8 +36,8 @@ export function MenuItemRow({item, restaurant}: MenuItemRowProps) {
     if (!(item as any).availability_schedule_enabled || !schedule.length) return 'Not available right now';
     const windows = schedule.flatMap((window: any) => {
       if (!Number.isInteger(Number(window?.day)) || Number(window.day) < 0 || Number(window.day) > 6 || typeof window?.start !== 'string' || typeof window?.end !== 'string') return [];
-      const start = /^(\\d{2}):(\\d{2})$/.exec(window.start);
-      const end = /^(\\d{2}):(\\d{2})$/.exec(window.end);
+      const start = /^(\d{2}):(\d{2})$/.exec(window.start);
+      const end = /^(\d{2}):(\d{2})$/.exec(window.end);
       if (!start || !end) return [];
       const startMinutes = Number(start[1]) * 60 + Number(start[2]);
       const endMinutes = Number(end[1]) * 60 + Number(end[2]);
