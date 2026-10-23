@@ -21,6 +21,11 @@ export interface NewMenuItem {
   stock_quantity?: number | null;
   availability_schedule_enabled?: boolean;
   availability_schedule?: { day: number; start: string; end: string }[];
+  promotional_price?: number | null;
+  promotion_starts_at?: string | null;
+  promotion_ends_at?: string | null;
+  complementary_item_ids?: string[];
+  display_order?: number;
 }
 
 export interface MenuItemUpdate {
@@ -52,6 +57,7 @@ export function useMenuItems(restaurantId?: string) {
         .from('menu_items')
         .select('*')
         .eq('restaurant_id', restaurantId)
+        .order('display_order', { ascending: true })
         .order('category', { ascending: true })
         .order('subcategory', { ascending: true })
         .order('name', { ascending: true });
@@ -84,6 +90,11 @@ export function useMenuItems(restaurantId?: string) {
         stock_quantity: item.stock_quantity ?? null,
         availability_schedule_enabled: item.availability_schedule_enabled ?? false,
         availability_schedule: item.availability_schedule ?? [],
+        promotional_price: item.promotional_price ?? null,
+        promotion_starts_at: item.promotion_starts_at ?? null,
+        promotion_ends_at: item.promotion_ends_at ?? null,
+        complementary_item_ids: item.complementary_item_ids ?? [],
+        display_order: item.display_order ?? 0,
       })
       .select()
       .single();
