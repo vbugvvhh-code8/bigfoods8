@@ -170,7 +170,7 @@ export default function MenuCatalogTransfer({ menuItems, onImport }: Props) {
         <div className="min-w-0 flex-1">
           <h2 className="text-sm font-bold" style={{ color: 'var(--ink)' }}>Bulk catalog import & export</h2>
           <p className="mt-1 text-xs leading-5" style={{ color: 'var(--gray)' }}>
-            Export the full menu to CSV, or import new items from a CSV. Imports add items only—existing items are never overwritten. Each row needs a name, whole-number price, and 1–3 image URLs as a JSON array.
+            Export the full menu to CSV, or import new items from a CSV. Imports add items only—existing items are never overwritten. New SKUs are generated automatically; the exported SKU column is for reference. Each row needs a name, whole-number price, and 1–3 image URLs as a JSON array.
           </p>
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <button type="button" onClick={exportCsv} disabled={busy} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-semibold disabled:opacity-50" style={{ borderColor: 'var(--line)', color: 'var(--ink)' }}>
