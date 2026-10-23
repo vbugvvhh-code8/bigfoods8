@@ -208,6 +208,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
           preparation_time_minutes: preparationTime.trim() ? Number(preparationTime) : null,
           allergens: allergens.split(',').map((value) => value.trim()).filter(Boolean),
           dietary_tags: dietaryTags.split(',').map((value) => value.trim()).filter(Boolean),
+          option_groups: optionGroups,
           image_urls: finalImageUrls,
         });
       }
