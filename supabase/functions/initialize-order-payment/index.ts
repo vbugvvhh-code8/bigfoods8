@@ -361,7 +361,9 @@ Deno.serve(async (req: Request) => {
       }));
       const { error: itemsInsertError } = await admin.from("order_items").insert(orderItemsPayload);
       if (itemsInsertError) {
-        await admin.from("order_items").delete().eq("order_id", order.id);\n        await admin.from("transactions").delete().eq("reference", reference);\n        await admin.from("orders").delete().eq("id", order.id);
+        await admin.from("order_items").delete().eq("order_id", order.id);
+        await admin.from("transactions").delete().eq("reference", reference);
+        await admin.from("orders").delete().eq("id", order.id);
         return json({ error: itemsInsertError.message }, 500);
       }
 
