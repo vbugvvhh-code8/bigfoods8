@@ -168,7 +168,7 @@ export default function MenuCatalogTransfer({ menuItems, onImport }: Props) {
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold"
+          className="flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl border px-5 py-4 text-sm font-semibold leading-5 shadow-sm transition hover:brightness-95 active:scale-[0.99] sm:px-6"
           style={{ borderColor: 'var(--line)', background: 'var(--white)', color: 'var(--ink)' }}
         >
           <FileSpreadsheet className="h-4 w-4" />
@@ -208,11 +208,11 @@ export default function MenuCatalogTransfer({ menuItems, onImport }: Props) {
             <p className="text-sm leading-6" style={{ color: 'var(--gray)' }}>
               Export the full menu to CSV, or import new items from a CSV. Imports add items only—existing items are never overwritten. New SKUs are generated automatically; the exported SKU column is for reference. Each row needs a name, whole-number price, and 1–3 image URLs as a JSON array.
             </p>
-            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <button type="button" onClick={exportCsv} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-semibold disabled:opacity-50" style={{ borderColor: 'var(--line)', color: 'var(--ink)' }}>
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <button type="button" onClick={exportCsv} disabled={busy} className="flex min-h-14 items-center justify-center gap-3 rounded-xl border px-5 py-4 text-sm font-semibold leading-5 transition hover:brightness-95 active:scale-[0.99] disabled:opacity-50" style={{ borderColor: 'var(--line)', color: 'var(--ink)' }}>
                 <Download className="h-4 w-4" /> Export CSV ({menuItems.length})
               </button>
-              <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold text-white disabled:opacity-50" style={{ background: 'var(--orange)' }}>
+              <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} className="flex min-h-14 items-center justify-center gap-3 rounded-xl px-5 py-4 text-sm font-semibold leading-5 text-white shadow-sm transition hover:brightness-95 active:scale-[0.99] disabled:opacity-50" style={{ background: 'var(--orange)' }}>
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 {busy ? 'Importing rows…' : 'Import CSV'}
               </button>
@@ -226,7 +226,7 @@ export default function MenuCatalogTransfer({ menuItems, onImport }: Props) {
               ].map(csvCell).join(',');
               const url = URL.createObjectURL(new Blob(['\uFEFF' + template], { type: 'text/csv;charset=utf-8;' }));
               const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'big-foods-menu-import-template.csv'; anchor.click(); URL.revokeObjectURL(url);
-            }} className="mt-3 min-h-10 text-sm font-semibold underline underline-offset-2" style={{ color: 'var(--orange)' }}>
+            }} className="mt-4 inline-flex min-h-11 items-center rounded-lg px-2 py-3 text-sm font-semibold underline underline-offset-2" style={{ color: 'var(--orange)' }}>
               Download import template
             </button>
             {status && <p role="status" className="mt-3 rounded-lg p-3 text-sm leading-5" style={{ background: '#E7F6EC', color: '#207245' }}>{status}</p>}
