@@ -31,15 +31,38 @@ export default function MenuBuilderPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const [menuSearch, setMenuSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [subcategoryFilter, setSubcategoryFilter] = useState('all');
+
+  const categoryOptions = useMemo(() => {
+    const values = new Set(menuItems.map((item) => item.category?.trim() || UNCATEGORIZED));
+    return [...values].sort((a, b) =>
+      a === UNCATEGORIZED ? 1 : b === UNCATEGORIZED ? -1 : a.localeCompare(b)
+    );
+  }, [menuItems]);
+
+  const subcategoryOptions = useMemo(() => {
+    const relevantItems = categoryFilter === 'all'
+      ? menuItems
+      : menuItems.filter((item) => (item.category?.trim() || UNCATEGORIZED) === categoryFilter);
+    const values = new Set(relevantItems.map((item) => (item as any).subcategory?.trim() || NO_SUBCATEGORY));
+    return [...values].sort((a, b) =>
+      a === NO_SUBCATEGORY ? 1 : b === NO_SUBCATEGORY ? -1 : a.localeCompare(b)
+    );
+  }, [menuItems, categoryFilter]);
 
   const filteredItems = useMemo(() => {
     const query = menuSearch.trim().toLocaleLowerCase();
-    if (!query) return menuItems;
-    return menuItems.filter((item) =>
-      [item.name, item.category, (item as any).subcategory]
-        .some((value) => typeof value === 'string' && value.toLocaleLowerCase().includes(query))
-    );
-  }, [menuItems, menuSearch]);
+    return menuItems.filter((item) => {
+      const category = item.category?.trim() || UNCATEGORIZED;
+      const subcategory = (item as any).subcategory?.trim() || NO_SUBCATEGORY;
+      const matchesSearch = !query || [item.name, item.category, (item as any).subcategory]
+        .some((value) => typeof value === 'string' && value.toLocaleLowerCase().includes(query));
+      return matchesSearch
+        && (categoryFilter === 'all' || category === categoryFilter)
+        && (subcategoryFilter === 'all' || subcategory === subcategoryFilter);
+    });
+  }, [menuItems, menuSearch, categoryFilter, subcategoryFilter]);
 
   const tree = useMemo(() => groupItems(filteredItems), [filteredItems]);
   const categories = Object.keys(tree).sort((a, b) =>
@@ -105,7 +128,7 @@ export default function MenuBuilderPage() {
       )}
 
       {!isLoading && menuItems.length > 0 && (
-        <div className="mb-4">
+        <div className="mb-4 space-y-3">
           <label htmlFor="menu-item-search" className="mb-1.5 block text-xs font-semibold" style={{color:'var(--ink)'}}>
             Search your menu
           </label>
@@ -126,13 +149,74 @@ export default function MenuBuilderPage() {
               </button>
             )}
           </div>
-          {menuSearch.trim() && <p className="mt-1.5 text-xs" style={{color:'var(--gray)'}}>{filteredItems.length} matching {filteredItems.length === 1 ? 'item' : 'items'}</p>}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label htmlFor="menu-category-filter" className="mb-1.5 block text-xs font-semibold" style={{color:'var(--ink)'}}>
+                Filter by category
+              </label>
+              <select
+                id="menu-category-filter"
+                value={categoryFilter}
+                onChange={(event) => {
+                  setCategoryFilter(event.target.value);
+                  setSubcategoryFilter('all');
+                }}
+                className="min-h-11 w-full rounded-xl border px-3 text-sm"
+                style={{borderColor:'var(--line)',background:'var(--white)',color:'var(--ink)'}}
+              >
+                <option value="all">All categories</option>
+                {categoryOptions.map((category) => (
+                  <option key={category} value={category}>
+                    {category === UNCATEGORIZED ? 'Uncategorized' : category}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="menu-subcategory-filter" className="mb-1.5 block text-xs font-semibold" style={{color:'var(--ink)'}}>
+                Filter by subcategory
+              </label>
+              <select
+                id="menu-subcategory-filter"
+                value={subcategoryFilter}
+                onChange={(event) => setSubcategoryFilter(event.target.value)}
+                className="min-h-11 w-full rounded-xl border px-3 text-sm"
+                style={{borderColor:'var(--line)',background:'var(--white)',color:'var(--ink)'}}
+              >
+                <option value="all">All subcategories</option>
+                {subcategoryOptions.map((subcategory) => (
+                  <option key={subcategory} value={subcategory}>
+                    {subcategory === NO_SUBCATEGORY ? 'No subcategory' : subcategory}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {(menuSearch.trim() || categoryFilter !== 'all' || subcategoryFilter !== 'all') && (
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs" style={{color:'var(--gray)'}}>
+                {filteredItems.length} matching {filteredItems.length === 1 ? 'item' : 'items'}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuSearch('');
+                  setCategoryFilter('all');
+                  setSubcategoryFilter('all');
+                }}
+                className="min-h-11 rounded-lg px-3 text-sm font-semibold"
+                style={{color:'var(--orange)'}}
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       {!isLoading && menuItems.length > 0 && filteredItems.length === 0 && (
         <p className="rounded-xl border px-4 py-6 text-center text-sm" style={{borderColor:'var(--line)',color:'var(--gray)'}}>
-          No menu items match “{menuSearch.trim()}”. Try another search.
+          No menu items match the current search and filters. Try changing or clearing them.
         </p>
       )}
 
