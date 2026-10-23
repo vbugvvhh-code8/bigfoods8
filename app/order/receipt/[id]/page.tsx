@@ -20,7 +20,7 @@ type ReceiptData = {
   delivery_batch_id: string | null;
   delivery_address: string | null;
   restaurant: {name: string | null} | null;
-  items: {quantity: number; unit_price: number; selected_options: {groupName: string; optionName: string; price: number}[]; menu_item: {name: string | null} | null}[];
+  items: {quantity: number; unit_price: number; selected_options: {groupName: string; optionName: string; price: number; quantity?: number}[]; menu_item: {name: string | null} | null}[];
   transaction: {reference: string; amount: number; created_at: string; status: string} | null;
   batch: {delivery_fee: number; tip_amount: number; delivery_code: string | null} | null;
 };
@@ -66,7 +66,7 @@ function ReceiptContent() {
       const items = (order.order_items ?? []).map((item: any) => ({
         quantity: Number(item.quantity ?? 0),
         unit_price: Number(item.unit_price ?? 0),
-        selected_options: (item.selected_options ?? []) as {groupName: string; optionName: string; price: number}[],
+        selected_options: (item.selected_options ?? []) as {groupName: string; optionName: string; price: number; quantity?: number}[],
         menu_item: Array.isArray(item.menu_item) ? item.menu_item[0] : item.menu_item,
       }));
       const result: ReceiptData = {
@@ -105,7 +105,7 @@ function ReceiptContent() {
       <div className="flex items-center gap-3 mb-5"><ReceiptText className="w-7 h-7" style={{color:'var(--orange)'}}/><div><h1 className="font-display text-xl font-semibold">Order receipt</h1><p className="text-xs" style={{color:'var(--gray)'}}>BigFoods · Paid</p></div></div>
       <div className="text-sm mb-4"><p className="font-semibold">{receipt.restaurant?.name ?? 'Restaurant'}</p><p className="text-xs mt-1" style={{color:'var(--gray)'}}>Order #{receipt.id.slice(0,8).toUpperCase()}</p><p className="text-xs" style={{color:'var(--gray)'}}>{new Date(receipt.placed_at).toLocaleString()}</p></div>
       <div className="border-y py-4 space-y-3" style={{borderColor:'var(--line)'}}>
-        {receipt.items.map((item, index) => <div key={index} className="flex justify-between gap-3 text-sm"><span>{item.quantity} × {item.menu_item?.name ?? 'Menu item'}{item.selected_options.length > 0 && <span className="mt-1 block text-[11px]" style={{color:'var(--gray)'}}>{item.selected_options.map((option) => `${option.groupName}: ${option.optionName}`).join(' · ')}</span>}</span><span>₦{(item.quantity * item.unit_price).toLocaleString()}</span></div>)}
+        {receipt.items.map((item, index) => <div key={index} className="flex justify-between gap-3 text-sm"><span>{item.quantity} × {item.menu_item?.name ?? 'Menu item'}{item.selected_options.length > 0 && <span className="mt-1 block text-[11px]" style={{color:'var(--gray)'}}>{item.selected_options.map((option) => `${option.groupName}: ${option.quantity && option.quantity > 1 ? `${option.quantity} × ` : ''}${option.optionName}`).join(' · ')}</span>}</span><span>₦{(item.quantity * item.unit_price).toLocaleString()}</span></div>)}
       </div>
       <div className="space-y-2 text-sm py-4">
         <div className="flex justify-between"><span>Items subtotal</span><span>₦{receipt.subtotal.toLocaleString()}</span></div>
