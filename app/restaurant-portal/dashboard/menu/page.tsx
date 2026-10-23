@@ -9,6 +9,7 @@ import { useMenuItems } from '@/hooks/useMenuItems';
 import { ChipPicker } from '@/components/restaurant/dashboard/MenuItemForm';
 import { MENU_CATEGORY_PRESETS, MENU_CATEGORY_NAMES } from '@/lib/menuCategoryPresets';
 import type { MenuItem } from '@/types/database';
+import MenuCatalogTransfer from '@/components/restaurant/dashboard/MenuCatalogTransfer';
 
 const UNCATEGORIZED = 'uncategorized';
 const NO_SUBCATEGORY = 'other';
@@ -16,7 +17,7 @@ const NO_SUBCATEGORY = 'other';
 export default function MenuBuilderPage() {
   const router = useRouter();
   const { restaurant, loading: restaurantLoading } = useRestaurant();
-  const { menuItems, isLoading, updateMenuItem, deleteMenuItem } = useMenuItems(restaurant?.id);
+  const { menuItems, isLoading, addMenuItem, updateMenuItem, deleteMenuItem } = useMenuItems(restaurant?.id);
   const [availabilityBusyId, setAvailabilityBusyId] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [pageMessage, setPageMessage] = useState<string | null>(null);
@@ -176,6 +177,8 @@ export default function MenuBuilderPage() {
 
       {pageError && <p role="alert" className="mb-3 rounded-lg p-3 text-[12px]" style={{ background: '#FCE8E6', color: 'var(--red)' }}>{pageError}</p>}
       {pageMessage && <p role="status" className="mb-3 rounded-lg p-3 text-[12px]" style={{ background: 'var(--peach)', color: 'var(--ink)' }}>{pageMessage}</p>}
+
+      <MenuCatalogTransfer menuItems={menuItems} onImport={addMenuItem} />
 
       {isLoading && (
         <p className="text-[12.5px] py-4 text-center" style={{ color: 'var(--gray)' }}>
