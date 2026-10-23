@@ -373,10 +373,27 @@ Deno.serve(async (req: Request) => {
         return json({ error: txnError.message }, 500);
       }
 
+      const singleStockItems = groupComputations[0].items.map((i: any) => ({
+        menu_item_id: i.menu_item_id,
+        quantity: i.quantity ?? 1,
+        selected_options: i.selected_options ?? [],
+      }));
+      const { data: singleReservation, error: singleReservationError } = await admin.rpc(
+        "reserve_menu_item_stock",
+        { p_reference: reference, p_items: singleStockItems },
+      );
+      if (singleReservationError || singleReservation?.success !== true) {
+        await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
+        await admin.from("orders").delete().eq("id", order.id);
+        const outOfStock = singleReservationError?.message?.includes("OUT_OF_STOCK");
+        return json({ error: outOfStock ? "One or more items are out of stock. Update your cart and try again." : "Could not reserve menu stock. Please refresh your cart and try again." }, 409);
+      }
+
       if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_id: order.id, reference });
       const authUrl = await startPaystack(customerEmail, totalAmount, reference, callbackOrigin, { order_id: order.id, type: "order_payment" });
       if ("error" in authUrl) {
         await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
+        await admin.rpc("release_menu_stock_reservation", { p_reference: reference });
         return json({ error: authUrl.error }, 502);
       }
       return json({ success: true, authorization_url: authUrl.url, order_id: order.id, reference });
@@ -495,10 +512,27 @@ Deno.serve(async (req: Request) => {
       return json({ error: txnError.message }, 500);
     }
 
+    const allStockItems = groupComputations.flatMap((group: any) => group.items.map((i: any) => ({
+      menu_item_id: i.menu_item_id,
+      quantity: i.quantity ?? 1,
+      selected_options: i.selected_options ?? [],
+    })));
+    const { data: groupReservation, error: groupReservationError } = await admin.rpc(
+      "reserve_menu_item_stock",
+      { p_reference: reference, p_items: allStockItems },
+    );
+    if (groupReservationError || groupReservation?.success !== true) {
+      await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
+      await admin.from("order_groups").delete().eq("id", group.id);
+      const outOfStock = groupReservationError?.message?.includes("OUT_OF_STOCK");
+      return json({ error: outOfStock ? "One or more items are out of stock. Update your cart and try again." : "Could not reserve menu stock. Please refresh your cart and try again." }, 409);
+    }
+
     if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_group_id: group.id, reference });
     const authUrl = await startPaystack(customerEmail, totalAmount, reference, callbackOrigin, { order_group_id: group.id, type: "order_payment" });
     if ("error" in authUrl) {
       await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
+      await admin.rpc("release_menu_stock_reservation", { p_reference: reference });
       return json({ error: authUrl.error }, 502);
     }
 
