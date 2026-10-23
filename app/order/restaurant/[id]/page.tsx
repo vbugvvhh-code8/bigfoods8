@@ -34,7 +34,7 @@ export default function RestaurantMenuPage() {
   const isLoading = restaurantLoading || menuLoading;
 
   return (
-    <div className="w-full max-w-[380px] lg:max-w-2xl mx-auto px-4 py-6">
+    <div className="w-full max-w-5xl mx-auto px-4 py-6">
       <button type="button" onClick={() => router.push('/order')} className="flex items-center gap-2.5 mb-4" style={{color: 'var(--gray)'}}>
         <ArrowLeft className="w-4 h-4" />
         <span className="text-[12.5px]">Back to restaurants</span>
@@ -87,7 +87,7 @@ export default function RestaurantMenuPage() {
           )}
 
           {!menuError && visibleItems.length > 0 && (
-            <div className="divide-y" style={{borderColor: 'var(--line)'}}>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               {visibleItems.map((item) => (
                 <MenuItemRow key={item.id} item={item} restaurant={restaurant} />
               ))}
