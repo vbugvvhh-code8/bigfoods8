@@ -1,6 +1,7 @@
 'use client';
 
 import {useState} from 'react';
+import Link from 'next/link';
 import {Plus, Minus, ChevronLeft, ChevronRight, X} from 'lucide-react';
 import {useCart} from '@/hooks/useCart';
 import type {MenuItem, Restaurant} from '@/types/database';
@@ -34,12 +35,13 @@ export function MenuItemRow({item, restaurant}: MenuItemRowProps) {
         {imageUrls.length > 1 && <span className="absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1 text-[9px] font-semibold text-white">1/{imageUrls.length}</span>}
       </button>
       <div className="flex-1 min-w-0">
-        <div className="font-semibold text-[12.5px]" style={{color: 'var(--ink)'}}>
+        <Link href={`/order/restaurant/${restaurant.id}/item/${item.id}`} className="inline-block font-semibold text-[12.5px] hover:underline" style={{color: 'var(--ink)'}}>
           {item.name}
-        </div>
+        </Link>
         <div className="text-[11.5px]" style={{color: 'var(--gray)'}}>
           ₦{item.price.toLocaleString()}
         </div>
+        <Link href={`/order/restaurant/${restaurant.id}/item/${item.id}`} className="mt-0.5 inline-block text-[10.5px] font-semibold underline underline-offset-2" style={{color: 'var(--orange)'}}>View details</Link>
         {!canOrder && <div className="mt-0.5 text-[10px] font-semibold" style={{color: 'var(--red, #C1453A)'}}>{item.is_available === false ? 'Currently unavailable' : 'Restaurant not accepting orders'}</div>}
       </div>
 
