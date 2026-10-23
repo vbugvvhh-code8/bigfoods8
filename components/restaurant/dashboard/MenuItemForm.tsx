@@ -326,7 +326,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
         </div>
         <div>
           <label className="mb-1.5 block text-[12px] font-medium" style={{ color: 'var(--ink)' }}>Preparation time (minutes)</label>
-          <input value={preparationTime} onChange={(e) => setPreparationTime(e.target.value.replace(/[^\\d]/g, ''))} inputMode="numeric" placeholder="e.g. 20" className="w-full rounded-[9px] px-3 py-2.5 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }} />
+          <input value={preparationTime} onChange={(e) => setPreparationTime(e.target.value.replace(/[^\d]/g, ''))} inputMode="numeric" placeholder="e.g. 20" className="w-full rounded-[9px] px-3 py-2.5 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }} />
         </div>
       </div>
       <div className="mb-3" style={{ display: step === 5 ? undefined : "none" }}>
