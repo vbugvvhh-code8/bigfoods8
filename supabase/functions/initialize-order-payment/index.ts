@@ -361,9 +361,7 @@ Deno.serve(async (req: Request) => {
       }));
       const { error: itemsInsertError } = await admin.from("order_items").insert(orderItemsPayload);
       if (itemsInsertError) {
-        await admin.from("order_items").delete().eq("order_id", order.id);
-        await admin.from("transactions").delete().eq("reference", reference);
-        console.error("[initialize-order-payment] stock reservation failure", singleReservationError ?? singleReservation);
+        console.error("[initialize-order-payment] order item insert failed", itemsInsertError);
         await admin.from("orders").update({ status: "cancelled", payment_status: "failed" }).eq("id", order.id);
         return json({ error: itemsInsertError.message }, 500);
       }
@@ -374,7 +372,8 @@ Deno.serve(async (req: Request) => {
         restaurant_id: restaurant.id, customer_id: customerId,
       });
       if (txnError) {
-        await admin.from("orders").delete().eq("id", order.id);
+        console.error("[initialize-order-payment] transaction insert failed", txnError);
+        await admin.from("orders").update({ status: "cancelled", payment_status: "failed" }).eq("id", order.id);
         return json({ error: txnError.message }, 500);
       }
 
@@ -388,10 +387,19 @@ Deno.serve(async (req: Request) => {
         { p_reference: reference, p_items: singleStockItems },
       );
       if (singleReservationError || singleReservation?.success !== true) {
+        console.error("[initialize-order-payment] stock reservation failure", {
+          reference,
+          code: singleReservationError?.code ?? null,
+          message: singleReservationError?.message ?? null,
+          details: singleReservationError?.details ?? null,
+          hint: singleReservationError?.hint ?? null,
+          response: singleReservation ?? null,
+        });
+        await admin.rpc("release_menu_stock_reservation", { p_reference: reference });
         await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
-        await admin.from("orders").delete().eq("id", order.id);
+        await admin.from("orders").update({ status: "cancelled", payment_status: "failed" }).eq("id", order.id);
         const outOfStock = singleReservationError?.message?.includes("OUT_OF_STOCK");
-        return json({ error: outOfStock ? "One or more items are out of stock. Update your cart and try again." : "Could not reserve menu stock. Please refresh your cart and try again." }, 409);
+        return json({ error: outOfStock ? "One or more items are out of stock. Update your cart and try again." : "Could not reserve menu stock. Please refresh your cart and try again.", code: singleReservationError?.code ?? "STOCK_RESERVATION_FAILED" }, 409);
       }
 
       if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_id: order.id, reference, total_amount: totalAmount });
@@ -513,7 +521,9 @@ Deno.serve(async (req: Request) => {
       order_group_id: group.id, type: "order_payment", amount: totalAmount, status: "pending", reference, customer_id: customerId,
     });
     if (txnError) {
-      await admin.from("order_groups").delete().eq("id", group.id);
+      console.error("[initialize-order-payment] group transaction insert failed", txnError);
+      await admin.from("order_groups").update({ payment_status: "failed" }).eq("id", group.id);
+      await admin.from("orders").update({ status: "cancelled", payment_status: "failed" }).eq("order_group_id", group.id);
       return json({ error: txnError.message }, 500);
     }
 
@@ -527,10 +537,20 @@ Deno.serve(async (req: Request) => {
       { p_reference: reference, p_items: allStockItems },
     );
     if (groupReservationError || groupReservation?.success !== true) {
+      console.error("[initialize-order-payment] group stock reservation failure", {
+        reference,
+        code: groupReservationError?.code ?? null,
+        message: groupReservationError?.message ?? null,
+        details: groupReservationError?.details ?? null,
+        hint: groupReservationError?.hint ?? null,
+        response: groupReservation ?? null,
+      });
+      await admin.rpc("release_menu_stock_reservation", { p_reference: reference });
       await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
-      await admin.from("order_groups").delete().eq("id", group.id);
+      await admin.from("order_groups").update({ payment_status: "failed" }).eq("id", group.id);
+      await admin.from("orders").update({ status: "cancelled", payment_status: "failed" }).eq("order_group_id", group.id);
       const outOfStock = groupReservationError?.message?.includes("OUT_OF_STOCK");
-      return json({ error: outOfStock ? "One or more items are out of stock. Update your cart and try again." : "Could not reserve menu stock. Please refresh your cart and try again." }, 409);
+      return json({ error: outOfStock ? "One or more items are out of stock. Update your cart and try again." : "Could not reserve menu stock. Please refresh your cart and try again.", code: groupReservationError?.code ?? "STOCK_RESERVATION_FAILED" }, 409);
     }
 
     if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_group_id: group.id, reference, total_amount: totalAmount });
