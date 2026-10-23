@@ -23,6 +23,7 @@ interface VendorMenuItem {
   image_url: string | null;
   is_available: boolean;
   admin_disabled: boolean;
+  admin_disabled_note: string | null;
 }
 
 export default function AdminVendorDetailPage() {
@@ -51,7 +52,7 @@ export default function AdminVendorDetailPage() {
           .limit(500),
         supabase
           .from('menu_items')
-          .select('id, name, price, category, subcategory, image_url, is_available, admin_disabled')
+          .select('id, name, price, category, subcategory, image_url, is_available, admin_disabled, admin_disabled_note')
           .eq('restaurant_id', params.id)
           .order('category', { ascending: true }),
       ]);
@@ -63,14 +64,30 @@ export default function AdminVendorDetailPage() {
   }, [params?.id, supabase]);
 
   async function toggleMenuItem(item: VendorMenuItem) {
+    const disabling = !item.admin_disabled;
+    let note: string | null = null;
+    if (disabling) {
+      const entered = window.prompt(`Why are you disabling “${item.name}”? This note will be shown to the restaurant owner.`, item.admin_disabled_note ?? '');
+      if (entered === null) return;
+      note = entered.trim();
+      if (!note) {
+        setItemError('A reason is required so the restaurant owner knows why this item was disabled.');
+        return;
+      }
+    } else if (!window.confirm(`Reactivate “${item.name}”? The restaurant’s own availability setting will still apply.`)) {
+      return;
+    }
+
     setBusyItemId(item.id); setItemError(null); setItemNotice(null);
     try {
-      const { data, error } = await supabase.from('menu_items').update({ admin_disabled: !item.admin_disabled })
-        .eq('id', item.id).eq('restaurant_id', params.id)
-        .select('id, name, price, category, subcategory, image_url, is_available, admin_disabled').single();
+      const { data, error } = await supabase.from('menu_items').update({
+        admin_disabled: disabling,
+        admin_disabled_note: disabling ? note : null,
+      }).eq('id', item.id).eq('restaurant_id', params.id)
+        .select('id, name, price, category, subcategory, image_url, is_available, admin_disabled, admin_disabled_note').single();
       if (error) throw error;
       setMenuItems((items) => items.map((current) => current.id === item.id ? data as VendorMenuItem : current));
-      setItemNotice(`${item.name} ${item.admin_disabled ? 'reactivated by admin' : 'disabled by admin'} successfully.`);
+      setItemNotice(disabling ? `${item.name} disabled. The owner can now see your reason.` : `${item.name} reactivated by admin.`);
     } catch (e) {
       setItemError(e instanceof Error ? e.message : 'Could not change item availability.');
     } finally { setBusyItemId(null); }
