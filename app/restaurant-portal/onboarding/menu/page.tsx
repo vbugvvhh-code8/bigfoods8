@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Plus, Trash2 } from 'lucide-react';
+import { ArrowRight, Pencil, Plus, Trash2 } from 'lucide-react';
+import type { MenuItem } from '@/types/database';
 import SafeImage from '@/components/ui/SafeImage';
 import { useMenuItems } from '@/hooks/useMenuItems';
 import useRestaurant from '@/hooks/useRestaurant';
@@ -11,8 +12,9 @@ import MenuItemForm from '@/components/restaurant/dashboard/MenuItemForm';
 export default function MenuStepPage() {
   const router = useRouter();
   const { restaurant, loading: restaurantLoading } = useRestaurant();
-  const { menuItems, isLoading: itemsLoading, addMenuItem, deleteMenuItem } = useMenuItems(restaurant?.id);
+  const { menuItems, isLoading: itemsLoading, addMenuItem, updateMenuItem, deleteMenuItem } = useMenuItems(restaurant?.id);
   const [showForm, setShowForm] = useState(false);
+  const [editingItem, setEditingItem] = useState<MenuItem | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -48,7 +50,7 @@ export default function MenuStepPage() {
       {error && <p role="alert" className="mb-4 rounded-lg p-3 text-xs" style={{background:'#FCE8E6',color:'var(--red)'}}>{error}</p>}
 
       {!showForm && (
-        <button type="button" onClick={() => setShowForm(true)} className="mb-5 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-4 text-sm font-bold" style={{borderColor:'var(--orange)',color:'var(--orange)',background:'var(--white)'}}>
+        <button type="button" onClick={() => { setEditingItem(undefined); setShowForm(true); }} className="mb-5 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-4 text-sm font-bold" style={{borderColor:'var(--orange)',color:'var(--orange)',background:'var(--white)'}}>
           <Plus className="h-4 w-4" /> Add a menu item
         </button>
       )}
@@ -57,9 +59,11 @@ export default function MenuStepPage() {
         <div className="mb-6">
           <MenuItemForm
             restaurantId={restaurant.id}
+            existingItem={editingItem}
             onSubmit={addMenuItem}
-            onDone={() => { setShowForm(false); setError(null); }}
-            onCancel={() => setShowForm(false)}
+            onUpdate={updateMenuItem}
+            onDone={() => { setShowForm(false); setEditingItem(undefined); setError(null); }}
+            onCancel={() => { setShowForm(false); setEditingItem(undefined); }}
           />
         </div>
       )}
@@ -77,6 +81,7 @@ export default function MenuStepPage() {
               <div key={item.id} className="flex items-center gap-3 py-3">
                 {item.image_url ? <SafeImage src={item.image_url} alt={item.name} className="h-12 w-12 shrink-0 rounded-lg object-cover" /> : <div className="h-12 w-12 shrink-0 rounded-lg" style={{background:'var(--peach)'}} />}
                 <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold" style={{color:'var(--ink)'}}>{item.name}</p><p className="mt-0.5 text-xs" style={{color:'var(--gray)'}}>{item.category || 'Uncategorized'} · ₦{Number(item.price).toLocaleString()}</p></div>
+                <button type="button" onClick={() => { setEditingItem(item); setShowForm(true); setError(null); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border" style={{borderColor:'var(--line)',color:'var(--orange)'}} aria-label={'Edit ' + item.name}><Pencil className="h-4 w-4" /></button>
                 <button type="button" disabled={deletingId === item.id} onClick={() => removeItem(item.id,item.name)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border disabled:opacity-50" style={{borderColor:'var(--line)',color:'var(--red)'}} aria-label={'Remove ' + item.name}><Trash2 className="h-4 w-4" /></button>
               </div>
             ))}
