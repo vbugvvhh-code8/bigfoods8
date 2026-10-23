@@ -104,6 +104,31 @@ export default function OrderCard({
         ₦{Number(order.subtotal).toLocaleString()} · {order.delivery_address ?? 'No address on file'}
       </p>
 
+      {order.items?.length > 0 && (
+        <div className="rounded-[9px] p-2.5 mb-2 space-y-2" style={{ background: 'var(--surface, var(--peach))', border: '1px solid var(--line)' }}>
+          <p className="text-[11px] font-semibold" style={{ color: 'var(--ink)' }}>Customer order</p>
+          {order.items.map((item) => (
+            <div key={item.id} className="text-[11.5px]" style={{ color: 'var(--ink)' }}>
+              <div className="flex justify-between gap-2">
+                <span>{item.quantity} × {item.name}</span>
+                <span>₦{(item.unit_price * item.quantity).toLocaleString()}</span>
+              </div>
+              {item.selected_options?.map((option, index) => (
+                <p key={index} className="pl-3 text-[10.5px]" style={{ color: 'var(--gray)' }}>
+                  {option.groupName ? option.groupName + ': ' : ''}{(option.quantity ?? 1) > 1 ? (option.quantity ?? 1) + ' × ' : ''}{option.optionName ?? 'Selected option'}
+                </p>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {order.payment_status !== 'paid' && (
+        <p role="status" className="rounded-lg px-3 py-2 mb-2 text-[11.5px] font-semibold" style={{ background: 'var(--peach)', color: 'var(--red)' }}>
+          Payment pending — do not prepare or hand over this order.
+        </p>
+      )}
+
       {!order.rider_id && order.payment_status === 'paid' && ['placed', 'preparing'].includes(order.status) && (
         <div className="mt-2 mb-2 rounded-[9px] p-2.5 space-y-2" style={{ background: 'var(--peach)', border: '1px solid var(--line)' }}>
           <div>
@@ -126,7 +151,7 @@ export default function OrderCard({
         </div>
       )}
 
-      {order.status === 'placed' && (
+      {order.payment_status === 'paid' && order.status === 'placed' && (
         <button
           onClick={handleAccept}
           disabled={busy}
@@ -137,7 +162,7 @@ export default function OrderCard({
         </button>
       )}
 
-      {order.status === 'preparing' && !confirming && (
+      {order.payment_status === 'paid' && order.status === 'preparing' && !confirming && (
         <button
           onClick={() => setConfirming(true)}
           disabled={busy}
@@ -148,7 +173,7 @@ export default function OrderCard({
         </button>
       )}
 
-      {order.status === 'preparing' && confirming && (
+      {order.payment_status === 'paid' && order.status === 'preparing' && confirming && (
         <div className="p-2.5 rounded-[9px]" style={{ background: 'var(--peach)' }}>
           {order.rider ? (
             <>
