@@ -18,7 +18,21 @@ export function MenuItemRow({item, restaurant}: MenuItemRowProps) {
     : item.image_url ? [item.image_url] : [];
   const cartItem = items.find((i) => i.id === item.id);
   const quantity = cartItem?.quantity ?? 0;
-  const canOrder = item.is_available !== false && restaurant.is_accepting_orders !== false;
+  const nowParts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Lagos', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
+  const weekdayIndex: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const currentDay = weekdayIndex[nowParts.find((part) => part.type === 'weekday')?.value ?? ''];
+  const currentMinutes = Number(nowParts.find((part) => part.type === 'hour')?.value ?? 0) * 60 + Number(nowParts.find((part) => part.type === 'minute')?.value ?? 0);
+  const schedule = Array.isArray((item as any).availability_schedule) ? (item as any).availability_schedule : [];
+  const withinSchedule = !(item as any).availability_schedule_enabled || schedule.some((window: any) => {
+    if (Number(window?.day) !== currentDay || typeof window?.start !== 'string' || typeof window?.end !== 'string') return false;
+    const start = /^(\\d{2}):(\\d{2})$/.exec(window.start);
+    const end = /^(\\d{2}):(\\d{2})$/.exec(window.end);
+    if (!start || !end) return false;
+    const startMinutes = Number(start[1]) * 60 + Number(start[2]);
+    const endMinutes = Number(end[1]) * 60 + Number(end[2]);
+    return startMinutes < endMinutes && currentMinutes >= startMinutes && currentMinutes < endMinutes;
+  });
+  const canOrder = item.is_available !== false && restaurant.is_accepting_orders !== false && withinSchedule;
   const hasOptions = (item.option_groups ?? []).length > 0;
   const openDetails = () => { if (canOrder) router.push(`/order/restaurant/${restaurant.id}/item/${item.id}`); };
 
@@ -44,7 +58,7 @@ export function MenuItemRow({item, restaurant}: MenuItemRowProps) {
       <div className="p-2.5 sm:p-3">
         <h2 className="line-clamp-2 text-sm font-semibold" style={{color:'var(--ink)'}}>{item.name}</h2>
         <p className="mt-1 text-xs font-medium" style={{color:'var(--orange)'}}>₦{item.price.toLocaleString()}</p>
-        {!canOrder && <p className="mt-1 text-[11px] font-semibold" style={{color:'var(--red, #C1453A)'}}>{item.is_available === false ? 'Currently unavailable' : 'Restaurant not accepting orders'}</p>}
+        {!canOrder && <p className="mt-1 text-[11px] font-semibold" style={{color:'var(--red, #C1453A)'}}>{item.is_available === false ? 'Currently unavailable' : !withinSchedule ? 'Outside scheduled hours' : 'Restaurant not accepting orders'}</p>}
         {canOrder && <div className="mt-3">
           {hasOptions ? (
             <button type="button" onClick={(event) => { event.stopPropagation(); openDetails(); }} className="min-h-10 w-full rounded-full px-2 py-2 text-[11px] font-semibold text-white sm:text-xs" style={{background:'var(--orange)'}}>Choose options</button>
