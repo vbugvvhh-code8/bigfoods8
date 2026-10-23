@@ -43,6 +43,29 @@
 // the delivery — commission then splits between both riders per
 // reward_pct). Neither existed anywhere before this pass.
 
+export interface MenuItemOption {
+  id: string;
+  name: string;
+  price: number;
+  is_available?: boolean;
+}
+export interface MenuItemOptionGroup {
+  id: string;
+  name: string;
+  required: boolean;
+  selection_type: 'single' | 'multiple';
+  min_select?: number;
+  max_select?: number;
+  options: MenuItemOption[];
+}
+export interface SelectedMenuOption {
+  groupId: string;
+  groupName: string;
+  optionId: string;
+  optionName: string;
+  price: number;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -180,6 +203,7 @@ export interface Database {
           preparation_time_minutes: number | null;
           allergens: string[];
           dietary_tags: string[];
+          option_groups: MenuItemOptionGroup[];
         };
         Insert: Partial<Database['public']['Tables']['menu_items']['Row']> & { name: string; price: number };
         Update: Partial<Database['public']['Tables']['menu_items']['Row']>;
@@ -409,6 +433,7 @@ export interface Database {
           quantity: number;
           unit_price: number;
           created_at: string | null;
+          selected_options: SelectedMenuOption[];
         };
         Insert: Partial<Database['public']['Tables']['order_items']['Row']> & { unit_price: number };
         Update: Partial<Database['public']['Tables']['order_items']['Row']>;
