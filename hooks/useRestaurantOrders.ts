@@ -97,7 +97,17 @@ export default function useRestaurantOrders(restaurantId?: string) {
   }, [restaurantId, supabase, fetchOrders]);
 
   async function updateStatus(orderId: string, status: string) {
-    const { error } = await supabase.from('orders').update({ status }).eq('id', orderId);
+    const { data: currentOrder, error: readError } = await supabase
+      .from('orders')
+      .select('payment_status')
+      .eq('id', orderId)
+      .eq('restaurant_id', restaurantId ?? '')
+      .maybeSingle();
+    if (readError) throw readError;
+    if (!currentOrder || currentOrder.payment_status !== 'paid') {
+      throw new Error('This order cannot be prepared or advanced until payment is confirmed.');
+    }
+    const { error } = await supabase.from('orders').update({ status }).eq('id', orderId).eq('restaurant_id', restaurantId ?? '').eq('payment_status', 'paid');
     if (error) throw error;
     // Optimistic update for snappiness — the realtime subscription will also
     // confirm/reconcile this shortly after.
