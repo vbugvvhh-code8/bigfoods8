@@ -29,7 +29,7 @@ export default function MenuBuilderPage() {
   const { menuItems, isLoading, addMenuItem, updateMenuItem, deleteMenuItem } = useMenuItems(restaurant?.id);
 
   const [showAddForm, setShowAddForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const [availabilityBusyId, setAvailabilityBusyId] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -399,10 +399,10 @@ export default function MenuBuilderPage() {
                           <table className="w-full min-w-[560px] table-fixed border-collapse text-left">
                             <colgroup>
                               <col style={{ width: '40px' }} />
-                              <col />
-                              <col style={{ width: '92px' }} />
-                              <col style={{ width: '112px' }} />
-                              <col style={{ width: '116px' }} />
+                              <col style={{ width: '220px' }} />
+                              <col style={{ width: '88px' }} />
+                              <col style={{ width: '100px' }} />
+                              <col style={{ width: '108px' }} />
                             </colgroup>
                             <thead>
                               <tr style={{ background: 'var(--peach)' }}>
@@ -414,21 +414,7 @@ export default function MenuBuilderPage() {
                               </tr>
                             </thead>
                             <tbody>
-                              {subcats[sub].map((item) =>
-                                editingId === item.id ? (
-                                  <tr key={item.id}>
-                                    <td colSpan={5} className="p-3">
-                                      <MenuItemForm
-                                        restaurantId={restaurant.id}
-                                        existingItem={item}
-                                        onSubmit={addMenuItem}
-                                        onUpdate={updateMenuItem}
-                                        onDone={() => setEditingId(null)}
-                                        onCancel={() => setEditingId(null)}
-                                      />
-                                    </td>
-                                  </tr>
-                                ) : (
+                              {subcats[sub].map((item) => (
                                   <tr key={item.id} className="border-t align-middle" style={{ borderColor: 'var(--line)' }}>
                                     <td className="px-2 py-3 text-center">
                                       <input type="checkbox" checked={selectedItemIds.has(item.id)} onChange={() => toggleItemSelection(item.id)} aria-label={`Select ${item.name} for bulk editing`} className="h-4 w-4 accent-orange-500" />
@@ -458,7 +444,7 @@ export default function MenuBuilderPage() {
                                         <button type="button" disabled={availabilityBusyId === item.id} onClick={() => toggleAvailability(item)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md disabled:opacity-50" style={{ color: item.is_available ? 'var(--gray)' : '#207245' }} aria-label={item.is_available ? 'Mark ' + item.name + ' unavailable' : 'Mark ' + item.name + ' available'} title={item.is_available ? 'Mark unavailable' : 'Mark available'}>
                                           {item.is_available ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                         </button>
-                                        <button type="button" onClick={() => { setShowAddForm(false); setEditingId(item.id); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border" style={{ color: 'var(--ink)', borderColor: 'var(--line)', background: 'var(--peach)' }} aria-label={`Edit ${item.name}`} title="Edit item">
+                                        <button type="button" onClick={() => { setShowAddForm(false); setEditingItem(item); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border" style={{ color: 'var(--ink)', borderColor: 'var(--line)', background: 'var(--peach)' }} aria-label={`Edit ${item.name}`} title="Edit item">
                                           <Pencil className="h-4 w-4" />
                                         </button>
                                         <button type="button" onClick={() => handleDelete(item)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border" style={{ color: 'var(--red)', borderColor: 'var(--line)', background: 'var(--white)' }} aria-label={`Delete ${item.name}`} title="Delete item">
@@ -467,8 +453,7 @@ export default function MenuBuilderPage() {
                                       </div>
                                     </td>
                                   </tr>
-                                )
-                              )}
+                              ))}
                             </tbody>
                           </table>
                         </div>
@@ -480,6 +465,47 @@ export default function MenuBuilderPage() {
           );
         })}
       </div>
+
+      {editingItem && (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setEditingItem(null);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-menu-item-title"
+            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border p-4 shadow-2xl sm:p-6"
+            style={{ background: 'var(--white)', borderColor: 'var(--line)' }}
+          >
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 id="edit-menu-item-title" className="text-lg font-bold" style={{ color: 'var(--ink)' }}>
+                Edit menu item
+              </h2>
+              <button
+                type="button"
+                onClick={() => setEditingItem(null)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
+                style={{ borderColor: 'var(--line)', color: 'var(--gray)' }}
+                aria-label="Close edit menu item"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <MenuItemForm
+              restaurantId={restaurant.id}
+              existingItem={editingItem}
+              onSubmit={addMenuItem}
+              onUpdate={updateMenuItem}
+              onDone={() => setEditingItem(null)}
+              onCancel={() => setEditingItem(null)}
+            />
+          </section>
+        </div>
+      )}
 
       {showBulkDeleteConfirm && (
         <div
