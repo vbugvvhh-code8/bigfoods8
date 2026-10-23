@@ -212,6 +212,11 @@ export interface Database {
           stock_reserved: number;
           availability_schedule_enabled: boolean;
           availability_schedule: { day: number; start: string; end: string }[];
+          promotional_price: number | null;
+          promotion_starts_at: string | null;
+          promotion_ends_at: string | null;
+          complementary_item_ids: string[];
+          display_order: number;
         };
         Insert: Partial<Database['public']['Tables']['menu_items']['Row']> & { name: string; price: number };
         Update: Partial<Database['public']['Tables']['menu_items']['Row']>;
