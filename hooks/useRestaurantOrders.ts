@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import getBrowserSupabase from '@/lib/supabase/client';
+import type { SelectedMenuOption } from '@/types/database';
 
 export interface OrderRider {
   name: string;
@@ -23,6 +24,7 @@ export interface OrderWithRider {
   payment_status: string | null;
   zone: string | null;
   rider: OrderRider | null;
+  items: { id: string; name: string; quantity: number; unit_price: number; selected_options: SelectedMenuOption[] }[];
 }
 
 const ACTIVE_STATUSES = ['placed', 'preparing', 'picked_up'];
@@ -43,7 +45,26 @@ export default function useRestaurantOrders(restaurantId?: string) {
       .eq('restaurant_id', restaurantId)
       .order('placed_at', { ascending: false })
       .limit(100);
-    setOrders(((data as any[]) ?? []).map((o) => ({ ...o, rider: o.riders ?? null })));
+    const orderRows = (data as any[]) ?? [];
+    const orderIds = orderRows.map((order) => order.id);
+    const { data: orderItems } = orderIds.length
+      ? await supabase.from('order_items').select('id, order_id, menu_item_id, quantity, unit_price, selected_options').in('order_id', orderIds)
+      : { data: [] };
+    const menuItemIds = Array.from(new Set((orderItems ?? []).map((item: any) => item.menu_item_id).filter((id: string | null): id is string => !!id)));
+    const { data: menuItems } = menuItemIds.length
+      ? await supabase.from('menu_items').select('id, name').in('id', menuItemIds)
+      : { data: [] };
+    setOrders(orderRows.map((order) => ({
+      ...order,
+      rider: order.riders ?? null,
+      items: (orderItems ?? []).filter((item: any) => item.order_id === order.id).map((item: any) => ({
+        id: item.id,
+        name: menuItems?.find((menuItem: any) => menuItem.id === item.menu_item_id)?.name ?? 'Menu item',
+        quantity: Number(item.quantity ?? 1),
+        unit_price: Number(item.unit_price ?? 0),
+        selected_options: (item.selected_options ?? []) as SelectedMenuOption[],
+      })),
+    })));
     setLoading(false);
   }, [restaurantId, supabase]);
 
