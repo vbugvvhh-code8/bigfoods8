@@ -220,7 +220,7 @@ Deno.serve(async (req: Request) => {
       const pricedItems = g.items.map((i: any) => {
         const menuItem = menuItemById.get(i.menu_item_id) as any;
         const rawPrice = Number(menuItem?.price);
-        if (!Number.isFinite(rawPrice) || rawPrice < 0) throw new Error("Invalid menu item price");
+        if (!Number.isFinite(rawPrice) || rawPrice <= 0) throw new Error("Invalid menu item price");
         // Checkout/payment amounts use whole naira; apply the same rounded unit
         // price to line items and the subtotal so receipts reconcile exactly.
         const unitPrice = Math.round(rawPrice);
