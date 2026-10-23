@@ -181,7 +181,7 @@ Deno.serve(async (req: Request) => {
     const paystackCurrency = paystackTransaction?.currency;
     const paystackReference = paystackTransaction?.reference;
 
-    if (!verifyRes.ok || paystackStatus !== "success") {
+    if (!verifyRes.ok || verifyData?.status !== true || paystackStatus !== "success") {
       return json({ success: false, error: "Payment was not successful" });
     }
 
