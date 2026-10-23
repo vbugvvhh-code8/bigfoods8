@@ -166,7 +166,7 @@ export default function MenuBuilderPage() {
           <button
             type="button"
             onClick={() => router.push('/restaurant-portal/dashboard/menu/item')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-[9px] text-[12.5px] font-semibold text-white"
+            className="flex min-h-12 items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-white"
             style={{ background: 'var(--orange)' }}
           >
             <Plus className="w-3.5 h-3.5" />
