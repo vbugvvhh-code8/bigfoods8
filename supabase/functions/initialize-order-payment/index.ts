@@ -389,7 +389,7 @@ Deno.serve(async (req: Request) => {
         return json({ error: outOfStock ? "One or more items are out of stock. Update your cart and try again." : "Could not reserve menu stock. Please refresh your cart and try again." }, 409);
       }
 
-      if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_id: order.id, reference });
+      if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_id: order.id, reference, total_amount: totalAmount });
       const authUrl = await startPaystack(customerEmail, totalAmount, reference, callbackOrigin, { order_id: order.id, type: "order_payment" });
       if ("error" in authUrl) {
         await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
@@ -528,7 +528,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: outOfStock ? "One or more items are out of stock. Update your cart and try again." : "Could not reserve menu stock. Please refresh your cart and try again." }, 409);
     }
 
-    if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_group_id: group.id, reference });
+    if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_group_id: group.id, reference, total_amount: totalAmount });
     const authUrl = await startPaystack(customerEmail, totalAmount, reference, callbackOrigin, { order_group_id: group.id, type: "order_payment" });
     if ("error" in authUrl) {
       await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
@@ -536,7 +536,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: authUrl.error }, 502);
     }
 
-    return json({ success: true, authorization_url: authUrl.url, order_group_id: group.id, reference, batch_count: batchPlans.length });
+    return json({ success: true, authorization_url: authUrl.url, order_group_id: group.id, reference, batch_count: batchPlans.length, total_amount: totalAmount });
   } catch (err) {
     return json({ error: String(err) }, 500);
   }
