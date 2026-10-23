@@ -67,7 +67,7 @@ export default function AdminVendorDetailPage() {
     try {
       const { data, error } = await supabase.from('menu_items').update({ admin_disabled: !item.admin_disabled })
         .eq('id', item.id).eq('restaurant_id', params.id)
-        .select('id, name, price, category, subcategory, image_url, is_available').single();
+        .select('id, name, price, category, subcategory, image_url, is_available, admin_disabled').single();
       if (error) throw error;
       setMenuItems((items) => items.map((current) => current.id === item.id ? data as VendorMenuItem : current));
       setItemNotice(`${item.name} ${item.admin_disabled ? 'reactivated by admin' : 'disabled by admin'} successfully.`);
@@ -132,7 +132,7 @@ export default function AdminVendorDetailPage() {
               <div className="space-y-1.5">
                 {items.map((item) => (
                   <div key={item.id} className="flex flex-wrap items-center gap-2 py-1.5">
-                    <div className="min-w-0 flex-1"><span className="text-[12.5px]" style={{ color: 'var(--ink)' }}>{item.name}</span><span className="ml-2 text-[10px] font-semibold" style={{color:item.is_available?'#207245':'#B42318'}}>{item.admin_disabled?'Blocked by admin':item.is_available?'Active':'Unavailable by restaurant'}</span></div>
+                    <div className="min-w-0 flex-1"><span className="text-[12.5px]" style={{ color: 'var(--ink)' }}>{item.name}</span><span className="ml-2 text-[10px] font-semibold" style={{color:item.admin_disabled?'#B42318':item.is_available?'#207245':'#B45309'}}>{item.admin_disabled?'Blocked by admin':item.is_available?'Active':'Unavailable by restaurant'}</span></div>
                     <span className="text-[12px]" style={{ color: 'var(--gray)' }}>₦{Number(item.price).toLocaleString()}</span>
                     <button type="button" onClick={()=>window.location.assign('/admin/restaurants/'+params.id+'/menu-items/'+item.id+'/edit')} className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold" style={{borderColor:'var(--line)',color:'var(--orange)'}}>Full edit <ExternalLink className="h-3 w-3"/></button>
                     <button type="button" disabled={busyItemId===item.id} onClick={()=>toggleMenuItem(item)} className="flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold disabled:opacity-50" style={{borderColor:'var(--line)',color:item.admin_disabled?'#207245':'#B42318'}}><Power className="h-3 w-3"/>{busyItemId===item.id?'Saving…':item.admin_disabled?'Reactivate':'Admin disable'}</button>
