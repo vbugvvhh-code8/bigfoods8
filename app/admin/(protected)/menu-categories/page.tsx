@@ -30,12 +30,12 @@ export default function MenuCategoryManagementPage() {
   const categories=useMemo(()=>{
     const groups=new Map<string,{values:Set<string>;count:number;restaurants:Set<string>}>();
     for(const item of items){const value=(item.category??'').trim();if(!value)continue;const key=value.toLocaleLowerCase();const g=groups.get(key)??{values:new Set<string>(),count:0,restaurants:new Set<string>()};g.values.add(value);g.count++;if(item.restaurant_id)g.restaurants.add(item.restaurant_id);groups.set(key,g);}
-    return [...groups.entries()].map(([key,g])=>({key,name:Array.from(g.values).sort()[0],values:Array.from(g.values),count:g.count,restaurantCount:g.restaurants.size,duplicate:g.values.size>1})).filter(x=>(x.name+' '+x.values.join(' ')).toLowerCase().includes(search.toLowerCase())).sort((a,b)=>a.name.localeCompare(b.name));
+    return Array.from(groups.entries()).map(([key,g])=>({key,name:Array.from(g.values).sort()[0],values:Array.from(g.values),count:g.count,restaurantCount:g.restaurants.size,duplicate:g.values.size>1})).filter(x=>(x.name+' '+x.values.join(' ')).toLowerCase().includes(search.toLowerCase())).sort((a,b)=>a.name.localeCompare(b.name));
   },[items,search]);
   const subcategories=useMemo(()=>{
     const groups=new Map<string,{category:string;values:Set<string>;count:number;restaurants:Set<string>}>();
     for(const item of items){const category=(item.category??'').trim();const value=(item.subcategory??'').trim();if(!category||!value)continue;const key=category.toLocaleLowerCase()+'::'+value.toLocaleLowerCase();const g=groups.get(key)??{category,values:new Set<string>(),count:0,restaurants:new Set<string>()};g.values.add(value);g.count++;if(item.restaurant_id)g.restaurants.add(item.restaurant_id);groups.set(key,g);}
-    return [...groups.entries()].map(([key,g])=>({key,category:g.category,name:Array.from(g.values).sort()[0],values:Array.from(g.values),count:g.count,restaurantCount:g.restaurants.size,duplicate:g.values.size>1})).filter(x=>(x.category+' '+x.name+' '+x.values.join(' ')).toLowerCase().includes(search.toLowerCase())).sort((a,b)=>a.category.localeCompare(b.category)||a.name.localeCompare(b.name));
+    return Array.from(groups.entries()).map(([key,g])=>({key,category:g.category,name:Array.from(g.values).sort()[0],values:Array.from(g.values),count:g.count,restaurantCount:g.restaurants.size,duplicate:g.values.size>1})).filter(x=>(x.category+' '+x.name+' '+x.values.join(' ')).toLowerCase().includes(search.toLowerCase())).sort((a,b)=>a.category.localeCompare(b.category)||a.name.localeCompare(b.name));
   },[items,search]);
 
   async function renameCategory(key:string,values:string[],current:string){
