@@ -25,8 +25,8 @@ export function MenuItemRow({item, restaurant}: MenuItemRowProps) {
   const schedule = Array.isArray((item as any).availability_schedule) ? (item as any).availability_schedule : [];
   const withinSchedule = !(item as any).availability_schedule_enabled || schedule.some((window: any) => {
     if (Number(window?.day) !== currentDay || typeof window?.start !== 'string' || typeof window?.end !== 'string') return false;
-    const start = /^(\\d{2}):(\\d{2})$/.exec(window.start);
-    const end = /^(\\d{2}):(\\d{2})$/.exec(window.end);
+    const start = /^(\d{2}):(\d{2})$/.exec(window.start);
+    const end = /^(\d{2}):(\d{2})$/.exec(window.end);
     if (!start || !end) return false;
     const startMinutes = Number(start[1]) * 60 + Number(start[2]);
     const endMinutes = Number(end[1]) * 60 + Number(end[2]);
