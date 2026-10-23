@@ -53,17 +53,17 @@ export default function MenuItemDetailsPage() {
             {images.length > 0 ? (
               <div className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={images[Math.min(activeImage, images.length - 1)]} alt={item.name} className="aspect-[4/3] w-full object-cover" />
+                <img src={images[Math.min(activeImage, images.length - 1)]} alt={item.name} className="aspect-square w-full rounded-2xl object-cover" />
                 {images.length > 1 && <div className="flex gap-2 overflow-x-auto p-3">
                   {images.map((url, index) => (
-                    <button key={url} type="button" onClick={() => setActiveImage(index)} aria-label={`Show photo ${index + 1}`} aria-pressed={activeImage === index} className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2" style={{ borderColor: activeImage === index ? 'var(--orange)' : 'var(--line)' }}>
+                    <button key={url} type="button" onClick={() => setActiveImage(index)} aria-label={`Show photo ${index + 1}`} aria-pressed={activeImage === index} className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border-2" style={{ borderColor: activeImage === index ? 'var(--orange)' : 'var(--line)' }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={url} alt="" className="h-full w-full object-cover" />
+                      <img src={url} alt="" className="h-full w-full rounded-2xl object-cover" />
                     </button>
                   ))}
                 </div>}
               </div>
-            ) : <div className="flex aspect-[4/3] items-center justify-center" style={{ background: 'var(--peach)' }}><UtensilsCrossed className="h-12 w-12" style={{ color: 'var(--gray)' }} /></div>}
+            ) : <div className="flex aspect-square items-center justify-center rounded-2xl" style={{ background: 'var(--peach)' }}><UtensilsCrossed className="h-12 w-12" style={{ color: 'var(--gray)' }} /></div>}
 
             <div className="px-1 py-6 sm:px-2">
               <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
