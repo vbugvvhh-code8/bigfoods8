@@ -48,6 +48,7 @@ export interface MenuItemOption {
   name: string;
   price: number;
   is_available?: boolean;
+  stock_quantity?: number | null;
 }
 export interface MenuItemOptionGroup {
   id: string;
@@ -204,6 +205,8 @@ export interface Database {
           allergens: string[];
           dietary_tags: string[];
           option_groups: MenuItemOptionGroup[];
+          stock_quantity: number | null;
+          stock_reserved: number;
         };
         Insert: Partial<Database['public']['Tables']['menu_items']['Row']> & { name: string; price: number };
         Update: Partial<Database['public']['Tables']['menu_items']['Row']>;
