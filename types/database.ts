@@ -66,6 +66,7 @@ export interface SelectedMenuOption {
   optionId: string;
   optionName: string;
   price: number;
+  quantity?: number;
 }
 
 export interface Database {
