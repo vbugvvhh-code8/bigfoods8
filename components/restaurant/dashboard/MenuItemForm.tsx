@@ -92,9 +92,12 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   const [price, setPrice] = useState(existingItem?.price ? String(existingItem.price) : '');
   const [category, setCategory] = useState(existingItem?.category ?? '');
   const [subcategory, setSubcategory] = useState(existingItem?.subcategory ?? '');
-  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(
-    (existingItem as any)?.image_urls ?? (existingItem?.image_url ? [existingItem.image_url] : [])
-  );
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(() => {
+    const imageUrls = (existingItem as any)?.image_urls;
+    // Older rows may have an empty image_urls array while image_url is populated.
+    if (Array.isArray(imageUrls) && imageUrls.length > 0) return imageUrls;
+    return existingItem?.image_url ? [existingItem.image_url] : [];
+  });
   const [newImages, setNewImages] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
