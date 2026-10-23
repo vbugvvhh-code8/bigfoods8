@@ -5,7 +5,7 @@ import { Loader2, X, ImagePlus } from 'lucide-react';
 import getBrowserSupabase from '@/lib/supabase/client';
 import { compressImage } from '@/lib/compressImage';
 import { MENU_CATEGORY_PRESETS, MENU_CATEGORY_NAMES } from '@/lib/menuCategoryPresets';
-import type { MenuItem } from '@/types/database';
+import type { MenuItem, MenuItemOptionGroup } from '@/types/database';
 import type { NewMenuItem, MenuItemUpdate } from '@/hooks/useMenuItems';
 
 interface MenuItemFormProps {
@@ -98,6 +98,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   const [preparationTime, setPreparationTime] = useState(existingItem?.preparation_time_minutes ? String(existingItem.preparation_time_minutes) : '');
   const [allergens, setAllergens] = useState((existingItem?.allergens ?? []).join(', '));
   const [dietaryTags, setDietaryTags] = useState((existingItem?.dietary_tags ?? []).join(', '));
+  const [optionGroups, setOptionGroups] = useState<MenuItemOptionGroup[]>(existingItem?.option_groups ?? []);
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>(() => {
     const imageUrls = (existingItem as any)?.image_urls;
     // Older rows may have an empty image_urls array while image_url is populated.
@@ -115,8 +116,14 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   const parsedPreparationTime = preparationTime.trim() ? Number(preparationTime) : null;
   const hasValidPreparationTime = parsedPreparationTime === null ||
     (Number.isSafeInteger(parsedPreparationTime) && parsedPreparationTime > 0);
+  const hasValidOptionGroups = optionGroups.every((group) =>
+    group.name.trim().length > 0 &&
+    group.options.length >= 2 &&
+    group.options.every((option) => option.name.trim().length > 0 && Number.isSafeInteger(option.price) && option.price >= 0) &&
+    (group.selection_type !== 'multiple' || group.max_select == null || (Number.isSafeInteger(group.max_select) && group.max_select >= 1 && group.max_select <= group.options.length))
+  );
   const hasValidFields = name.trim().length > 0 && price.trim().length > 0 &&
-    Number.isSafeInteger(parsedPrice) && parsedPrice > 0 && hasValidPreparationTime;
+    Number.isSafeInteger(parsedPrice) && parsedPrice > 0 && hasValidPreparationTime && hasValidOptionGroups;
   const canSubmit = hasValidFields && totalImageCount >= 2 && totalImageCount <= 3;
 
   function handleFilesSelected(files: FileList | null) {
@@ -151,6 +158,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
       if (!name.trim()) setError('Enter a dish name.');
       else if (!price.trim() || !Number.isSafeInteger(parsedPrice) || parsedPrice <= 0) setError('Enter a valid price greater than ₦0.');
       else if (!hasValidPreparationTime) setError('Preparation time must be a whole number greater than 0, or leave it blank.');
+      else if (!hasValidOptionGroups) setError('Each option group needs a name, at least two named options, and valid non-negative extra prices.');
       else if (totalImageCount < 2) setError('Add at least 2 photos before saving.');
       else if (totalImageCount > 3) setError('A menu item can have no more than 3 photos.');
       return;
@@ -185,6 +193,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
           preparation_time_minutes: preparationTime.trim() ? Number(preparationTime) : null,
           allergens: allergens.split(',').map((value) => value.trim()).filter(Boolean),
           dietary_tags: dietaryTags.split(',').map((value) => value.trim()).filter(Boolean),
+          option_groups: optionGroups,
           image_urls: finalImageUrls,
         });
       } else {
@@ -306,6 +315,55 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
         <label className="mb-1.5 block text-[12px] font-medium" style={{ color: 'var(--ink)' }}>Dietary tags (comma-separated)</label>
         <input value={dietaryTags} onChange={(e) => setDietaryTags(e.target.value)} maxLength={500} placeholder="e.g. vegetarian, spicy, halal" className="w-full rounded-[9px] px-3 py-2.5 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }} />
       </div>
+
+      <section className="mb-4 rounded-xl border p-3" style={{ borderColor: 'var(--line)', background: 'var(--white)' }}>
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <h3 className="text-[13px] font-bold" style={{ color: 'var(--ink)' }}>Variants & extras</h3>
+          <button type="button" onClick={() => setOptionGroups((prev) => [...prev, { id: crypto.randomUUID(), name: 'Choose an option', required: false, selection_type: 'single', options: [{ id: crypto.randomUUID(), name: '', price: 0 }, { id: crypto.randomUUID(), name: '', price: 0 }] }])} className="rounded-lg px-3 py-2 text-[11px] font-bold text-white" style={{ background: 'var(--orange)' }}>+ Add group</button>
+        </div>
+        <p className="mb-3 text-[11px] leading-5" style={{ color: 'var(--gray)' }}>Set choices such as Chicken, Beef or Fish with an extra price. Prices here are added to the dish's base price. Use a required single-choice group for one protein, or optional multiple-choice groups for extras.</p>
+        {optionGroups.length === 0 && <p className="rounded-lg p-3 text-[11px]" style={{ background: 'var(--peach)', color: 'var(--gray)' }}>No options added. Customers can order this dish at its base price.</p>}
+        <div className="space-y-4">
+          {optionGroups.map((group, groupIndex) => (
+            <div key={group.id} className="rounded-lg border p-3" style={{ borderColor: 'var(--line)' }}>
+              <div className="mb-3 flex items-start gap-2">
+                <div className="flex-1">
+                  <label className="mb-1 block text-[11px] font-semibold" style={{ color: 'var(--ink)' }}>Group name</label>
+                  <input value={group.name} onChange={(e) => setOptionGroups((prev) => prev.map((g) => g.id === group.id ? { ...g, name: e.target.value } : g))} maxLength={80} placeholder="e.g. Choose your protein" className="w-full rounded-lg border px-3 py-2 text-[12px]" style={{ borderColor: 'var(--line)', color: 'var(--ink)' }} />
+                </div>
+                <button type="button" onClick={() => setOptionGroups((prev) => prev.filter((g) => g.id !== group.id))} className="mt-5 rounded-lg border px-2.5 py-2 text-[11px]" style={{ borderColor: 'var(--line)', color: 'var(--red, #C1453A)' }}>Remove</button>
+              </div>
+              <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold" style={{ color: 'var(--ink)' }}>Selection type</label>
+                  <select value={group.selection_type} onChange={(e) => setOptionGroups((prev) => prev.map((g) => g.id === group.id ? { ...g, selection_type: e.target.value as 'single' | 'multiple', max_select: e.target.value === 'single' ? 1 : undefined, min_select: e.target.value === 'single' ? (g.required ? 1 : 0) : (g.required ? 1 : 0) } : g))} className="w-full rounded-lg border px-3 py-2 text-[12px]" style={{ borderColor: 'var(--line)', background: 'var(--white)', color: 'var(--ink)' }}>
+                    <option value="single">Choose one</option><option value="multiple">Choose multiple</option>
+                  </select>
+                </div>
+                <label className="flex items-center gap-2 self-end pb-2 text-[11px] font-semibold" style={{ color: 'var(--ink)' }}>
+                  <input type="checkbox" checked={group.required} onChange={(e) => setOptionGroups((prev) => prev.map((g) => g.id === group.id ? { ...g, required: e.target.checked, min_select: e.target.checked ? 1 : 0 } : g))} />
+                  Customer must choose
+                </label>
+              </div>
+              {group.selection_type === 'multiple' && <div className="mb-3 grid grid-cols-2 gap-3">
+                <div><label className="mb-1 block text-[11px]" style={{ color: 'var(--gray)' }}>Minimum choices</label><input type="number" min={group.required ? 1 : 0} max={group.options.length} value={group.min_select ?? (group.required ? 1 : 0)} onChange={(e) => setOptionGroups((prev) => prev.map((g) => g.id === group.id ? { ...g, min_select: e.target.value === '' ? undefined : Number(e.target.value) } : g))} className="w-full rounded-lg border px-3 py-2 text-[12px]" style={{ borderColor: 'var(--line)' }} /></div>
+                <div><label className="mb-1 block text-[11px]" style={{ color: 'var(--gray)' }}>Maximum choices (optional)</label><input type="number" min={1} max={group.options.length} value={group.max_select ?? ''} onChange={(e) => setOptionGroups((prev) => prev.map((g) => g.id === group.id ? { ...g, max_select: e.target.value === '' ? undefined : Number(e.target.value) } : g))} placeholder="No limit" className="w-full rounded-lg border px-3 py-2 text-[12px]" style={{ borderColor: 'var(--line)' }} /></div>
+              </div>}
+              <div className="space-y-2">
+                {group.options.map((option) => (
+                  <div key={option.id} className="grid grid-cols-[minmax(0,1fr)_100px_34px] items-center gap-2">
+                    <input value={option.name} onChange={(e) => setOptionGroups((prev) => prev.map((g) => g.id === group.id ? { ...g, options: g.options.map((o) => o.id === option.id ? { ...o, name: e.target.value } : o) } : g))} maxLength={80} placeholder="e.g. Chicken, Beef, Fish" className="min-w-0 rounded-lg border px-2.5 py-2 text-[12px]" style={{ borderColor: 'var(--line)', color: 'var(--ink)' }} />
+                    <input type="number" min={0} step={1} value={option.price} onChange={(e) => setOptionGroups((prev) => prev.map((g) => g.id === group.id ? { ...g, options: g.options.map((o) => o.id === option.id ? { ...o, price: e.target.value === '' ? 0 : Number(e.target.value) } : o) } : g))} aria-label={`Extra price for ${option.name || 'option'}`} className="w-full rounded-lg border px-2 py-2 text-[12px]" style={{ borderColor: 'var(--line)', color: 'var(--ink)' }} />
+                    <button type="button" onClick={() => setOptionGroups((prev) => prev.map((g) => g.id === group.id ? { ...g, options: g.options.filter((o) => o.id !== option.id) } : g))} aria-label={`Remove ${option.name || 'option'}`} className="flex h-8 w-8 items-center justify-center rounded-lg border text-sm" style={{ borderColor: 'var(--line)', color: 'var(--red, #C1453A)' }}>×</button>
+                  </div>
+                ))}
+              </div>
+              <button type="button" onClick={() => setOptionGroups((prev) => prev.map((g) => g.id === group.id ? { ...g, options: [...g.options, { id: crypto.randomUUID(), name: '', price: 0 }] } : g))} className="mt-3 text-[11px] font-semibold underline underline-offset-2" style={{ color: 'var(--orange)' }}>+ Add option</button>
+              <p className="mt-2 text-[10px]" style={{ color: 'var(--gray)' }}>Extra price in naira (₦). Enter 0 if included in the base dish price.</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
         Photos (2–3 required)
