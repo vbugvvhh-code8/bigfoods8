@@ -53,8 +53,8 @@ export default function AdminMenuItemEditPage() {
     } finally { setSaving(false); }
   }
 
-  async function createNotAllowed(_newItem: NewMenuItem) {
-    throw new Error('This page edits existing menu items only.');
+  async function createNotAllowed(_newItem: NewMenuItem): Promise<unknown> {
+    return undefined;
   }
 
   if (loading) return <p className="py-8 text-center text-sm" style={{color:'var(--gray')}}><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />Loading menu item…</p>;
