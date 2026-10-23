@@ -93,9 +93,18 @@ function CheckoutContent() {
     );
   }
 
-  const handleCreatePaymentLink = () => {
-    if (!deliveryPoint) return;
-    createPaymentLink({groups: groups.map((g) => ({restaurant_id: g.restaurantId, items: g.items.map((i) => ({menu_item_id: i.id, quantity: i.quantity}))})), deliveryAddress: deliveryPoint.label + (note ? ` — ${note}` : ''), deliveryLat: deliveryPoint.lat, deliveryLng: deliveryPoint.lng, deliveryNote: note, tipAmount});
+  const handleCreatePaymentLink = async () => {
+    if (!deliveryPoint || isSubmitting) return;
+    setShareError('');
+    const url = await createPaymentLink({
+      groups: groups.map((g) => ({restaurant_id: g.restaurantId, items: g.items.map((i) => ({menu_item_id: i.id, quantity: i.quantity}))})),
+      deliveryAddress: deliveryPoint.label + (note ? ` — ${note}` : ''),
+      deliveryLat: deliveryPoint.lat,
+      deliveryLng: deliveryPoint.lng,
+      deliveryNote: note,
+      tipAmount,
+    });
+    if (url) setShowPaymentLinkModal(true);
   };
   const handlePay = () => {
     if (!deliveryPoint) return;
@@ -178,7 +187,7 @@ function CheckoutContent() {
           className="shrink-0 rounded-lg border-2 px-3 py-2.5 text-[11px] font-bold"
           style={{borderColor: 'var(--ink)', color: 'var(--ink)'}}
         >
-          {isSubmitting ? 'Creating…' : hasPaymentLink ? 'Get link' : 'Get link'}
+          {isSubmitting ? 'Creating link…' : hasPaymentLink ? 'View link' : 'Get link'}
         </span>
       </button>
 
