@@ -49,6 +49,7 @@ export interface MenuItemOption {
   price: number;
   is_available?: boolean;
   stock_quantity?: number | null;
+  stock_reserved?: number;
 }
 export interface MenuItemOptionGroup {
   id: string;
