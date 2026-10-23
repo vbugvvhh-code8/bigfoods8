@@ -173,6 +173,7 @@ export interface Database {
           created_at: string | null;
           image_urls: string[] | null;
           subcategory: string | null;
+          is_available: boolean;
         };
         Insert: Partial<Database['public']['Tables']['menu_items']['Row']> & { name: string; price: number };
         Update: Partial<Database['public']['Tables']['menu_items']['Row']>;
