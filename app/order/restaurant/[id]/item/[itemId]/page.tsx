@@ -16,8 +16,10 @@ export default function MenuItemDetailsPage() {
   const { menuItems, isLoading: menuLoading, error: menuError } = useMenuItems(id);
   const { items, addItem, updateQuantity } = useCart();
   const [activeImage, setActiveImage] = useState(0);
+  const [requestedQuantity, setRequestedQuantity] = useState(1);
   const [selectedByGroup, setSelectedByGroup] = useState<Record<string, string[]>>({});
-  useEffect(() => setSelectedByGroup({}), [itemId]);
+  useEffect(() => { setSelectedByGroup({}); setRequestedQuantity(1); }, [itemId]);
+  useEffect(() => { setRequestedQuantity(1); }, [selectedByGroup]);
 
   const item = useMemo(() => menuItems.find((candidate) => candidate.id === itemId), [menuItems, itemId]);
   const images = useMemo(() => {
@@ -143,7 +145,19 @@ export default function MenuItemDetailsPage() {
                       <button type="button" disabled={!canOrder} onClick={() => canOrder && updateQuantity(cartKey, quantity + 1)} className="flex h-10 w-10 items-center justify-center rounded-full text-white disabled:opacity-40" style={{ background: 'var(--orange)' }} aria-label="Add one more"><Plus className="h-4 w-4" /></button>
                     </div>
                   </div>
-                ) : <button type="button" disabled={!canOrder || !optionsValid} onClick={() => canOrder && optionsValid && addItem({ id: cartKey, menuItemId: item.id, name: item.name, price: unitPrice, selectedOptions, restaurantId: restaurant.id, restaurantName: restaurant.name })} className="w-full rounded-xl px-5 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40" style={{ background: 'var(--orange)' }}>{!canOrder ? 'Not available to order' : !optionsValid ? 'Review required or out-of-stock options' : `Add to cart · ₦${unitPrice.toLocaleString()}`}</button>}
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>Quantity</span>
+                      <div className="flex items-center gap-3">
+                        <button type="button" disabled={requestedQuantity <= 1} onClick={() => setRequestedQuantity((value) => Math.max(1, value - 1))} className="flex h-9 w-9 items-center justify-center rounded-full border disabled:opacity-40" style={{ borderColor: 'var(--orange)', color: 'var(--orange)' }} aria-label="Decrease quantity"><Minus className="h-4 w-4" /></button>
+                        <span className="min-w-5 text-center font-bold" aria-live="polite">{requestedQuantity}</span>
+                        <button type="button" disabled={requestedQuantity >= 99 || !canOrder} onClick={() => setRequestedQuantity((value) => Math.min(99, value + 1))} className="flex h-9 w-9 items-center justify-center rounded-full border disabled:opacity-40" style={{ borderColor: 'var(--orange)', color: 'var(--orange)' }} aria-label="Increase quantity"><Plus className="h-4 w-4" /></button>
+                      </div>
+                    </div>
+                    <button type="button" disabled={!canOrder || !optionsValid} onClick={() => { if (!canOrder || !optionsValid) return; for (let index = 0; index < requestedQuantity; index += 1) addItem({ id: cartKey, menuItemId: item.id, name: item.name, price: unitPrice, selectedOptions, restaurantId: restaurant.id, restaurantName: restaurant.name }); }} className="w-full rounded-xl px-5 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40" style={{ background: 'var(--orange)' }}>{!canOrder ? 'Not available to order' : !optionsValid ? 'Review required or out-of-stock options' : `Add ${requestedQuantity} to cart · ₦${(unitPrice * requestedQuantity).toLocaleString()}`}</button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
