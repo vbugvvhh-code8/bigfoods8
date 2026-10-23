@@ -11,6 +11,12 @@ export interface NewMenuItem {
   subcategory?: string;
   image_urls: string[]; // 2–3 images, enforced by a DB check constraint
   is_available?: boolean;
+  description?: string | null;
+  ingredients?: string | null;
+  serving_size?: string | null;
+  preparation_time_minutes?: number | null;
+  allergens?: string[];
+  dietary_tags?: string[];
 }
 
 export interface MenuItemUpdate {
@@ -20,6 +26,12 @@ export interface MenuItemUpdate {
   subcategory?: string | null;
   image_urls?: string[];
   is_available?: boolean;
+  description?: string | null;
+  ingredients?: string | null;
+  serving_size?: string | null;
+  preparation_time_minutes?: number | null;
+  allergens?: string[];
+  dietary_tags?: string[];
 }
 
 export function useMenuItems(restaurantId?: string) {
@@ -54,6 +66,12 @@ export function useMenuItems(restaurantId?: string) {
         image_urls: item.image_urls,
         image_url: item.image_urls[0], // keep the legacy single-image column in sync
         is_available: item.is_available ?? true,
+        description: item.description ?? null,
+        ingredients: item.ingredients ?? null,
+        serving_size: item.serving_size ?? null,
+        preparation_time_minutes: item.preparation_time_minutes ?? null,
+        allergens: item.allergens ?? [],
+        dietary_tags: item.dietary_tags ?? [],
       })
       .select()
       .single();
