@@ -196,6 +196,11 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Checkout pricing must be configured in whole naira amounts." }, 503);
     }
 
+    const expectedTotal = body.expected_total;
+    if (expectedTotal != null && (!Number.isSafeInteger(expectedTotal) || expectedTotal < 0)) {
+      return json({ error: "The checkout estimate is invalid. Refresh checkout and try again." }, 400);
+    }
+
     // Validate all cart data at the payment boundary, then calculate prices from
     // database-owned menu prices rather than browser-supplied totals or prices.
     const groupComputations: { restaurant_id: string; subtotal: number; items: any[] }[] = [];
@@ -423,7 +428,14 @@ Deno.serve(async (req: Request) => {
         return json({ error: outOfStock ? "One or more items are out of stock. Update your cart and try again." : "Could not reserve menu stock. Please refresh your cart and try again.", code: singleReservationError?.code ?? "STOCK_RESERVATION_FAILED" }, 409);
       }
 
-      if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_id: order.id, reference, total_amount: totalAmount });
+      if (expectedTotal != null && Number(expectedTotal) !== totalAmount) {
+      await admin.rpc("release_menu_stock_reservation", { p_reference: reference });
+      await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
+      await admin.from("orders").update({ status: "cancelled", payment_status: "failed" }).eq("id", order.id);
+      return json({ error: "The checkout estimate changed before payment started. Refresh checkout and try again.", total_amount: totalAmount }, 409);
+    }
+
+    if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_id: order.id, reference, total_amount: totalAmount });
       const authUrl = await startPaystack(customerEmail, totalAmount, reference, callbackOrigin, { order_id: order.id, type: "order_payment" });
       if ("error" in authUrl) {
         await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
@@ -572,6 +584,14 @@ Deno.serve(async (req: Request) => {
       await admin.from("orders").update({ status: "cancelled", payment_status: "failed" }).eq("order_group_id", group.id);
       const outOfStock = groupReservationError?.message?.includes("OUT_OF_STOCK");
       return json({ error: outOfStock ? "One or more items are out of stock. Update your cart and try again." : "Could not reserve menu stock. Please refresh your cart and try again.", code: groupReservationError?.code ?? "STOCK_RESERVATION_FAILED" }, 409);
+    }
+
+    if (expectedTotal != null && Number(expectedTotal) !== totalAmount) {
+      await admin.rpc("release_menu_stock_reservation", { p_reference: reference });
+      await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
+      await admin.from("order_groups").update({ payment_status: "failed" }).eq("id", group.id);
+      await admin.from("orders").update({ status: "cancelled", payment_status: "failed" }).eq("order_group_id", group.id);
+      return json({ error: "The checkout estimate changed before payment started. Refresh checkout and try again.", total_amount: totalAmount }, 409);
     }
 
     if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_group_id: group.id, reference, total_amount: totalAmount });
