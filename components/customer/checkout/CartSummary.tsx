@@ -20,7 +20,7 @@ export function CartSummary({restaurantId}: CartSummaryProps) {
             <div className="font-semibold text-[12.5px]" style={{color: 'var(--ink)'}}>
               {item.name}
             </div>
-            {(item.selectedOptions ?? []).length > 0 && <div className="mt-1 text-[10.5px] leading-5" style={{color: 'var(--gray)'}}>{item.selectedOptions!.map((option) => (option.quantity ?? 1) + ' × ' + option.optionName).join(' · ')}</div>}
+            {(item.selectedOptions ?? []).length > 0 && <div className="mt-1 text-[10.5px] leading-5" style={{color: 'var(--gray)'}}>{item.selectedOptions!.map((option) => ((option.quantity ?? 1) * item.quantity) + ' × ' + option.optionName).join(' · ')}</div>}
             <div className="text-[11.5px]" style={{color: 'var(--gray)'}}>
               ₦{item.price.toLocaleString()} each
             </div>
