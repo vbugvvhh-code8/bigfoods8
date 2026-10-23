@@ -28,8 +28,16 @@ Deno.serve(async (req: Request) => {
   try {
     const { token, callbackOrigin } = await req.json();
     const configuredOrigin = APP_URL ? new URL(APP_URL).origin : null;
-    const requestedOrigin = typeof callbackOrigin === "string" ? (() => { try { return new URL(callbackOrigin).origin; } catch { return null; } })() : null;
-    if (!configuredOrigin || !requestedOrigin || requestedOrigin !== configuredOrigin) {
+    const requestedUrl = typeof callbackOrigin === "string" ? (() => { try { return new URL(callbackOrigin); } catch { return null; } })() : null;
+    const requestedOrigin = requestedUrl?.origin ?? null;
+    // Production links use APP_URL. Netlify deploy previews have their own
+    // HTTPS origin, so allow only HTTPS *.netlify.app preview hosts as well.
+    // Never accept arbitrary callback hosts from the request.
+    const isTrustedNetlifyPreview = requestedUrl?.protocol === "https:" &&
+      requestedUrl.hostname.endsWith(".netlify.app") &&
+      requestedUrl.hostname.length > ".netlify.app".length;
+    if (!configuredOrigin || !requestedOrigin ||
+        (requestedOrigin !== configuredOrigin && !isTrustedNetlifyPreview)) {
       return json({ error: "Payment callback URL is not configured for this application." }, 503);
     }
     if (typeof token !== "string" || !/^[a-f0-9]{64}$/i.test(token)) return json({ error: "This payment link is invalid or expired." }, 404);
