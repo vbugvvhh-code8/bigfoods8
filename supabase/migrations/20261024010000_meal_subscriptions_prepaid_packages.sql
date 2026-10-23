@@ -55,3 +55,14 @@ create policy subscription_deliveries_restaurant_select on public.meal_subscript
 grant select, insert on public.meal_subscriptions to authenticated;
 revoke update on public.meal_subscriptions from authenticated;
 grant select on public.meal_subscription_deliveries to authenticated;
+
+-- Persist the selected address and pricing components used for the prepaid quote.
+alter table public.meal_subscriptions add column if not exists saved_address_id uuid references public.saved_addresses(id) on delete set null;
+alter table public.meal_subscriptions add column if not exists delivery_address text;
+alter table public.meal_subscriptions add column if not exists delivery_lat numeric;
+alter table public.meal_subscriptions add column if not exists delivery_lng numeric;
+alter table public.meal_subscriptions add column if not exists delivery_note text;
+alter table public.meal_subscriptions add column if not exists meal_subtotal_per_delivery numeric(12,2) not null default 0;
+alter table public.meal_subscriptions add column if not exists platform_fee_per_delivery numeric(12,2) not null default 0;
+alter table public.meal_subscriptions add column if not exists delivery_fee_per_delivery numeric(12,2) not null default 0;
+alter table public.meal_subscriptions add column if not exists delivery_distance_km numeric(10,3);
