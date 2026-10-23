@@ -396,7 +396,7 @@ Deno.serve(async (req: Request) => {
         await admin.rpc("release_menu_stock_reservation", { p_reference: reference });
         return json({ error: authUrl.error }, 502);
       }
-      return json({ success: true, authorization_url: authUrl.url, order_id: order.id, reference });
+      return json({ success: true, authorization_url: authUrl.url, order_id: order.id, reference, total_amount: totalAmount });
     }
 
     // ---- Multi-restaurant: order_group + up-to-3-restaurant delivery_batches ----
