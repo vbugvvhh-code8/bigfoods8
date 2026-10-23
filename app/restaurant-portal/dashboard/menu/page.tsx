@@ -338,12 +338,12 @@ export default function MenuBuilderPage() {
                   </span>
                 </div>
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-2 border-t pt-3" style={{ borderColor: 'var(--line)' }}>
-                <button type="button" disabled={availabilityBusyId === item.id} onClick={() => toggleAvailability(item)} className="flex min-h-11 items-center justify-center gap-1 rounded-lg border px-2 text-xs font-semibold disabled:opacity-50" style={{ borderColor: 'var(--line)', color: item.is_available ? 'var(--gray)' : '#207245' }}>
+              <div className="mt-4 grid grid-cols-3 gap-3 border-t pt-4" style={{ borderColor: 'var(--line)' }}>
+                <button type="button" disabled={availabilityBusyId === item.id} onClick={() => toggleAvailability(item)} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 py-3 text-xs font-semibold leading-tight transition hover:brightness-95 active:scale-[0.98] disabled:opacity-50" style={{ borderColor: 'var(--line)', color: item.is_available ? 'var(--gray)' : '#207245' }}>
                   {item.is_available ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   {item.is_available ? 'Hide' : 'Show'}
                 </button>
-                <button type="button" onClick={() => router.push('/restaurant-portal/dashboard/menu/item?edit=' + encodeURIComponent(item.id))} className="flex min-h-11 items-center justify-center gap-1 rounded-lg border px-2 text-xs font-semibold" style={{ borderColor: 'var(--line)', color: 'var(--ink)', background: 'var(--peach)' }}>
+                <button type="button" onClick={() => router.push('/restaurant-portal/dashboard/menu/item?edit=' + encodeURIComponent(item.id))} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 py-3 text-xs font-semibold leading-tight transition hover:brightness-95 active:scale-[0.98]" style={{ borderColor: 'var(--line)', color: 'var(--ink)', background: 'var(--peach)' }}>
                   <Pencil className="h-4 w-4" /> Edit
                 </button>
                 <button type="button" onClick={() => handleDelete(item)} className="flex min-h-11 items-center justify-center gap-1 rounded-lg border px-2 text-xs font-semibold" style={{ borderColor: 'var(--line)', color: 'var(--red)' }}>
