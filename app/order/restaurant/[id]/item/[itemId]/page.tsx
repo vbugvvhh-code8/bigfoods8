@@ -34,7 +34,8 @@ export default function MenuItemDetailsPage() {
   const cartItem = items.find((candidate) => candidate.id === cartKey);
   const quantity = cartItem?.quantity ?? 0;
   const isLoading = restaurantLoading || menuLoading;
-  const canOrder = !!item && !!restaurant && item.is_available !== false && restaurant.is_accepting_orders !== false;
+  const mainStockAvailable = !item || item.stock_quantity == null || Number(item.stock_quantity) - Number(item.stock_reserved ?? 0) > 0;
+  const canOrder = !!item && !!restaurant && item.is_available !== false && restaurant.is_accepting_orders !== false && mainStockAvailable;
   const optionsValid = (item?.option_groups ?? []).every((group) => {
     const count = (selectedByGroup[group.id] ?? []).length;
     const min = group.required ? Math.max(1, group.min_select ?? 1) : (group.min_select ?? 0);
@@ -92,7 +93,7 @@ export default function MenuItemDetailsPage() {
                 <p className="shrink-0 text-xl font-bold" style={{ color: 'var(--orange)' }}>₦{Number(item.price).toLocaleString()}</p>
               </div>
 
-              {item.is_available === false ? <p className="mb-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ background: '#FCE8E6', color: '#B42318' }}>Currently unavailable</p> : !restaurant.is_accepting_orders && <p className="mb-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ background: '#FCE8E6', color: '#B42318' }}>Restaurant not accepting orders</p>}
+              {item.is_available === false ? <p className="mb-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ background: '#FCE8E6', color: '#B42318' }}>Currently unavailable</p> : !mainStockAvailable ? <p className="mb-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ background: '#FCE8E6', color: '#B42318' }}>Out of stock</p> : !restaurant.is_accepting_orders && <p className="mb-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ background: '#FCE8E6', color: '#B42318' }}>Restaurant not accepting orders</p>}
 
               {item.description && <p className="mt-3 whitespace-pre-line text-sm leading-6" style={{ color: 'var(--ink)' }}>{item.description}</p>}
 
@@ -111,11 +112,13 @@ export default function MenuItemDetailsPage() {
                     {group.required && <span className="rounded-full px-2 py-1 text-[10px] font-semibold" style={{ background: 'var(--peach)', color: 'var(--ink)' }}>Required</span>}
                   </div>
                   <div className="space-y-2">
-                    {group.options.filter((option) => option.is_available !== false).map((option) => {
+                    {group.options.map((option) => {
                       const checked = (selectedByGroup[group.id] ?? []).includes(option.id);
-                      return <label key={option.id} className="flex cursor-pointer items-center gap-3 rounded-xl border p-3" style={{ borderColor: checked ? 'var(--orange)' : 'var(--line)', background: checked ? '#FFF7F0' : 'var(--white)' }}>
-                        <input type={group.selection_type === 'single' ? 'radio' : 'checkbox'} name={`option-group-${group.id}`} checked={checked} disabled={group.selection_type === 'multiple' && !checked && (selectedByGroup[group.id] ?? []).length >= (group.max_select ?? group.options.length)} onChange={() => updateOptionSelection(group.id, option.id, group.selection_type)} className="h-4 w-4 accent-orange-600" />
-                        <span className="min-w-0 flex-1 text-sm font-medium" style={{ color: 'var(--ink)' }}>{option.name}</span>
+                      const optionOutOfStock = option.stock_quantity != null && Number(option.stock_quantity) - Number((option as typeof option & { stock_reserved?: number }).stock_reserved ?? 0) <= 0;
+                      const optionUnavailable = option.is_available === false || optionOutOfStock;
+                      return <label key={option.id} className={`flex items-center gap-3 rounded-xl border p-3 ${optionUnavailable ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`} style={{ borderColor: checked ? 'var(--orange)' : 'var(--line)', background: checked ? '#FFF7F0' : 'var(--white)' }}>
+                        <input type={group.selection_type === 'single' ? 'radio' : 'checkbox'} name={`option-group-${group.id}`} checked={checked} disabled={optionUnavailable || (group.selection_type === 'multiple' && !checked && (selectedByGroup[group.id] ?? []).length >= (group.max_select ?? group.options.length))} onChange={() => updateOptionSelection(group.id, option.id, group.selection_type)} className="h-4 w-4 accent-orange-600" />
+                        <span className="min-w-0 flex-1 text-sm font-medium" style={{ color: 'var(--ink)' }}>{option.name}{optionOutOfStock ? <span className="ml-2 text-[10px] font-semibold" style={{color:'#B42318'}}>Out of stock</span> : option.is_available === false ? <span className="ml-2 text-[10px] font-semibold" style={{color:'#B42318'}}>Unavailable</span> : null}</span>
                         <span className="text-xs font-semibold" style={{ color: option.price > 0 ? 'var(--orange)' : 'var(--gray)' }}>{option.price > 0 ? `+₦${option.price.toLocaleString()}` : 'Included'}</span>
                       </label>;
                     })}
