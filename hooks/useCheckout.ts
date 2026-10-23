@@ -85,6 +85,9 @@ export function useCheckout() {
       if (init.error) await throwFunctionError(init.error, 'Could not prepare the payment link. Try again.');
       if (init.data?.error) throw new Error(init.data.error);
       if (!init.data?.reference) throw new Error('Could not prepare payment link');
+      if (params.expectedTotal != null && Number.isFinite(Number(init.data.total_amount)) && Number(init.data.total_amount) !== params.expectedTotal) {
+        throw new Error(`The checkout estimate (₦${params.expectedTotal.toLocaleString()}) does not match the payment amount (₦${Number(init.data.total_amount).toLocaleString()}). The link was not created. Refresh checkout and try again.`);
+      }
       const created = await supabase.functions.invoke('create-order-payment-link', {body: {reference: init.data.reference}});
       if (created.error) await throwFunctionError(created.error, 'Could not create the payment link. Try again.');
       if (created.data?.error) throw new Error(created.data.error);
