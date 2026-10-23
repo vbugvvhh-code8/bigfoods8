@@ -236,7 +236,7 @@ Deno.serve(async (req: Request) => {
       const uniqueMenuItemIds = [...new Set(g.items.map((i: any) => i.menu_item_id))];
       const { data: menuItems, error: itemsError } = await admin
         .from("menu_items")
-        .select("id, price, promotional_price, promotion_starts_at, promotion_ends_at, restaurant_id, is_available, option_groups, availability_schedule_enabled, availability_schedule")
+        .select("id, price, promotional_price, promotion_starts_at, promotion_ends_at, restaurant_id, is_available, admin_disabled, option_groups, availability_schedule_enabled, availability_schedule")
         .in("id", uniqueMenuItemIds);
       if (itemsError) return json({ error: "Unable to validate cart items. Please try again later." }, 503);
       const invalid = menuItems?.find((m: any) => m.restaurant_id !== g.restaurant_id);
@@ -260,7 +260,7 @@ Deno.serve(async (req: Request) => {
           return start < end && currentMinutes >= start && currentMinutes < end;
         });
       });
-      const unavailableItem = menuItems?.find((m: any) => m.is_available === false);
+      const unavailableItem = menuItems?.find((m: any) => m.is_available === false || m.admin_disabled === true);
       if (unavailableItem || outsideSchedule) {
         return json({ error: "One or more items in your cart are currently unavailable or outside their scheduled ordering hours. Remove them or try again during their availability window." }, 409);
       }
