@@ -10,6 +10,7 @@ export interface NewMenuItem {
   category?: string;
   subcategory?: string;
   image_urls: string[]; // 2–3 images, enforced by a DB check constraint
+  is_available?: boolean;
 }
 
 export interface MenuItemUpdate {
