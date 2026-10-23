@@ -1,6 +1,21 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { areAllServiceAreasActive, type ServiceLocation } from "../_shared/service-area.ts";
+type ServiceLocation = { state: string; lga: string; is_active: boolean };
+function areAllServiceAreasActive(
+  restaurants: { state?: string | null; zone?: string | null }[],
+  locations: ServiceLocation[],
+) {
+  if (!restaurants.length) return false;
+  const lgaCounts = new Map<string, number>();
+  for (const location of locations) lgaCounts.set(location.lga, (lgaCounts.get(location.lga) ?? 0) + 1);
+  const canonicalZone = (location: ServiceLocation) =>
+    (lgaCounts.get(location.lga) ?? 0) > 1 ? `${location.lga} (${location.state})` : location.lga;
+  return restaurants.every((restaurant) =>
+    !!restaurant.state && !!restaurant.zone && locations.some((location) =>
+      location.state === restaurant.state && canonicalZone(location) === restaurant.zone && location.is_active === true
+    )
+  );
+}
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
