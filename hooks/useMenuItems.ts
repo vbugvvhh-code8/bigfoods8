@@ -9,7 +9,7 @@ export interface NewMenuItem {
   price: number;
   category?: string;
   subcategory?: string;
-  image_urls: string[]; // 2–3 images, enforced by a DB check constraint
+  image_urls: string[]; // 1–3 images, enforced by a DB check constraint
   is_available?: boolean;
   description?: string | null;
   ingredients?: string | null;
@@ -18,6 +18,7 @@ export interface NewMenuItem {
   allergens?: string[];
   dietary_tags?: string[];
   option_groups?: MenuItemOptionGroup[];
+  stock_quantity?: number | null;
 }
 
 export interface MenuItemUpdate {
@@ -34,6 +35,7 @@ export interface MenuItemUpdate {
   allergens?: string[];
   dietary_tags?: string[];
   option_groups?: MenuItemOptionGroup[];
+  stock_quantity?: number | null;
 }
 
 export function useMenuItems(restaurantId?: string) {
@@ -75,6 +77,7 @@ export function useMenuItems(restaurantId?: string) {
         allergens: item.allergens ?? [],
         dietary_tags: item.dietary_tags ?? [],
         option_groups: item.option_groups ?? [],
+        stock_quantity: item.stock_quantity ?? null,
       })
       .select()
       .single();
