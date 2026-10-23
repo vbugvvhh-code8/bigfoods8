@@ -114,7 +114,7 @@ export default function MenuItemDetailsPage() {
                   <div className="space-y-2">
                     {group.options.map((option) => {
                       const checked = (selectedByGroup[group.id] ?? []).includes(option.id);
-                      const optionOutOfStock = option.stock_quantity != null && Number(option.stock_quantity) - Number((option as typeof option & { stock_reserved?: number }).stock_reserved ?? 0) <= 0;
+                      const optionOutOfStock = option.stock_quantity != null && Number(option.stock_quantity) - Number(option.stock_reserved ?? 0) <= 0;
                       const optionUnavailable = option.is_available === false || optionOutOfStock;
                       return <label key={option.id} className={`flex items-center gap-3 rounded-xl border p-3 ${optionUnavailable ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`} style={{ borderColor: checked ? 'var(--orange)' : 'var(--line)', background: checked ? '#FFF7F0' : 'var(--white)' }}>
                         <input type={group.selection_type === 'single' ? 'radio' : 'checkbox'} name={`option-group-${group.id}`} checked={checked} disabled={optionUnavailable || (group.selection_type === 'multiple' && !checked && (selectedByGroup[group.id] ?? []).length >= (group.max_select ?? group.options.length))} onChange={() => updateOptionSelection(group.id, option.id, group.selection_type)} className="h-4 w-4 accent-orange-600" />
