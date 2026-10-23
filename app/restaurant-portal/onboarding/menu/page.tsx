@@ -8,6 +8,8 @@ import { useMenuItems } from '@/hooks/useMenuItems';
 import useRestaurant from '@/hooks/useRestaurant';
 import getBrowserSupabase from '@/lib/supabase/client';
 import { compressImage } from '@/lib/compressImage';
+import { ChipPicker } from '@/components/restaurant/dashboard/MenuItemForm';
+import { MENU_CATEGORY_PRESETS, MENU_CATEGORY_NAMES } from '@/lib/menuCategoryPresets';
 
 export default function MenuStepPage() {
   const router = useRouter();
@@ -18,6 +20,7 @@ export default function MenuStepPage() {
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('');
+  const [subcategory, setSubcategory] = useState('');
   const [images, setImages] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,13 +58,15 @@ export default function MenuStepPage() {
       await addMenuItem({
         name,
         price: Number(price),
-        category: category || undefined,
+        category: category.trim() || undefined,
+        subcategory: subcategory.trim() || undefined,
         image_urls: uploadedUrls,
       });
 
       setName('');
       setPrice('');
       setCategory('');
+      setSubcategory('');
       setImages([]);
     } catch (e: any) {
       setError(e?.message ?? 'Could not add this item — try again.');
@@ -154,17 +159,25 @@ export default function MenuStepPage() {
             />
           </div>
           <div>
-            <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
-              Category
-            </label>
-            <input
+            <ChipPicker
+              label="Category"
+              options={MENU_CATEGORY_NAMES}
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              placeholder="e.g. Local & native"
-              className="w-full px-3 py-2.5 rounded-[9px] text-[13px] outline-none"
-              style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }}
+              onChange={(value) => {
+                setCategory(value);
+                setSubcategory('');
+              }}
             />
           </div>
+        </div>
+
+        <div className="mb-3">
+          <ChipPicker
+            label="Sub-category (optional)"
+            options={category ? MENU_CATEGORY_PRESETS[category.trim().toLowerCase()] ?? [] : []}
+            value={subcategory}
+            onChange={setSubcategory}
+          />
         </div>
 
         <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
