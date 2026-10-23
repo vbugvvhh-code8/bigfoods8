@@ -276,7 +276,7 @@ Deno.serve(async (req: Request) => {
         const promotionStart = menuItem?.promotion_starts_at ? new Date(menuItem.promotion_starts_at).getTime() : null;
         const promotionEnd = menuItem?.promotion_ends_at ? new Date(menuItem.promotion_ends_at).getTime() : null;
         const promotionActive = menuItem?.promotional_price != null && Number.isSafeInteger(Number(menuItem.promotional_price)) && Number(menuItem.promotional_price) > 0 && Number(menuItem.promotional_price) < rawPrice && (promotionStart === null || (Number.isFinite(promotionStart) && promotionStart <= now)) && (promotionEnd === null || (Number.isFinite(promotionEnd) && promotionEnd > now));
-        const basePrice = Math.round(promotionActive ? Number(menuItem.promotional_price) : rawPrice);
+        const basePrice = promotionActive ? Number(menuItem.promotional_price) : rawPrice;
         const optionGroups = Array.isArray(menuItem?.option_groups) ? menuItem.option_groups : [];
         if (optionGroups.some((group: any) =>
           !group || typeof group.id !== "string" || typeof group.name !== "string" ||
