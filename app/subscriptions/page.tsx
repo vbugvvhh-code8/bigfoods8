@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Clock3, CreditCard, Loader2, Pause, Play, RefreshCw, ShoppingBag, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock3, CreditCard, Loader2, Pause, Play, RefreshCw, XCircle } from 'lucide-react';
 import PageHeader from '@/components/admin/layout/PageHeader';
 import getBrowserSupabase from '@/lib/supabase/client';
 
