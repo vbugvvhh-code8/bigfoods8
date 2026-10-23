@@ -116,12 +116,16 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   const parsedPreparationTime = preparationTime.trim() ? Number(preparationTime) : null;
   const hasValidPreparationTime = parsedPreparationTime === null ||
     (Number.isSafeInteger(parsedPreparationTime) && parsedPreparationTime > 0);
-  const hasValidOptionGroups = optionGroups.every((group) =>
-    group.name.trim().length > 0 &&
-    group.options.length >= 2 &&
-    group.options.every((option) => option.name.trim().length > 0 && Number.isSafeInteger(option.price) && option.price >= 0) &&
-    (group.selection_type !== 'multiple' || group.max_select == null || (Number.isSafeInteger(group.max_select) && group.max_select >= 1 && group.max_select <= group.options.length))
-  );
+  const hasValidOptionGroups = optionGroups.every((group) => {
+    const minimum = group.required ? Math.max(1, group.min_select ?? 1) : (group.min_select ?? 0);
+    const maximum = group.selection_type === 'single' ? 1 : (group.max_select ?? group.options.length);
+    return group.name.trim().length > 0 &&
+      ['single', 'multiple'].includes(group.selection_type) &&
+      group.options.length >= 2 &&
+      group.options.every((option) => option.name.trim().length > 0 && Number.isSafeInteger(option.price) && option.price >= 0) &&
+      Number.isSafeInteger(minimum) && Number.isSafeInteger(maximum) &&
+      minimum >= 0 && minimum <= maximum && maximum <= group.options.length;
+  });
   const hasValidFields = name.trim().length > 0 && price.trim().length > 0 &&
     Number.isSafeInteger(parsedPrice) && parsedPrice > 0 && hasValidPreparationTime && hasValidOptionGroups;
   const canSubmit = hasValidFields && totalImageCount >= 2 && totalImageCount <= 3;
