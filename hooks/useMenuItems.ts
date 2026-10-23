@@ -2,7 +2,7 @@
 
 import useSWR from 'swr';
 import getBrowserSupabase from '@/lib/supabase/client';
-import type { MenuItem } from '@/types/database';
+import type { MenuItem, MenuItemOptionGroup } from '@/types/database';
 
 export interface NewMenuItem {
   name: string;
@@ -17,6 +17,7 @@ export interface NewMenuItem {
   preparation_time_minutes?: number | null;
   allergens?: string[];
   dietary_tags?: string[];
+  option_groups?: MenuItemOptionGroup[];
 }
 
 export interface MenuItemUpdate {
@@ -32,6 +33,7 @@ export interface MenuItemUpdate {
   preparation_time_minutes?: number | null;
   allergens?: string[];
   dietary_tags?: string[];
+  option_groups?: MenuItemOptionGroup[];
 }
 
 export function useMenuItems(restaurantId?: string) {
@@ -72,6 +74,7 @@ export function useMenuItems(restaurantId?: string) {
         preparation_time_minutes: item.preparation_time_minutes ?? null,
         allergens: item.allergens ?? [],
         dietary_tags: item.dietary_tags ?? [],
+        option_groups: item.option_groups ?? [],
       })
       .select()
       .single();
