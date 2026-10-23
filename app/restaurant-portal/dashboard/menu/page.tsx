@@ -2,7 +2,7 @@
 
 import SafeImage from '@/components/ui/SafeImage';
 import { useMemo, useState } from 'react';
-import { Plus, Pencil, Trash2, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, ChevronDown, Search, X } from 'lucide-react';
 import useRestaurant from '@/hooks/useRestaurant';
 import { useMenuItems } from '@/hooks/useMenuItems';
 import MenuItemForm from '@/components/restaurant/dashboard/MenuItemForm';
@@ -30,8 +30,18 @@ export default function MenuBuilderPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  const [menuSearch, setMenuSearch] = useState('');
 
-  const tree = useMemo(() => groupItems(menuItems), [menuItems]);
+  const filteredItems = useMemo(() => {
+    const query = menuSearch.trim().toLocaleLowerCase();
+    if (!query) return menuItems;
+    return menuItems.filter((item) =>
+      [item.name, item.category, (item as any).subcategory]
+        .some((value) => typeof value === 'string' && value.toLocaleLowerCase().includes(query))
+    );
+  }, [menuItems, menuSearch]);
+
+  const tree = useMemo(() => groupItems(filteredItems), [filteredItems]);
   const categories = Object.keys(tree).sort((a, b) =>
     a === UNCATEGORIZED ? 1 : b === UNCATEGORIZED ? -1 : a.localeCompare(b)
   );
@@ -91,6 +101,38 @@ export default function MenuBuilderPage() {
       {isLoading && (
         <p className="text-[12.5px] py-4 text-center" style={{ color: 'var(--gray)' }}>
           Loading your menu…
+        </p>
+      )}
+
+      {!isLoading && menuItems.length > 0 && (
+        <div className="mb-4">
+          <label htmlFor="menu-item-search" className="mb-1.5 block text-xs font-semibold" style={{color:'var(--ink)'}}>
+            Search your menu
+          </label>
+          <div className="flex min-h-11 items-center gap-2 rounded-xl border px-3" style={{borderColor:'var(--line)',background:'var(--white)'}}>
+            <Search className="h-4 w-4 shrink-0" style={{color:'var(--gray)'}} />
+            <input
+              id="menu-item-search"
+              type="search"
+              value={menuSearch}
+              onChange={(event) => setMenuSearch(event.target.value)}
+              placeholder="Search dishes or categories"
+              className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none"
+              style={{color:'var(--ink)'}}
+            />
+            {menuSearch && (
+              <button type="button" onClick={() => setMenuSearch('')} aria-label="Clear menu search" className="flex h-8 w-8 items-center justify-center rounded-lg" style={{color:'var(--gray)'}}>
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {menuSearch.trim() && <p className="mt-1.5 text-xs" style={{color:'var(--gray)'}}>{filteredItems.length} matching {filteredItems.length === 1 ? 'item' : 'items'}</p>}
+        </div>
+      )}
+
+      {!isLoading && menuItems.length > 0 && filteredItems.length === 0 && (
+        <p className="rounded-xl border px-4 py-6 text-center text-sm" style={{borderColor:'var(--line)',color:'var(--gray)'}}>
+          No menu items match “{menuSearch.trim()}”. Try another search.
         </p>
       )}
 
