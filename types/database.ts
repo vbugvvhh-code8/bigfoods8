@@ -210,6 +210,8 @@ export interface Database {
           option_groups: MenuItemOptionGroup[];
           stock_quantity: number | null;
           stock_reserved: number;
+          availability_schedule_enabled: boolean;
+          availability_schedule: { day: number; start: string; end: string }[];
         };
         Insert: Partial<Database['public']['Tables']['menu_items']['Row']> & { name: string; price: number };
         Update: Partial<Database['public']['Tables']['menu_items']['Row']>;
