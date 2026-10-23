@@ -18,6 +18,7 @@ export interface MenuItemUpdate {
   category?: string | null;
   subcategory?: string | null;
   image_urls?: string[];
+  is_available?: boolean;
 }
 
 export function useMenuItems(restaurantId?: string) {
@@ -51,6 +52,7 @@ export function useMenuItems(restaurantId?: string) {
         subcategory: item.subcategory ?? null,
         image_urls: item.image_urls,
         image_url: item.image_urls[0], // keep the legacy single-image column in sync
+        is_available: item.is_available ?? true,
       })
       .select()
       .single();
