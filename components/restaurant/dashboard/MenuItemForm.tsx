@@ -119,14 +119,17 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   const hasValidPreparationTime = parsedPreparationTime === null ||
     (Number.isSafeInteger(parsedPreparationTime) && parsedPreparationTime > 0);
   const parsedStockQuantity = stockQuantity.trim() ? Number(stockQuantity) : null;
-  const hasValidStockQuantity = parsedStockQuantity === null || (Number.isSafeInteger(parsedStockQuantity) && parsedStockQuantity >= 0);
+  const reservedMainStock = Number(existingItem?.stock_reserved ?? 0);
+  const hasValidStockQuantity = parsedStockQuantity === null
+    ? reservedMainStock === 0
+    : Number.isSafeInteger(parsedStockQuantity) && parsedStockQuantity >= reservedMainStock;
   const hasValidOptionGroups = optionGroups.every((group) => {
     const minimum = group.required ? Math.max(1, group.min_select ?? 1) : (group.min_select ?? 0);
     const maximum = group.selection_type === 'single' ? 1 : (group.max_select ?? group.options.length);
     return group.name.trim().length > 0 &&
       ['single', 'multiple'].includes(group.selection_type) &&
       group.options.length >= 2 &&
-      group.options.every((option) => option.name.trim().length > 0 && Number.isSafeInteger(option.price) && option.price >= 0 && (option.stock_quantity == null || (Number.isSafeInteger(option.stock_quantity) && option.stock_quantity >= 0))) &&
+      group.options.every((option) => option.name.trim().length > 0 && Number.isSafeInteger(option.price) && option.price >= 0 && (option.stock_quantity == null ? Number(option.stock_reserved ?? 0) === 0 : (Number.isSafeInteger(option.stock_quantity) && option.stock_quantity >= Number(option.stock_reserved ?? 0)))) &&
       Number.isSafeInteger(minimum) && Number.isSafeInteger(maximum) &&
       minimum >= 0 && minimum <= maximum && maximum <= group.options.length;
   });
@@ -165,7 +168,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
     if (!canSubmit || saving) {
       if (!name.trim()) setError('Enter a dish name.');
       else if (!price.trim() || !Number.isSafeInteger(parsedPrice) || parsedPrice <= 0) setError('Enter a valid price greater than ₦0.');
-      else if (!hasValidStockQuantity) setError('Stock quantity must be a whole number of zero or greater, or leave it blank.');
+      else if (!hasValidStockQuantity) setError('Stock must be a whole number and cannot be lower than quantities currently reserved for checkout.');
       else if (!hasValidPreparationTime) setError('Preparation time must be a whole number greater than 0, or leave it blank.');
       else if (!hasValidOptionGroups) setError('Each option group needs a name, at least two named options, and valid non-negative extra prices.');
       else if (totalImageCount < 1) setError('Add at least 1 photo before saving.');
@@ -446,7 +449,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
         <p className="mb-3 text-xs leading-5" style={{color:'var(--gray)'}}>Leave quantity blank if this dish is not stock-tracked. Enter 0 to mark it out of stock. This setting is saved with the item. Stock is reserved when checkout starts, released after a failed or abandoned payment, and deducted when payment succeeds.</p>
         <label className="block text-xs font-semibold" style={{color:'var(--ink)'}}>Available quantity <span className="font-normal" style={{color:'var(--gray)'}}>(optional)</span></label>
         <input type="number" min={0} step={1} value={stockQuantity} onChange={(e)=>setStockQuantity(e.target.value)} placeholder="Leave blank for unlimited / not tracked" className="mt-1.5 w-full rounded-lg border px-3 py-2.5 text-sm" style={{borderColor:'var(--line)'}} />
-        {!hasValidStockQuantity && <p className="mt-2 text-xs" style={{color:'var(--red)'}}>Stock must be a whole number of zero or greater.</p>}
+        {!hasValidStockQuantity && <p className="mt-2 text-xs" style={{color:'var(--red)'}}>Stock must be a whole number and cannot be lower than quantities currently reserved for checkout.</p>}
         <p className="mt-3 text-xs leading-5" style={{color:'var(--gray)'}}>Variant stock is configured beside each variant in the previous step. Blank variant quantities mean not tracked.</p>
       </section>
       <section className="mb-4" style={{display: step === 6 ? undefined : "none"}}>
