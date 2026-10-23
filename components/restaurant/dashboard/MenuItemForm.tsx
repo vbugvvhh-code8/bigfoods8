@@ -109,6 +109,9 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState(1);
   const [stockQuantity, setStockQuantity] = useState(existingItem?.stock_quantity == null ? '' : String(existingItem.stock_quantity));
+  type AvailabilityWindow = { day: number; start: string; end: string };
+  const [scheduleEnabled, setScheduleEnabled] = useState(Boolean((existingItem as any)?.availability_schedule_enabled));
+  const [scheduleWindows, setScheduleWindows] = useState<AvailabilityWindow[]>(() => Array.isArray((existingItem as any)?.availability_schedule) ? (existingItem as any).availability_schedule : []);
   const [error, setError] = useState<string | null>(null);
 
   const subcategoryOptions = category ? MENU_CATEGORY_PRESETS[category.toLowerCase()] ?? [] : [];
@@ -204,6 +207,10 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
           serving_size: servingSize.trim() || null,
           preparation_time_minutes: preparationTime.trim() ? Number(preparationTime) : null,
           stock_quantity: parsedStockQuantity,
+          availability_schedule_enabled: scheduleEnabled,
+          availability_schedule: scheduleEnabled ? scheduleWindows : [],
+          availability_schedule_enabled: scheduleEnabled,
+          availability_schedule: scheduleEnabled ? scheduleWindows : [],
           allergens: allergens.split(',').map((value) => value.trim()).filter(Boolean),
           dietary_tags: dietaryTags.split(',').map((value) => value.trim()).filter(Boolean),
           option_groups: optionGroups,
@@ -444,6 +451,34 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
         </p>
       )}
 
+      <section className="mb-4 rounded-xl border p-4" style={{display: step === 4 ? undefined : "none", borderColor:'var(--line)', background:'var(--white)'}}>
+        <h3 className="mb-2 text-sm font-bold" style={{color:'var(--ink)'}}>Scheduled availability</h3>
+        <p className="mb-3 text-xs leading-5" style={{color:'var(--gray)'}}>Optionally restrict ordering to weekly time windows in Nigeria time (Africa/Lagos). Multiple windows per day are supported. Your existing Available/Unavailable control still takes priority.</p>
+        <label className="flex min-h-11 items-center gap-3 rounded-xl border p-3 text-sm font-semibold" style={{borderColor:'var(--line)',color:'var(--ink)'}}>
+          <input type="checkbox" checked={scheduleEnabled} onChange={(e)=>setScheduleEnabled(e.target.checked)} className="h-4 w-4 accent-orange-500" />
+          Enable weekly schedule
+        </label>
+        {scheduleEnabled && <div className="mt-3 space-y-3">
+          {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((dayName, day) => {
+            const dayWindows = scheduleWindows.filter((window) => window.day === day);
+            return <div key={day} className="rounded-xl border p-3" style={{borderColor:'var(--line)'}}>
+              <div className="mb-2 flex items-center justify-between gap-2"><span className="text-sm font-semibold" style={{color:'var(--ink)'}}>{dayName}</span>
+                <button type="button" onClick={()=>setScheduleWindows((prev)=>[...prev,{day,start:'09:00',end:'17:00'}])} className="rounded-lg border px-3 py-2 text-xs font-semibold" style={{borderColor:'var(--line)',color:'var(--orange)'}}>+ Add time</button>
+              </div>
+              {dayWindows.length===0 && <p className="text-xs" style={{color:'var(--gray)'}}>Unavailable on this day</p>}
+              {dayWindows.map((window) => {
+                const originalIndex = scheduleWindows.indexOf(window);
+                return <div key={originalIndex} className="mb-2 grid grid-cols-[1fr_1fr_auto] items-end gap-2 last:mb-0">
+                  <label className="text-xs" style={{color:'var(--gray)'}}>From<input type="time" value={window.start} onChange={(e)=>setScheduleWindows((prev)=>prev.map((w,i)=>i===originalIndex?{...w,start:e.target.value}:w))} className="mt-1 min-h-10 w-full rounded-lg border px-2 text-sm" style={{borderColor:'var(--line)',color:'var(--ink)'}} /></label>
+                  <label className="text-xs" style={{color:'var(--gray)'}}>Until<input type="time" value={window.end} onChange={(e)=>setScheduleWindows((prev)=>prev.map((w,i)=>i===originalIndex?{...w,end:e.target.value}:w))} className="mt-1 min-h-10 w-full rounded-lg border px-2 text-sm" style={{borderColor:'var(--line)',color:'var(--ink)'}} /></label>
+                  <button type="button" onClick={()=>setScheduleWindows((prev)=>prev.filter((_,i)=>i!==originalIndex))} className="min-h-10 rounded-lg border px-3 text-xs font-semibold" style={{borderColor:'var(--line)',color:'var(--red)'}}>Remove</button>
+                </div>;
+              })}
+            </div>;
+          })}
+          {scheduleWindows.some((w)=>!Number.isInteger(w.day)||w.day<0||w.day>6||!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(w.start)||!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(w.end)||w.start>=w.end) && <p className="text-xs" style={{color:'var(--red)'}}>Each time window must have valid times, with the end later than the start on the same day.</p>}
+        </div>}
+      </section>
       <section className="mb-4 rounded-xl border p-4" style={{display: step === 4 ? undefined : "none", borderColor:'var(--line)', background:'var(--white)'}}>
         <h3 className="mb-2 text-sm font-bold" style={{color:'var(--ink)'}}>Main dish stock</h3>
         <p className="mb-3 text-xs leading-5" style={{color:'var(--gray)'}}>Leave quantity blank if this dish is not stock-tracked. Enter 0 to mark it out of stock. This setting is saved with the item. Stock is reserved when checkout starts, released after a failed or abandoned payment, and deducted when payment succeeds.</p>
