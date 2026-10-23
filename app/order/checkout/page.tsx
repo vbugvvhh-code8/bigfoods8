@@ -27,6 +27,7 @@ function CheckoutContent() {
   const [tipAmount, setTipAmount] = useState(0);
   const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
   const [shareError, setShareError] = useState('');
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     if (paymentLink) {
@@ -96,6 +97,7 @@ function CheckoutContent() {
   const handleCreatePaymentLink = async () => {
     if (!deliveryPoint || isSubmitting) return;
     setShareError('');
+    setLinkCopied(false);
     const url = await createPaymentLink({
       groups: groups.map((g) => ({restaurant_id: g.restaurantId, items: g.items.map((i) => ({menu_item_id: i.id, quantity: i.quantity}))})),
       deliveryAddress: deliveryPoint.label + (note ? ` — ${note}` : ''),
@@ -203,7 +205,7 @@ function CheckoutContent() {
             </div>
             <div className="break-all rounded-lg border p-2.5 text-[11px]" style={{borderColor: 'var(--peach)', color: 'var(--ink)', background: '#FFFAF7'}}>{paymentLink}</div>
             {shareError && <p role="alert" className="mt-2 text-[12px]" style={{color: 'var(--red, #C1453A)'}}>{shareError}</p>}
-            <button onClick={async () => { try { await navigator.clipboard.writeText(paymentLink); setShowPaymentLinkModal(false); } catch { setShareError('Could not copy the link. Please select and copy it manually.'); } }} className="mt-3 w-full rounded-xl py-2.5 text-[12px] font-bold text-white" style={{background: 'var(--orange)'}}>Copy link</button>
+            <button onClick={async () => { try { await navigator.clipboard.writeText(paymentLink); setLinkCopied(true); setShareError(''); } catch { setLinkCopied(false); setShareError('Could not copy automatically. Press and hold the link above to copy it.'); } }} className="mt-3 w-full rounded-xl py-2.5 text-[12px] font-bold text-white" style={{background: 'var(--orange)'}}>{linkCopied ? 'Copied!' : 'Copy link'}</button>
             {typeof navigator !== 'undefined' && !!navigator.share && <button onClick={() => navigator.share({title: 'Big Foods payment link', text: 'Please help me pay for my Big Foods order.', url: paymentLink}).catch(() => {})} className="mt-2 w-full rounded-xl border py-2.5 text-[12px] font-semibold" style={{borderColor: 'var(--orange)', color: 'var(--orange)'}}>Share link</button>}
           </section>
         </div>
