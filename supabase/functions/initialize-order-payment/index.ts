@@ -438,7 +438,7 @@ Deno.serve(async (req: Request) => {
         return json({ error: "The checkout estimate changed before payment started. Refresh checkout and try again.", total_amount: totalAmount }, 409);
       }
 
-    if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_id: order.id, reference, total_amount: totalAmount });
+      if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_id: order.id, reference, total_amount: totalAmount });
       const authUrl = await startPaystack(customerEmail, totalAmount, reference, callbackOrigin, { order_id: order.id, type: "order_payment" });
       if ("error" in authUrl) {
         await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
