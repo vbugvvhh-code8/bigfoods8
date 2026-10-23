@@ -19,6 +19,7 @@ export function MenuItemRow({item, restaurant}: MenuItemRowProps) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const cartItem = items.find((i) => i.id === item.id);
   const quantity = cartItem?.quantity ?? 0;
+  const canOrder = item.is_available !== false && restaurant.is_accepting_orders !== false;
 
   return (
     <div className="flex gap-3 items-center py-3">
@@ -39,16 +40,17 @@ export function MenuItemRow({item, restaurant}: MenuItemRowProps) {
         <div className="text-[11.5px]" style={{color: 'var(--gray)'}}>
           ₦{item.price.toLocaleString()}
         </div>
+        {!canOrder && <div className="mt-0.5 text-[10px] font-semibold" style={{color: 'var(--red, #C1453A)'}}>{item.is_available === false ? 'Currently unavailable' : 'Restaurant not accepting orders'}</div>}
       </div>
 
       {quantity === 0 ? (
         <button
-          onClick={() =>
-            addItem({id: item.id, name: item.name, price: item.price, restaurantId: restaurant.id, restaurantName: restaurant.name})
-          }
-          className="w-7 h-7 rounded-full border flex items-center justify-center"
+          type="button"
+          disabled={!canOrder}
+          onClick={() => canOrder && addItem({id: item.id, name: item.name, price: item.price, restaurantId: restaurant.id, restaurantName: restaurant.name})}
+          className="w-7 h-7 rounded-full border flex items-center justify-center disabled:cursor-not-allowed disabled:opacity-40"
           style={{borderColor: 'var(--orange)', color: 'var(--orange)'}}
-          aria-label={`Add ${item.name}`}
+          aria-label={canOrder ? `Add ${item.name}` : `${item.name} unavailable`}
         >
           <Plus className="w-4 h-4" />
         </button>
@@ -66,10 +68,12 @@ export function MenuItemRow({item, restaurant}: MenuItemRowProps) {
             {quantity}
           </span>
           <button
-            onClick={() => updateQuantity(item.id, quantity + 1)}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-white"
+            type="button"
+            disabled={!canOrder}
+            onClick={() => canOrder && updateQuantity(item.id, quantity + 1)}
+            className="w-7 h-7 rounded-full flex items-center justify-center text-white disabled:cursor-not-allowed disabled:opacity-40"
             style={{background: 'var(--orange)'}}
-            aria-label={`Add one more ${item.name}`}
+            aria-label={canOrder ? `Add one more ${item.name}` : `${item.name} unavailable`}
           >
             <Plus className="w-4 h-4" />
           </button>
