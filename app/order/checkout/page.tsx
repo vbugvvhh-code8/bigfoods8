@@ -99,7 +99,7 @@ function CheckoutContent() {
     setShareError('');
     setLinkCopied(false);
     const url = await createPaymentLink({
-      groups: groups.map((g) => ({restaurant_id: g.restaurantId, items: g.items.map((i) => ({menu_item_id: i.id, quantity: i.quantity}))})),
+      groups: groups.map((g) => ({restaurant_id: g.restaurantId, items: g.items.map((i) => ({menu_item_id: i.menuItemId ?? i.id, quantity: i.quantity, selected_options: (i.selectedOptions ?? []).map((option) => ({group_id: option.groupId, option_id: option.optionId}))}))})),
       deliveryAddress: deliveryPoint.label + (note ? ` — ${note}` : ''),
       deliveryLat: deliveryPoint.lat,
       deliveryLng: deliveryPoint.lng,
@@ -113,7 +113,7 @@ function CheckoutContent() {
     initializePayment({
       groups: groups.map((g) => ({
         restaurant_id: g.restaurantId,
-        items: g.items.map((i) => ({menu_item_id: i.id, quantity: i.quantity})),
+        items: g.items.map((i) => ({menu_item_id: i.menuItemId ?? i.id, quantity: i.quantity, selected_options: (i.selectedOptions ?? []).map((option) => ({group_id: option.groupId, option_id: option.optionId}))})),
       })),
       deliveryAddress: deliveryPoint.label + (note ? ` — ${note}` : ''),
       deliveryLat: deliveryPoint.lat,
