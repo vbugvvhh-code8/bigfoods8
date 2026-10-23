@@ -98,9 +98,9 @@ function ReceiptContent() {
   const tip = receipt.delivery_batch_id ? (receipt.batch?.tip_amount ?? 0) : receipt.tip_amount;
   const total = receipt.subtotal + receipt.platform_fee + deliveryFee + tip;
 
-  return <main className="max-w-md mx-auto px-4 py-8">
+  return <main className="receipt-page max-w-md mx-auto px-4 py-8">
     <Link href={`/order/track/${receipt.id}`} className="inline-flex items-center gap-2 text-sm mb-5" style={{color:'var(--gray)'}}><ArrowLeft className="w-4 h-4" /> Back to tracking</Link>
-    <section className="rounded-2xl border p-5" style={{borderColor:'var(--line)', color:'var(--ink)'}}>
+    <section id="printable-receipt" className="receipt-body rounded-2xl border p-5" style={{borderColor:'var(--line)', color:'var(--ink)'}}>
       <div className="flex items-center gap-3 mb-5"><ReceiptText className="w-7 h-7" style={{color:'var(--orange)'}}/><div><h1 className="font-display text-xl font-semibold">Order receipt</h1><p className="text-xs" style={{color:'var(--gray)'}}>BigFoods · Paid</p></div></div>
       <div className="text-sm mb-4"><p className="font-semibold">{receipt.restaurant?.name ?? 'Restaurant'}</p><p className="text-xs mt-1" style={{color:'var(--gray)'}}>Order #{receipt.id.slice(0,8).toUpperCase()}</p><p className="text-xs" style={{color:'var(--gray)'}}>{new Date(receipt.placed_at).toLocaleString()}</p></div>
       <div className="border-y py-4 space-y-3" style={{borderColor:'var(--line)'}}>
@@ -120,7 +120,7 @@ function ReceiptContent() {
       <div className="mt-4 text-xs break-all" style={{color:'var(--gray)'}}>
         <p>Payment reference</p><p className="font-medium mt-1">{receipt.transaction?.reference ?? 'Payment reference unavailable'}</p>
       </div>
-      <button onClick={() => window.print()} className="w-full mt-5 rounded-xl py-3 text-sm font-semibold text-white print:hidden" style={{background:'var(--orange)'}}>Print / Save receipt</button>
+      <button onClick={() => window.print()} className="w-full mt-5 rounded-xl py-3 text-sm font-semibold text-white no-print" style={{background:'var(--orange)'}}>Print / Save receipt</button>
     </section>
   </main>;
 }
