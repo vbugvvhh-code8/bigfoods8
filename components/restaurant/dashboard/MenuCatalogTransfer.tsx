@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Download, Upload, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { Download, Upload, FileSpreadsheet, Loader2, X } from 'lucide-react';
 import type { MenuItem } from '@/types/database';
 import type { NewMenuItem } from '@/hooks/useMenuItems';
 
@@ -64,6 +64,7 @@ function csvExportValue(item: MenuItem, key: string): string {
 export default function MenuCatalogTransfer({ menuItems, onImport }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [status, setStatus] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
 
@@ -162,41 +163,77 @@ export default function MenuCatalogTransfer({ menuItems, onImport }: Props) {
   }
 
   return (
-    <section className="mb-4 rounded-xl border p-4" style={{ borderColor: 'var(--line)', background: 'var(--white)' }}>
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: 'var(--peach)', color: 'var(--ink)' }}>
-          <FileSpreadsheet className="h-5 w-5" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-bold" style={{ color: 'var(--ink)' }}>Bulk catalog import & export</h2>
-          <p className="mt-1 text-xs leading-5" style={{ color: 'var(--gray)' }}>
-            Export the full menu to CSV, or import new items from a CSV. Imports add items only—existing items are never overwritten. New SKUs are generated automatically; the exported SKU column is for reference. Each row needs a name, whole-number price, and 1–3 image URLs as a JSON array.
-          </p>
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <button type="button" onClick={exportCsv} disabled={busy} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-semibold disabled:opacity-50" style={{ borderColor: 'var(--line)', color: 'var(--ink)' }}>
-              <Download className="h-4 w-4" /> Export CSV ({menuItems.length})
-            </button>
-            <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold text-white disabled:opacity-50" style={{ background: 'var(--orange)' }}>
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              {busy ? 'Importing rows…' : 'Import CSV'}
-            </button>
-          </div>
-          <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => void importFile(event.target.files?.[0])} />
-          <button type="button" onClick={() => {
-            const template = HEADERS.join(',') + '\r\n' + [
-              'Example Jollof Rice', '2500', 'Main dishes', 'Rice', 'Smoky party jollof', 'Rice|tomato|pepper',
-              '1 plate', '20', 'true', '10', 'dairy|soy', 'popular|spicy',
-              '["https://example.com/jollof.jpg"]', '',
-            ].map(csvCell).join(',');
-            const url = URL.createObjectURL(new Blob(['\uFEFF' + template], { type: 'text/csv;charset=utf-8;' }));
-            const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'big-foods-menu-import-template.csv'; anchor.click(); URL.revokeObjectURL(url);
-          }} className="mt-2 min-h-10 text-xs font-semibold underline underline-offset-2" style={{ color: 'var(--orange)' }}>
-            Download import template
-          </button>
-          {status && <p role="status" className="mt-3 rounded-lg p-3 text-xs leading-5" style={{ background: '#E7F6EC', color: '#207245' }}>{status}</p>}
-          {errors.length > 0 && <div role="alert" className="mt-3 rounded-lg p-3 text-xs leading-5" style={{ background: '#FCE8E6', color: 'var(--red)' }}><p className="font-semibold">Import issues</p><ul className="mt-1 list-disc pl-4">{errors.map((error, index) => <li key={index}>{error}</li>)}</ul></div>}
-        </div>
+    <>
+      <div className="mb-4">
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold"
+          style={{ borderColor: 'var(--line)', background: 'var(--white)', color: 'var(--ink)' }}
+        >
+          <FileSpreadsheet className="h-4 w-4" />
+          Bulk catalog import & export
+        </button>
       </div>
-    </section>
+
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-[120] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !busy) setIsOpen(false);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="catalog-transfer-title"
+            className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl border p-5 shadow-2xl sm:rounded-2xl"
+            style={{ borderColor: 'var(--line)', background: 'var(--white)' }}
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: 'var(--peach)', color: 'var(--ink)' }}>
+                  <FileSpreadsheet className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 id="catalog-transfer-title" className="text-base font-bold" style={{ color: 'var(--ink)' }}>Bulk catalog import & export</h2>
+                  <p className="mt-1 text-xs" style={{ color: 'var(--gray)' }}>Manage your menu spreadsheet</p>
+                </div>
+              </div>
+              <button type="button" disabled={busy} onClick={() => setIsOpen(false)} aria-label="Close catalog import and export" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg disabled:opacity-50" style={{ color: 'var(--gray)', background: 'var(--peach)' }}>
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-sm leading-6" style={{ color: 'var(--gray)' }}>
+              Export the full menu to CSV, or import new items from a CSV. Imports add items only—existing items are never overwritten. New SKUs are generated automatically; the exported SKU column is for reference. Each row needs a name, whole-number price, and 1–3 image URLs as a JSON array.
+            </p>
+            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <button type="button" onClick={exportCsv} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-semibold disabled:opacity-50" style={{ borderColor: 'var(--line)', color: 'var(--ink)' }}>
+                <Download className="h-4 w-4" /> Export CSV ({menuItems.length})
+              </button>
+              <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold text-white disabled:opacity-50" style={{ background: 'var(--orange)' }}>
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {busy ? 'Importing rows…' : 'Import CSV'}
+              </button>
+            </div>
+            <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => void importFile(event.target.files?.[0])} />
+            <button type="button" onClick={() => {
+              const template = HEADERS.join(',') + '\r\n' + [
+                'Example Jollof Rice', '2500', 'Main dishes', 'Rice', 'Smoky party jollof', 'Rice|tomato|pepper',
+                '1 plate', '20', 'true', '10', 'dairy|soy', 'popular|spicy',
+                '["https://example.com/jollof.jpg"]', '',
+              ].map(csvCell).join(',');
+              const url = URL.createObjectURL(new Blob(['\uFEFF' + template], { type: 'text/csv;charset=utf-8;' }));
+              const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'big-foods-menu-import-template.csv'; anchor.click(); URL.revokeObjectURL(url);
+            }} className="mt-3 min-h-10 text-sm font-semibold underline underline-offset-2" style={{ color: 'var(--orange)' }}>
+              Download import template
+            </button>
+            {status && <p role="status" className="mt-3 rounded-lg p-3 text-sm leading-5" style={{ background: '#E7F6EC', color: '#207245' }}>{status}</p>}
+            {errors.length > 0 && <div role="alert" className="mt-3 rounded-lg p-3 text-sm leading-5" style={{ background: '#FCE8E6', color: 'var(--red)' }}><p className="font-semibold">Import issues</p><ul className="mt-1 list-disc pl-4">{errors.map((error, index) => <li key={index}>{error}</li>)}</ul></div>}
+          </section>
+        </div>
+      )}
+    </>
   );
 }
