@@ -155,6 +155,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
     return group.name.trim().length > 0 &&
       ['single', 'multiple'].includes(group.selection_type) &&
       group.options.length >= 2 &&
+      (group.selection_type !== 'single' || (group.min_select ?? (group.required ? 1 : 0)) <= 1) &&
       group.options.every((option) => option.name.trim().length > 0 && Number.isSafeInteger(option.price) && option.price >= 0 && (option.stock_quantity == null ? Number(option.stock_reserved ?? 0) === 0 : (Number.isSafeInteger(option.stock_quantity) && option.stock_quantity >= Number(option.stock_reserved ?? 0)))) &&
       Number.isSafeInteger(minimum) && Number.isSafeInteger(maximum) &&
       minimum >= 0 && minimum <= maximum && maximum <= group.options.length;
