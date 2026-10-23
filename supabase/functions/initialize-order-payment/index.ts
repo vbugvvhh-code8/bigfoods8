@@ -432,11 +432,11 @@ Deno.serve(async (req: Request) => {
       }
 
       if (expectedTotal != null && Number(expectedTotal) !== totalAmount) {
-      await admin.rpc("release_menu_stock_reservation", { p_reference: reference });
-      await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
-      await admin.from("orders").update({ status: "cancelled", payment_status: "failed" }).eq("id", order.id);
-      return json({ error: "The checkout estimate changed before payment started. Refresh checkout and try again.", total_amount: totalAmount }, 409);
-    }
+        await admin.rpc("release_menu_stock_reservation", { p_reference: reference });
+        await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
+        await admin.from("orders").update({ status: "cancelled", payment_status: "failed" }).eq("id", order.id);
+        return json({ error: "The checkout estimate changed before payment started. Refresh checkout and try again.", total_amount: totalAmount }, 409);
+      }
 
     if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_id: order.id, reference, total_amount: totalAmount });
       const authUrl = await startPaystack(customerEmail, totalAmount, reference, callbackOrigin, { order_id: order.id, type: "order_payment" });
