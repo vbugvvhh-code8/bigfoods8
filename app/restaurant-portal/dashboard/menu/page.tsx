@@ -3,7 +3,7 @@
 import SafeImage from '@/components/ui/SafeImage';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Pencil, Trash2, Search, X, CheckSquare, Square, Eye, EyeOff } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, X, CheckSquare, Square, Eye, EyeOff, ArrowUp, ArrowDown } from 'lucide-react';
 import useRestaurant from '@/hooks/useRestaurant';
 import { useMenuItems } from '@/hooks/useMenuItems';
 import { ChipPicker } from '@/components/restaurant/dashboard/MenuItemForm';
@@ -127,6 +127,26 @@ export default function MenuBuilderPage() {
       setBulkError(error instanceof Error ? error.message : 'Some items could not be deleted. Refresh the menu and check which items remain.');
     } finally {
       setBulkDeleting(false);
+    }
+  }
+
+  async function moveItem(item: MenuItem, direction: -1 | 1) {
+    const ordered = [...menuItems].sort((a, b) => Number((a as any).display_order ?? 0) - Number((b as any).display_order ?? 0) || (a.category ?? '').localeCompare(b.category ?? '') || a.name.localeCompare(b.name));
+    const index = ordered.findIndex((entry) => entry.id === item.id);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= ordered.length) return;
+    [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
+    setPageError(null);
+    setPageMessage(null);
+    try {
+      for (let position = 0; position < ordered.length; position++) {
+        if (Number((ordered[position] as any).display_order ?? 0) !== position) {
+          await updateMenuItem(ordered[position].id, { display_order: position });
+        }
+      }
+      setPageMessage('Menu display order saved.');
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : 'Could not save menu order. Please refresh and try again.');
     }
   }
 
@@ -340,6 +360,11 @@ export default function MenuBuilderPage() {
                   </div>
                 </div>
               </div>
+              <div className="mb-3 flex items-center gap-2">
+                <span className="text-[11px] font-semibold" style={{color:'var(--gray)'}}>Display order</span>
+                <button type="button" onClick={() => void moveItem(item, -1)} className="flex h-9 w-9 items-center justify-center rounded-lg border" style={{borderColor:'var(--line)',color:'var(--ink)'}} aria-label={`Move ${item.name} earlier`} title="Move earlier"><ArrowUp className="h-4 w-4"/></button>
+                <button type="button" onClick={() => void moveItem(item, 1)} className="flex h-9 w-9 items-center justify-center rounded-lg border" style={{borderColor:'var(--line)',color:'var(--ink)'}} aria-label={`Move ${item.name} later`} title="Move later"><ArrowDown className="h-4 w-4"/></button>
+              </div>
               <div className="mt-4 grid grid-cols-3 gap-3 border-t pt-4" style={{ borderColor: 'var(--line)' }}>
                 <button type="button" disabled={availabilityBusyId === item.id} onClick={() => toggleAvailability(item)} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 py-3 text-xs font-semibold leading-tight transition hover:brightness-95 active:scale-[0.98] disabled:opacity-50" style={{ borderColor: 'var(--line)', color: item.is_available ? 'var(--gray)' : '#207245' }}>
                   {item.is_available ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -407,6 +432,8 @@ export default function MenuBuilderPage() {
                   </td>
                   <td className="px-2 py-3">
                     <div className="flex items-center justify-center gap-1">
+                      <button type="button" onClick={() => void moveItem(item, -1)} className="flex h-9 w-8 shrink-0 items-center justify-center rounded-md border" style={{borderColor:'var(--line)',color:'var(--ink)'}} aria-label={`Move ${item.name} earlier`} title="Move earlier"><ArrowUp className="h-4 w-4"/></button>
+                      <button type="button" onClick={() => void moveItem(item, 1)} className="flex h-9 w-8 shrink-0 items-center justify-center rounded-md border" style={{borderColor:'var(--line)',color:'var(--ink)'}} aria-label={`Move ${item.name} later`} title="Move later"><ArrowDown className="h-4 w-4"/></button>
                       <button type="button" disabled={availabilityBusyId === item.id} onClick={() => toggleAvailability(item)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md disabled:opacity-50" style={{ color: item.is_available ? 'var(--gray)' : '#207245' }} aria-label={item.is_available ? 'Mark ' + item.name + ' unavailable' : 'Mark ' + item.name + ' available'} title={item.is_available ? 'Mark unavailable' : 'Mark available'}>
                         {item.is_available ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
