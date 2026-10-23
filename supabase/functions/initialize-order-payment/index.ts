@@ -119,12 +119,16 @@ Deno.serve(async (req: Request) => {
     for (const g of groups) {
       const { data: menuItems, error: itemsError } = await admin
         .from("menu_items")
-        .select("id, price, restaurant_id")
+        .select("id, price, restaurant_id, is_available")
         .in("id", g.items.map((i: any) => i.menu_item_id));
       if (itemsError) return json({ error: itemsError.message }, 500);
       const invalid = menuItems?.find((m: any) => m.restaurant_id !== g.restaurant_id);
       if (invalid || menuItems?.length !== g.items.length) {
         return json({ error: "One or more items don't belong to their restaurant" }, 400);
+      }
+      const unavailableItem = menuItems?.find((m: any) => m.is_available === false);
+      if (unavailableItem) {
+        return json({ error: "One or more items in your cart are currently unavailable. Remove them and try again." }, 409);
       }
       const subtotal = g.items.reduce((sum: number, i: any) => {
         const mi = menuItems.find((m: any) => m.id === i.menu_item_id);
