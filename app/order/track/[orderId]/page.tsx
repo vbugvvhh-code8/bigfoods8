@@ -139,7 +139,7 @@ function TrackContent() {
             <div key={item.id} className="flex justify-between py-2 text-[12.5px]">
               <span className="min-w-0" style={{color: 'var(--ink)'}}>
                 {item.quantity}× {item.name}
-                {(item.selected_options ?? []).length > 0 && <span className="mt-0.5 block text-[10.5px]" style={{color: 'var(--gray)'}}>{item.selected_options.map((option) => `${option.groupName}: ${option.optionName}`).join(' · ')}</span>}
+                {(item.selected_options ?? []).length > 0 && <span className="mt-0.5 block text-[10.5px]" style={{color: 'var(--gray)'}}>{item.selected_options.map((option) => `${option.groupName}: ${option.quantity && option.quantity > 1 ? `${option.quantity} × ` : ''}${option.optionName}`).join(' · ')}</span>}
               </span>
               <span style={{color: 'var(--gray)'}}>₦{(item.unit_price * item.quantity).toLocaleString()}</span>
             </div>
