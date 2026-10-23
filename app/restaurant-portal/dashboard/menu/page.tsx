@@ -55,7 +55,7 @@ export default function MenuBuilderPage() {
       menuItems
         .filter((item) => selectedItemIds.has(item.id))
         .map((item) => (item as any).subcategory)
-        .filter((value): value is string => typeof value === 'string' && value.length > 0)
+        .filter((value) => typeof value === 'string' && value.length > 0) as string[]
     ));
   }, [bulkCategory, menuItems, selectedItemIds]);
 
@@ -166,7 +166,8 @@ export default function MenuBuilderPage() {
     );
   }
 
-  return <div>
+  return (
+    <div>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-[18px] font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
           Menu
@@ -438,5 +439,6 @@ export default function MenuBuilderPage() {
           </section>
         </div>
       )}
-    </div>;
+    </div>
+  );
 }
