@@ -351,6 +351,13 @@ export default function MenuBuilderPage() {
                 )}
                 <div className="min-w-0 flex-1">
                   <h2 className="break-words text-sm font-bold leading-5" style={{ color: 'var(--ink)' }}>{item.name}</h2>
+                  {Boolean((item as any).admin_disabled) && (
+                    <div role="status" className="mt-2 rounded-lg border p-2.5 text-[11px]" style={{borderColor:'#F0B5B0',background:'#FFF1F0',color:'#8F211B'}}>
+                      <p className="font-bold">Disabled by BigFoods admin</p>
+                      <p className="mt-1">{(item as any).admin_disabled_note || 'No reason was provided. Please contact BigFoods support for clarification.'}</p>
+                      <p className="mt-1 font-semibold">You cannot reactivate this item. Contact support if you believe this was a mistake.</p>
+                    </div>
+                  )}
                   <p className="mt-1 break-all text-[11px]" style={{ color: 'var(--gray)' }}>SKU: {item.sku}</p>
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                     <p className="text-base font-bold tabular-nums" style={{ color: 'var(--ink)' }}>₦{Number(item.price).toLocaleString()}</p>
@@ -420,6 +427,11 @@ export default function MenuBuilderPage() {
                       )}
                       <div className="min-w-0 flex-1">
                         <p className="truncate whitespace-nowrap text-[12px] font-semibold" style={{ color: 'var(--ink)' }} title={item.name}>{item.name}</p>
+                        {Boolean((item as any).admin_disabled) && (
+                          <p className="mt-1 whitespace-normal rounded-md px-2 py-1 text-[10px]" style={{background:'#FFF1F0',color:'#8F211B'}} title={(item as any).admin_disabled_note || 'Disabled by BigFoods admin'}>
+                            <strong>Disabled by admin:</strong> {(item as any).admin_disabled_note || 'Contact BigFoods support for details.'}
+                          </p>
+                        )}
                         <p className="mt-0.5 truncate text-[10px]" style={{ color: 'var(--gray)' }} title={`SKU: ${item.sku}`}>SKU: {item.sku}</p>
                       </div>
                     </div>
