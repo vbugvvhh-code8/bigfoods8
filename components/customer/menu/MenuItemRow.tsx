@@ -8,9 +8,10 @@ import type {MenuItem, Restaurant} from '@/types/database';
 interface MenuItemRowProps {
   item: MenuItem;
   restaurant: Restaurant;
+  relatedItems?: MenuItem[];
 }
 
-export function MenuItemRow({item, restaurant}: MenuItemRowProps) {
+export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowProps) {
   const router = useRouter();
   const {items, addItem, updateQuantity} = useCart();
   const imageUrls = Array.isArray((item as any).image_urls) && (item as any).image_urls.length > 0
@@ -62,6 +63,10 @@ export function MenuItemRow({item, restaurant}: MenuItemRowProps) {
     const time = new Date(2000, 0, 1, hour, minute).toLocaleTimeString('en-NG', { hour: 'numeric', minute: '2-digit', hour12: true });
     return `Back ${dayName} at ${time}`;
   })();
+  const now = Date.now();
+  const promotionInWindow = item.promotional_price != null && (!item.promotion_starts_at || new Date(item.promotion_starts_at).getTime() <= now) && (!item.promotion_ends_at || new Date(item.promotion_ends_at).getTime() > now);
+  const displayPrice = promotionInWindow ? Number(item.promotional_price) : Number(item.price);
+  const related = (item.complementary_item_ids ?? []).map(id => relatedItems.find(candidate => candidate.id === id)).filter((candidate): candidate is MenuItem => !!candidate && candidate.is_available !== false).slice(0, 3);
   const canOrder = item.is_available !== false && restaurant.is_accepting_orders !== false && withinSchedule;
   const hasOptions = (item.option_groups ?? []).length > 0;
   const openDetails = () => { if (canOrder) router.push(`/order/restaurant/${restaurant.id}/item/${item.id}`); };
@@ -87,7 +92,8 @@ export function MenuItemRow({item, restaurant}: MenuItemRowProps) {
       </div>
       <div className="p-2.5 sm:p-3">
         <h2 className="line-clamp-2 text-sm font-semibold" style={{color:'var(--ink)'}}>{item.name}</h2>
-        <p className="mt-1 text-xs font-medium" style={{color:'var(--orange)'}}>₦{item.price.toLocaleString()}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold" style={{color:'var(--orange)'}}>{promotionInWindow ? <><span>₦{displayPrice.toLocaleString()}</span><span className="text-[10px] font-medium line-through" style={{color:'var(--gray)'}}>₦{Number(item.price).toLocaleString()}</span><span className="rounded-full px-2 py-0.5 text-[9px] font-bold" style={{background:'#FCE8E6',color:'#B42318'}}>SALE</span></> : <span>₦{Number(item.price).toLocaleString()}</span>}</div>
+        {(item.dietary_tags ?? []).length > 0 && <div className="mt-2 flex flex-wrap gap-1">{item.dietary_tags.slice(0,3).map(tag=><span key={tag} className="rounded-full px-2 py-1 text-[9px] font-semibold" style={{background:/spicy|hot/i.test(tag)?'#FCE8E6':'#E7F6EC',color:/spicy|hot/i.test(tag)?'#B42318':'#207245'}}>{tag}</span>)}</div>
         {!canOrder && <p className={`mt-1 inline-flex max-w-full rounded-md border px-2.5 py-1.5 text-[11px] font-semibold ${item.is_available === false ? 'border-rose-200 bg-rose-50 text-rose-800' : !withinSchedule ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-violet-200 bg-violet-50 text-violet-800'}`}>{item.is_available === false ? 'Currently unavailable' : !withinSchedule ? nextAvailabilityLabel : 'Restaurant not accepting orders'}</p>}
         {canOrder && <div className="mt-3">
           {hasOptions ? (
@@ -102,6 +108,7 @@ export function MenuItemRow({item, restaurant}: MenuItemRowProps) {
             </div>
           )}
         </div>}
+        {related.length > 0 && <div className="mt-3 border-t pt-2" style={{borderColor:'var(--line)'}}><p className="mb-1.5 text-[10px] font-bold" style={{color:'var(--gray)'}}>Goes well with</p><div className="flex flex-wrap gap-1">{related.map(candidate=><button key={candidate.id} type="button" onClick={event=>{event.stopPropagation();router.push(`/order/restaurant/${restaurant.id}/item/${candidate.id}`);}} className="rounded-full border px-2 py-1 text-[10px] font-semibold" style={{borderColor:'var(--line)',color:'var(--orange)'}}>{candidate.name}</button>)}</div></div>}
       </div>
     </article>
   );
