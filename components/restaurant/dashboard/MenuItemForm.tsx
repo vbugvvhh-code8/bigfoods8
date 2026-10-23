@@ -132,7 +132,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   });
   const hasValidFields = name.trim().length > 0 && price.trim().length > 0 &&
     Number.isSafeInteger(parsedPrice) && parsedPrice > 0 && hasValidPreparationTime && hasValidOptionGroups;
-  const canSubmit = hasValidFields && totalImageCount >= 1 && totalImageCount <= 3;
+  const canSubmit = hasValidFields && hasValidStockQuantity && totalImageCount >= 1 && totalImageCount <= 3;
 
   function handleFilesSelected(files: FileList | null) {
     if (!files) return;
@@ -311,7 +311,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
         <label className="mb-1.5 block text-[12px] font-medium" style={{ color: 'var(--ink)' }}>Dish description (optional)</label>
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1200} rows={3} placeholder="Describe the dish, flavour, and what customers can expect." className="w-full rounded-[9px] px-3 py-2.5 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }} />
       </div>
-      <div className="mb-3" style={{ display: step === 4 ? undefined : "none" }}>
+      <div className="mb-3" style={{ display: step === 6 ? undefined : "none" }}>
         <label className="mb-1.5 block text-[12px] font-medium" style={{ color: 'var(--ink)' }}>Ingredients (optional)</label>
         <textarea value={ingredients} onChange={(e) => setIngredients(e.target.value)} maxLength={1200} rows={2} placeholder="e.g. rice, tomatoes, peppers, chicken" className="w-full rounded-[9px] px-3 py-2.5 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }} />
       </div>
@@ -442,7 +442,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
 
       <section className="mb-4 rounded-xl border p-4" style={{display: step === 4 ? undefined : "none", borderColor:'var(--line)', background:'var(--white)'}}>
         <h3 className="mb-2 text-sm font-bold" style={{color:'var(--ink)'}}>Main dish stock</h3>
-        <p className="mb-3 text-xs leading-5" style={{color:'var(--gray)'}}>Leave quantity blank if this dish is not stock-tracked. Enter 0 to mark it out of stock. This setting is saved with the item; checkout reservation protection is being wired separately.</p>
+        <p className="mb-3 text-xs leading-5" style={{color:'var(--gray)'}}>Leave quantity blank if this dish is not stock-tracked. Enter 0 to mark it out of stock. This setting is saved with the item. Stock reservation during checkout is the next implementation step.</p>
         <label className="block text-xs font-semibold" style={{color:'var(--ink)'}}>Available quantity <span className="font-normal" style={{color:'var(--gray)'}}>(optional)</span></label>
         <input type="number" min={0} step={1} value={stockQuantity} onChange={(e)=>setStockQuantity(e.target.value)} placeholder="Leave blank for unlimited / not tracked" className="mt-1.5 w-full rounded-lg border px-3 py-2.5 text-sm" style={{borderColor:'var(--line)'}} />
         {!hasValidStockQuantity && <p className="mt-2 text-xs" style={{color:'var(--red)'}}>Stock must be a whole number of zero or greater.</p>}
