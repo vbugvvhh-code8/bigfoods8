@@ -351,8 +351,10 @@ export default function MenuBuilderPage() {
                       ) : (
                         <div className="h-9 w-9 shrink-0 rounded-md" style={{ background: 'var(--peach)' }} aria-hidden="true" />
                       )}
-                      <span className="min-w-0 break-words text-[12px] font-semibold" style={{ color: 'var(--ink)', overflowWrap: 'anywhere' }}>{item.name}</span>
-                      <span className="mt-1 block text-[10px]" style={{ color: 'var(--gray)' }}>SKU: {item.sku}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate whitespace-nowrap text-[12px] font-semibold" style={{ color: 'var(--ink)' }} title={item.name}>{item.name}</p>
+                        <p className="mt-0.5 truncate text-[10px]" style={{ color: 'var(--gray)' }} title={`SKU: ${item.sku}`}>SKU: {item.sku}</p>
+                      </div>
                     </div>
                   </td>
                   <td className="px-2 py-3 text-right text-[12px] tabular-nums" style={{ color: 'var(--ink)' }}>₦{Number(item.price).toLocaleString()}</td>
