@@ -43,7 +43,7 @@ export function MenuItemRow({item, restaurant}: MenuItemRowProps) {
       </div>
       <div className="p-2.5 sm:p-3">
         <h2 className="line-clamp-2 text-sm font-semibold" style={{color:'var(--ink)'}}>{item.name}</h2>
-        <p className="mt-1 text-sm font-semibold" style={{color:'var(--ink)'}}>₦{item.price.toLocaleString()}</p>
+        <p className="mt-1 text-xs font-medium" style={{color:'var(--orange)'}}>₦{item.price.toLocaleString()}</p>
         {!canOrder && <p className="mt-1 text-[11px] font-semibold" style={{color:'var(--red, #C1453A)'}}>{item.is_available === false ? 'Currently unavailable' : 'Restaurant not accepting orders'}</p>}
         {canOrder && <div className="mt-3">
           {hasOptions ? (
