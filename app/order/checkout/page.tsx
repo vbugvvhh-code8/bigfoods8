@@ -113,7 +113,7 @@ function CheckoutContent() {
     initializePayment({
       groups: groups.map((g) => ({
         restaurant_id: g.restaurantId,
-        items: g.items.map((i) => ({menu_item_id: i.menuItemId ?? i.id, quantity: i.quantity, selected_options: (i.selectedOptions ?? []).map((option) => ({group_id: option.groupId, option_id: option.optionId}))})),
+        items: g.items.map((i) => ({menu_item_id: i.menuItemId ?? i.id, quantity: i.quantity, selected_options: (i.selectedOptions ?? []).map((option) => ({group_id: option.groupId, option_id: option.optionId, quantity: option.quantity ?? 1}))})),
       })),
       deliveryAddress: deliveryPoint.label + (note ? ` — ${note}` : ''),
       deliveryLat: deliveryPoint.lat,
