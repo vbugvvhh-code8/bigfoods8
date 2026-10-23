@@ -2,11 +2,10 @@
 
 import SafeImage from '@/components/ui/SafeImage';
 import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Plus, Pencil, Trash2, Search, X, CheckSquare, Square, Eye, EyeOff } from 'lucide-react';
 import useRestaurant from '@/hooks/useRestaurant';
 import { useMenuItems } from '@/hooks/useMenuItems';
-import { ChipPicker } from '@/components/restaurant/dashboard/MenuItemForm';
+import MenuItemForm, { ChipPicker } from '@/components/restaurant/dashboard/MenuItemForm';
 import { MENU_CATEGORY_PRESETS, MENU_CATEGORY_NAMES } from '@/lib/menuCategoryPresets';
 import type { MenuItem } from '@/types/database';
 
@@ -14,10 +13,11 @@ const UNCATEGORIZED = 'uncategorized';
 const NO_SUBCATEGORY = 'other';
 
 export default function MenuBuilderPage() {
-  const router = useRouter();
   const { restaurant, loading: restaurantLoading } = useRestaurant();
   const { menuItems, isLoading, addMenuItem, updateMenuItem, deleteMenuItem } = useMenuItems(restaurant?.id);
 
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [availabilityBusyId, setAvailabilityBusyId] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [pageMessage, setPageMessage] = useState<string | null>(null);
@@ -48,16 +48,6 @@ export default function MenuBuilderPage() {
       a === NO_SUBCATEGORY ? 1 : b === NO_SUBCATEGORY ? -1 : a.localeCompare(b)
     );
   }, [menuItems, categoryFilter]);
-
-  const selectedSubcategoryOptions = useMemo(() => {
-    if (bulkCategory) return MENU_CATEGORY_PRESETS[bulkCategory.toLowerCase()] ?? [];
-    return Array.from(new Set(
-      menuItems
-        .filter((item) => selectedItemIds.has(item.id))
-        .map((item) => (item as any).subcategory)
-        .filter((value) => typeof value === 'string' && value.length > 0) as string[]
-    ));
-  }, [bulkCategory, menuItems, selectedItemIds]);
 
   const filteredItems = useMemo(() => {
     const query = menuSearch.trim().toLocaleLowerCase();
@@ -167,24 +157,37 @@ export default function MenuBuilderPage() {
   }
 
   return (
-    <div>
+    <>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-[18px] font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
           Menu
         </h1>
-        <button
-          type="button"
-          onClick={() => router.push('/restaurant-portal/dashboard/menu/item')}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-[9px] text-[12.5px] font-semibold text-white"
-          style={{ background: 'var(--orange)' }}
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Add item
-        </button>
+        {!showAddForm && (
+          <button
+            type="button"
+            onClick={() => setShowAddForm(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-[9px] text-[12.5px] font-semibold text-white"
+            style={{ background: 'var(--orange)' }}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add item
+          </button>
+        )}
       </div>
 
       {pageError && <p role="alert" className="mb-3 rounded-lg p-3 text-[12px]" style={{ background: '#FCE8E6', color: 'var(--red)' }}>{pageError}</p>}
       {pageMessage && <p role="status" className="mb-3 rounded-lg p-3 text-[12px]" style={{ background: 'var(--peach)', color: 'var(--ink)' }}>{pageMessage}</p>}
+
+      {showAddForm && (
+        <div className="mb-5">
+          <MenuItemForm
+            restaurantId={restaurant.id}
+            onSubmit={addMenuItem}
+            onDone={() => setShowAddForm(false)}
+            onCancel={() => setShowAddForm(false)}
+          />
+        </div>
+      )}
 
       {isLoading && (
         <p className="text-[12.5px] py-4 text-center" style={{ color: 'var(--gray)' }}>
@@ -303,7 +306,7 @@ export default function MenuBuilderPage() {
                   <p className="mt-2 text-[11px]" style={{color:'var(--gray)'}}>Choose a category or Custom. Leave unselected to keep each item's category.</p>
                 </div>
                 <div className="rounded-xl border p-3" style={{borderColor:'var(--line)',background:'var(--white)'}}>
-                  <ChipPicker label="Set subcategory" options={selectedSubcategoryOptions} value={bulkSubcategory} onChange={setBulkSubcategory} />
+                  <ChipPicker label="Set subcategory" options={bulkCategory ? (MENU_CATEGORY_PRESETS[bulkCategory.toLowerCase()] ?? []) : Array.from(new Set(menuItems.filter((item) => selectedItemIds.has(item.id)).map((item) => (item as any).subcategory).filter((value): value is string => typeof value === 'string' && value.length > 0)))} value={bulkSubcategory} onChange={setBulkSubcategory} />
                   <p className="mt-2 text-[11px]" style={{color:'var(--gray)'}}>Leave unselected to keep each item's subcategory.</p>
                 </div>
               </div>
@@ -318,7 +321,7 @@ export default function MenuBuilderPage() {
         </section>
       )}
 
-      {!isLoading && menuItems.length === 0 && (
+      {!isLoading && menuItems.length === 0 && !showAddForm && (
         <p className="text-[12.5px] py-6 text-center" style={{ color: 'var(--gray)' }}>
           No menu items yet. Add your first dish to get started.
         </p>
@@ -374,7 +377,7 @@ export default function MenuBuilderPage() {
                       <button type="button" disabled={availabilityBusyId === item.id} onClick={() => toggleAvailability(item)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md disabled:opacity-50" style={{ color: item.is_available ? 'var(--gray)' : '#207245' }} aria-label={item.is_available ? 'Mark ' + item.name + ' unavailable' : 'Mark ' + item.name + ' available'} title={item.is_available ? 'Mark unavailable' : 'Mark available'}>
                         {item.is_available ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
-                      <button type="button" onClick={() => router.push('/restaurant-portal/dashboard/menu/item?edit=' + encodeURIComponent(item.id)) className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border" style={{ color: 'var(--ink)', borderColor: 'var(--line)', background: 'var(--peach)' }} aria-label={`Edit ${item.name}`} title="Edit item">
+                      <button type="button" onClick={() => { setShowAddForm(false); setEditingItem(item); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border" style={{ color: 'var(--ink)', borderColor: 'var(--line)', background: 'var(--peach)' }} aria-label={`Edit ${item.name}`} title="Edit item">
                         <Pencil className="h-4 w-4" />
                       </button>
                       <button type="button" onClick={() => handleDelete(item)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border" style={{ color: 'var(--red)', borderColor: 'var(--line)', background: 'var(--white)' }} aria-label={`Delete ${item.name}`} title="Delete item">
@@ -386,6 +389,47 @@ export default function MenuBuilderPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {editingItem && (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setEditingItem(null);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-menu-item-title"
+            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border p-4 shadow-2xl sm:p-6"
+            style={{ background: 'var(--white)', borderColor: 'var(--line)' }}
+          >
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 id="edit-menu-item-title" className="text-lg font-bold" style={{ color: 'var(--ink)' }}>
+                Edit menu item
+              </h2>
+              <button
+                type="button"
+                onClick={() => setEditingItem(null)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
+                style={{ borderColor: 'var(--line)', color: 'var(--gray)' }}
+                aria-label="Close edit menu item"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <MenuItemForm
+              restaurantId={restaurant.id}
+              existingItem={editingItem}
+              onSubmit={addMenuItem}
+              onUpdate={updateMenuItem}
+              onDone={() => setEditingItem(null)}
+              onCancel={() => setEditingItem(null)}
+            />
+          </section>
         </div>
       )}
 
@@ -439,6 +483,6 @@ export default function MenuBuilderPage() {
           </section>
         </div>
       )}
-    </div>
+    </>
   );
 }
