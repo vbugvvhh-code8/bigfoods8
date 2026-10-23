@@ -70,13 +70,17 @@ Deno.serve(async (req: Request) => {
 
     const { data: menuItems, error: itemsError } = await supabase
       .from("menu_items")
-      .select("id, price, restaurant_id")
+      .select("id, price, restaurant_id, is_available")
       .in("id", items.map((i: any) => i.menu_item_id));
     if (itemsError) return json({ error: itemsError.message }, 500);
 
     const invalidItem = menuItems?.find((m: any) => m.restaurant_id !== restaurant_id);
     if (invalidItem || menuItems?.length !== items.length) {
       return json({ error: "One or more items don't belong to this restaurant" }, 400);
+    }
+    const unavailableItem = menuItems?.find((m: any) => m.is_available === false);
+    if (unavailableItem) {
+      return json({ error: "One or more items in your cart are currently unavailable. Remove them and try again." }, 409);
     }
 
     const subtotal = items.reduce((sum: number, i: any) => {

@@ -205,12 +205,16 @@ Deno.serve(async (req: Request) => {
 
       const { data: menuItems, error: itemsError } = await admin
         .from("menu_items")
-        .select("id, price, restaurant_id")
+        .select("id, price, restaurant_id, is_available")
         .in("id", g.items.map((i: any) => i.menu_item_id));
       if (itemsError) return json({ error: "Unable to validate cart items. Please try again later." }, 503);
       const invalid = menuItems?.find((m: any) => m.restaurant_id !== g.restaurant_id);
       if (invalid || menuItems?.length !== g.items.length) {
         return json({ error: "One or more items don't belong to their restaurant" }, 400);
+      }
+      const unavailableItem = menuItems?.find((m: any) => m.is_available === false);
+      if (unavailableItem) {
+        return json({ error: "One or more items in your cart are currently unavailable. Remove them and try again." }, 409);
       }
       const menuItemById = new Map((menuItems ?? []).map((m: any) => [m.id, m]));
       const pricedItems = g.items.map((i: any) => {
