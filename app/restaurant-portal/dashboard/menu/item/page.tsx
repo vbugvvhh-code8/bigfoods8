@@ -1,6 +1,7 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import useRestaurant from '@/hooks/useRestaurant';
 import { useMenuItems } from '@/hooks/useMenuItems';
@@ -8,13 +9,15 @@ import MenuItemForm from '@/components/restaurant/dashboard/MenuItemForm';
 
 export default function MenuItemEditorPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const editId = searchParams.get('edit');
+  const [editId, setEditId] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    setEditId(new URLSearchParams(window.location.search).get('edit'));
+  }, []);
   const { restaurant, loading: restaurantLoading } = useRestaurant();
   const { menuItems, isLoading: itemsLoading, addMenuItem, updateMenuItem } = useMenuItems(restaurant?.id);
   const item = editId ? menuItems.find((entry) => entry.id === editId) : undefined;
 
-  if (restaurantLoading || (editId && itemsLoading)) {
+  if (editId === undefined || restaurantLoading || (editId && itemsLoading)) {
     return <p className="py-10 text-center text-sm" style={{ color: 'var(--gray)' }}>Loading menu item…</p>;
   }
 
