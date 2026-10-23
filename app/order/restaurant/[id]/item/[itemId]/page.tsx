@@ -17,9 +17,8 @@ export default function MenuItemDetailsPage() {
   const { items, addItem, updateQuantity } = useCart();
   const [activeImage, setActiveImage] = useState(0);
   const [requestedQuantity, setRequestedQuantity] = useState(1);
-  const [selectedByGroup, setSelectedByGroup] = useState<Record<string, string[]>>({});
-  useEffect(() => { setSelectedByGroup({}); setRequestedQuantity(1); }, [itemId]);
-  useEffect(() => { setRequestedQuantity(1); }, [selectedByGroup]);
+  const [optionQuantities, setOptionQuantities] = useState<Record<string, number>>({});
+  useEffect(() => { setOptionQuantities({}); setRequestedQuantity(1); setActiveImage(0); }, [itemId]);
 
   const item = useMemo(() => menuItems.find((candidate) => candidate.id === itemId), [menuItems, itemId]);
   const images = useMemo(() => {
@@ -27,38 +26,16 @@ export default function MenuItemDetailsPage() {
     const stored = Array.isArray(item.image_urls) ? item.image_urls.filter(Boolean) : [];
     return stored.length ? stored : item.image_url ? [item.image_url] : [];
   }, [item]);
-  const selectedOptions = useMemo(() => (item?.option_groups ?? []).flatMap((group) =>
-    group.options.filter((option) => (selectedByGroup[group.id] ?? []).includes(option.id)).map((option) => ({
-      groupId: group.id, groupName: group.name, optionId: option.id, optionName: option.name, price: option.price,
-    }))
-  ), [item, selectedByGroup]);
-  const cartKey = item ? (selectedOptions.length ? `${item.id}::${selectedOptions.map((option) => `${option.groupId}:${option.optionId}`).sort().join('|')}` : item.id) : '';
+  const selectedOptions = useMemo(() => (item?.option_groups ?? []).flatMap((group) => group.options.filter((option) => (optionQuantities[option.id] ?? 0) > 0).map((option) => ({ groupId: group.id, groupName: group.name, optionId: option.id, optionName: option.name, price: option.price, quantity: optionQuantities[option.id] ?? 0 }))), [item, optionQuantities]);
+  const cartKey = item ? (selectedOptions.length ? item.id + '::' + selectedOptions.map((option) => option.groupId + ':' + option.optionId + 'x' + option.quantity).sort().join('|') : item.id) : '';
   const cartItem = items.find((candidate) => candidate.id === cartKey);
   const quantity = cartItem?.quantity ?? 0;
   const isLoading = restaurantLoading || menuLoading;
   const mainStockAvailable = !item || item.stock_quantity == null || Number(item.stock_quantity) - Number(item.stock_reserved ?? 0) > 0;
   const canOrder = !!item && !!restaurant && item.is_available !== false && restaurant.is_accepting_orders !== false && mainStockAvailable;
-  const optionsValid = (item?.option_groups ?? []).every((group) => {
-    const selectedIds = selectedByGroup[group.id] ?? [];
-    const count = selectedIds.length;
-    const min = group.required ? Math.max(1, group.min_select ?? 1) : (group.min_select ?? 0);
-    const max = group.selection_type === 'single' ? 1 : (group.max_select ?? group.options.length);
-    const unavailableSelection = group.options.some((option) => selectedIds.includes(option.id) && (
-      option.is_available === false ||
-      (option.stock_quantity != null && Number(option.stock_quantity) - Number(option.stock_reserved ?? 0) <= 0)
-    ));
-    return count >= min && count <= max && !unavailableSelection;
-  });
-  const unitPrice = item ? Number(item.price) + selectedOptions.reduce((sum, option) => sum + option.price, 0) : 0;
-  const updateOptionSelection = (groupId: string, optionId: string, selectionType: 'single' | 'multiple') => {
-    setSelectedByGroup((prev) => {
-      const current = prev[groupId] ?? [];
-      const next = selectionType === 'single'
-        ? [optionId]
-        : current.includes(optionId) ? current.filter((id) => id !== optionId) : [...current, optionId];
-      return { ...prev, [groupId]: next };
-    });
-  };
+  const optionsValid = (item?.option_groups ?? []).every((group) => { const selected = group.options.filter((option) => (optionQuantities[option.id] ?? 0) > 0); const min = group.required ? Math.max(1, group.min_select ?? 1) : (group.min_select ?? 0); const max = group.selection_type === 'single' ? 1 : (group.max_select ?? group.options.length); return selected.length >= min && selected.length <= max && selected.every((option) => option.is_available !== false && (option.stock_quantity == null || Number(option.stock_quantity) - Number(option.stock_reserved ?? 0) >= (optionQuantities[option.id] ?? 0))); });
+  const unitPrice = item ? Number(item.price) + selectedOptions.reduce((sum, option) => sum + option.price * option.quantity, 0) : 0;
+  const updateOptionQuantity = (groupId: string, optionId: string, nextQuantity: number, selectionType: 'single' | 'multiple') => setOptionQuantities((prev) => { const next = { ...prev }; if (nextQuantity > 0 && selectionType === 'single') item?.option_groups.find((group) => group.id === groupId)?.options.forEach((option) => { next[option.id] = 0; }); next[optionId] = Math.max(0, Math.min(99, nextQuantity)); return next; });
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-6 pb-28">
@@ -72,7 +49,7 @@ export default function MenuItemDetailsPage() {
 
       {!isLoading && restaurant && item && (
         <article>
-          <div className="overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--line)', background: 'var(--white)' }}>
+          <div className="overflow-hidden rounded-3xl" style={{ background: 'var(--white)' }}>
             {images.length > 0 ? (
               <div className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -88,7 +65,7 @@ export default function MenuItemDetailsPage() {
               </div>
             ) : <div className="flex aspect-[4/3] items-center justify-center" style={{ background: 'var(--peach)' }}><UtensilsCrossed className="h-12 w-12" style={{ color: 'var(--gray)' }} /></div>}
 
-            <div className="p-5">
+            <div className="px-1 py-6 sm:px-2">
               <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="mb-1 text-xs" style={{ color: 'var(--gray)' }}>
@@ -110,25 +87,16 @@ export default function MenuItemDetailsPage() {
                 {(item.dietary_tags ?? []).map((tag) => <span key={tag} className="rounded-full px-3 py-1.5 text-xs font-medium" style={{ background: '#E7F6EC', color: '#207245' }}>{tag}</span>)}
               </div>
 
-              {item.ingredients && <section className="mt-6 border-t pt-5" style={{ borderColor: 'var(--line)' }}><h2 className="mb-2 text-sm font-bold" style={{ color: 'var(--ink)' }}>Ingredients</h2><p className="whitespace-pre-line text-sm leading-6" style={{ color: 'var(--gray)' }}>{item.ingredients}</p></section>}
+              {item.ingredients && <section className="mt-7 pt-2"><h2 className="mb-2 text-sm font-bold" style={{ color: 'var(--ink)' }}>Ingredients</h2><p className="whitespace-pre-line text-sm leading-6" style={{ color: 'var(--gray)' }}>{item.ingredients}</p></section>}
 
               {(item.option_groups ?? []).map((group) => (
-                <section key={group.id} className="mt-5 border-t pt-5" style={{ borderColor: 'var(--line)' }}>
+                <section key={group.id} className="mt-7 pt-1">
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div><h2 className="text-sm font-bold" style={{ color: 'var(--ink)' }}>{group.name}</h2><p className="mt-1 text-[11px]" style={{ color: 'var(--gray)' }}>{group.selection_type === 'single' ? 'Choose one' : `Choose up to ${group.max_select ?? group.options.length}`}{group.required ? ' · Required' : ' · Optional'}</p></div>
                     {group.required && <span className="rounded-full px-2 py-1 text-[10px] font-semibold" style={{ background: 'var(--peach)', color: 'var(--ink)' }}>Required</span>}
                   </div>
                   <div className="space-y-2">
-                    {group.options.map((option) => {
-                      const checked = (selectedByGroup[group.id] ?? []).includes(option.id);
-                      const optionOutOfStock = option.stock_quantity != null && Number(option.stock_quantity) - Number(option.stock_reserved ?? 0) <= 0;
-                      const optionUnavailable = option.is_available === false || optionOutOfStock;
-                      return <label key={option.id} className={`flex items-center gap-3 rounded-xl border p-3 ${optionUnavailable ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`} style={{ borderColor: checked ? 'var(--orange)' : 'var(--line)', background: checked ? '#FFF7F0' : 'var(--white)' }}>
-                        <input type={group.selection_type === 'single' ? 'radio' : 'checkbox'} name={`option-group-${group.id}`} checked={checked} disabled={(optionUnavailable && !checked) || (group.selection_type === 'multiple' && !checked && (selectedByGroup[group.id] ?? []).length >= (group.max_select ?? group.options.length))} onChange={() => updateOptionSelection(group.id, option.id, group.selection_type)} className="h-4 w-4 accent-orange-600" />
-                        <span className="min-w-0 flex-1 text-sm font-medium" style={{ color: 'var(--ink)' }}>{option.name}{optionOutOfStock ? <span className="ml-2 text-[10px] font-semibold" style={{color:'#B42318'}}>Out of stock</span> : option.is_available === false ? <span className="ml-2 text-[10px] font-semibold" style={{color:'#B42318'}}>Unavailable</span> : null}</span>
-                        <span className="text-xs font-semibold" style={{ color: option.price > 0 ? 'var(--orange)' : 'var(--gray)' }}>{option.price > 0 ? `+₦${option.price.toLocaleString()}` : 'Included'}</span>
-                      </label>;
-                    })}
+                    {group.options.map((option) => { const q = optionQuantities[option.id] ?? 0; const stock = option.stock_quantity == null ? null : Math.max(0, Number(option.stock_quantity) - Number(option.stock_reserved ?? 0)); const unavailable = option.is_available === false || stock === 0; const count = group.options.filter((candidate) => (optionQuantities[candidate.id] ?? 0) > 0).length; const limit = group.selection_type === 'multiple' && q === 0 && count >= (group.max_select ?? group.options.length); return <div key={option.id} className={'flex items-center gap-3 rounded-2xl px-3 py-3.5 ' + (q ? 'bg-orange-50' : 'bg-stone-50')}><div className="min-w-0 flex-1"><p className="text-sm font-semibold" style={{color:'var(--ink)'}}>{option.name}</p><p className="mt-1 text-xs" style={{color:'var(--orange)'}}>{option.price > 0 ? '+₦' + option.price.toLocaleString() + ' each' : 'Included'}</p>{unavailable && <p className="text-[10px]" style={{color:'#B42318'}}>{stock === 0 ? 'Out of stock' : 'Unavailable'}</p>}</div><div className="flex items-center gap-2"><button type="button" aria-label={'Remove one ' + option.name} disabled={q === 0} onClick={() => updateOptionQuantity(group.id, option.id, q - 1, group.selection_type)} className="h-9 w-9 rounded-full bg-white disabled:opacity-30" style={{color:'var(--orange)'}}><Minus className="mx-auto h-4 w-4" /></button><span className="w-5 text-center text-sm font-bold">{q}</span><button type="button" aria-label={'Add one ' + option.name} disabled={!canOrder || unavailable || limit || q >= 99 || (stock != null && q >= stock)} onClick={() => updateOptionQuantity(group.id, option.id, q + 1, group.selection_type)} className="h-9 w-9 rounded-full text-white disabled:opacity-30" style={{background:'var(--orange)'}}><Plus className="mx-auto h-4 w-4" /></button></div></div>; })}
                   </div>
                   {group.selection_type === 'multiple' && group.min_select != null && group.min_select > 0 && <p className="mt-2 text-[10px]" style={{ color: 'var(--gray)' }}>Select at least {group.min_select}.</p>}
                 </section>
