@@ -192,6 +192,7 @@ export interface Database {
           id: string;
           restaurant_id: string | null;
           name: string;
+          sku: string;
           price: number;
           category: string | null;
           image_url: string | null;
