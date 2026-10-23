@@ -41,7 +41,7 @@ export default function MenuBuilderPage() {
 
   const categoryOptions = useMemo(() => {
     const values = new Set(menuItems.map((item) => item.category?.trim() || UNCATEGORIZED));
-    return [...values].sort((a, b) =>
+    return Array.from(values).sort((a, b) =>
       a === UNCATEGORIZED ? 1 : b === UNCATEGORIZED ? -1 : a.localeCompare(b)
     );
   }, [menuItems]);
@@ -112,7 +112,7 @@ export default function MenuBuilderPage() {
     setBulkSaving(true);
     setBulkError('');
     try {
-      for (const id of selectedItemIds) await updateMenuItem(id, patch);
+      for (const id of Array.from(selectedItemIds)) await updateMenuItem(id, patch);
       setSelectedItemIds(new Set());
       setBulkCategory('');
       setBulkSubcategory('');
