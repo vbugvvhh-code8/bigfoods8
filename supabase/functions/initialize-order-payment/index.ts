@@ -230,16 +230,32 @@ Deno.serve(async (req: Request) => {
       const uniqueMenuItemIds = [...new Set(g.items.map((i: any) => i.menu_item_id))];
       const { data: menuItems, error: itemsError } = await admin
         .from("menu_items")
-        .select("id, price, restaurant_id, is_available, option_groups")
+        .select("id, price, restaurant_id, is_available, option_groups, availability_schedule_enabled, availability_schedule")
         .in("id", uniqueMenuItemIds);
       if (itemsError) return json({ error: "Unable to validate cart items. Please try again later." }, 503);
       const invalid = menuItems?.find((m: any) => m.restaurant_id !== g.restaurant_id);
       if (invalid || menuItems?.length !== uniqueMenuItemIds.length) {
         return json({ error: "One or more items don't belong to their restaurant" }, 400);
       }
+      const nowInNigeria = new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Lagos" }));
+      const currentDay = nowInNigeria.getDay();
+      const currentMinutes = nowInNigeria.getHours() * 60 + nowInNigeria.getMinutes();
+      const outsideSchedule = (menuItems ?? []).some((m: any) => {
+        if (!m.availability_schedule_enabled) return false;
+        const windows = Array.isArray(m.availability_schedule) ? m.availability_schedule : [];
+        return !windows.some((window: any) => {
+          if (Number(window?.day) !== currentDay || typeof window?.start !== "string" || typeof window?.end !== "string") return false;
+          const startMatch = /^(\\d{2}):(\\d{2})$/.exec(window.start);
+          const endMatch = /^(\\d{2}):(\\d{2})$/.exec(window.end);
+          if (!startMatch || !endMatch) return false;
+          const start = Number(startMatch[1]) * 60 + Number(startMatch[2]);
+          const end = Number(endMatch[1]) * 60 + Number(endMatch[2]);
+          return start < end && currentMinutes >= start && currentMinutes < end;
+        });
+      });
       const unavailableItem = menuItems?.find((m: any) => m.is_available === false);
-      if (unavailableItem) {
-        return json({ error: "One or more items in your cart are currently unavailable. Remove them and try again." }, 409);
+      if (unavailableItem || outsideSchedule) {
+        return json({ error: "One or more items in your cart are currently unavailable or outside their scheduled ordering hours. Remove them or try again during their availability window." }, 409);
       }
       const menuItemById = new Map((menuItems ?? []).map((m: any) => [m.id, m]));
       const pricedItems: any[] = [];
