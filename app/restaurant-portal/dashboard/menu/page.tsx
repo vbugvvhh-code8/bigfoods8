@@ -162,17 +162,15 @@ export default function MenuBuilderPage() {
         <h1 className="text-[18px] font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
           Menu
         </h1>
-        {(
-          <button
-            type="button"
-            onClick={() => router.push('/restaurant-portal/dashboard/menu/item')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-[9px] text-[12.5px] font-semibold text-white"
-            style={{ background: 'var(--orange)' }}
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Add item
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => router.push('/restaurant-portal/dashboard/menu/item')}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-[9px] text-[12.5px] font-semibold text-white"
+          style={{ background: 'var(--orange)' }}
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Add item
+        </button>
       </div>
 
       {pageError && <p role="alert" className="mb-3 rounded-lg p-3 text-[12px]" style={{ background: '#FCE8E6', color: 'var(--red)' }}>{pageError}</p>}
