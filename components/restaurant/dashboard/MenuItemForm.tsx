@@ -112,8 +112,11 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   const totalImageCount = existingImageUrls.length + newImages.length;
   const canAddMoreImages = totalImageCount < 3;
   const parsedPrice = Number(price);
+  const parsedPreparationTime = preparationTime.trim() ? Number(preparationTime) : null;
+  const hasValidPreparationTime = parsedPreparationTime === null ||
+    (Number.isSafeInteger(parsedPreparationTime) && parsedPreparationTime > 0);
   const hasValidFields = name.trim().length > 0 && price.trim().length > 0 &&
-    Number.isSafeInteger(parsedPrice) && parsedPrice > 0;
+    Number.isSafeInteger(parsedPrice) && parsedPrice > 0 && hasValidPreparationTime;
   const canSubmit = hasValidFields && totalImageCount >= 2 && totalImageCount <= 3;
 
   function handleFilesSelected(files: FileList | null) {
@@ -147,6 +150,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
     if (!canSubmit || saving) {
       if (!name.trim()) setError('Enter a dish name.');
       else if (!price.trim() || !Number.isSafeInteger(parsedPrice) || parsedPrice <= 0) setError('Enter a valid price greater than ₦0.');
+      else if (!hasValidPreparationTime) setError('Preparation time must be a whole number greater than 0, or leave it blank.');
       else if (totalImageCount < 2) setError('Add at least 2 photos before saving.');
       else if (totalImageCount > 3) setError('A menu item can have no more than 3 photos.');
       return;
