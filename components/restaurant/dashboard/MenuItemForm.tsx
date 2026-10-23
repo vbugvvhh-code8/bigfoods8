@@ -482,7 +482,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
               })}
             </div>;
           })}
-          {scheduleWindows.some((w)=>!Number.isInteger(w.day)||w.day<0||w.day>6||!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(w.start)||!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(w.end)||w.start>=w.end) && <p className="text-xs" style={{color:'var(--red)'}}>Each time window must have valid times, with the end later than the start on the same day.</p>}
+          {scheduleWindows.some((w)=>!Number.isInteger(w.day)||w.day<0||w.day>6||!/^([01]\d|2[0-3]):[0-5]\d$/.test(w.start)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(w.end)||w.start>=w.end) && <p className="text-xs" style={{color:'var(--red)'}}>Each time window must have valid times, with the end later than the start on the same day.</p>}
         </div>}
       </section>
       <section className="mb-4 rounded-xl border p-4" style={{display: step === 4 ? undefined : "none", borderColor:'var(--line)', background:'var(--white)'}}>
