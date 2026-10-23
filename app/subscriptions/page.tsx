@@ -5,7 +5,8 @@ import { CheckCircle2, Clock3, CreditCard, Loader2, Pause, Play, RefreshCw, XCir
 import PageHeader from '@/components/admin/layout/PageHeader';
 import getBrowserSupabase from '@/lib/supabase/client';
 
-type Restaurant = { id:string; name:string; approval_status:string; is_accepting_orders:boolean };
+type Restaurant = { id:string; name:string; approval_status:string; is_accepting_orders:boolean; latitude:number|null; longitude:number|null };
+type SavedAddress = { id:string; label:string|null; address:string; lat:number|null; lng:number|null };
 type MenuItem = { id:string; restaurant_id:string; name:string; price:number; promotional_price:number|null; promotion_starts_at:string|null; promotion_ends_at:string|null; is_available:boolean; admin_disabled:boolean; category:string|null; image_url:string|null };
 type Subscription = { id:string; restaurant_id:string; package_weeks:number; delivery_days:number[]; delivery_time:string; selected_items:{menu_item_id:string;name:string;quantity:number;unit_price:number}[]; total_deliveries:number; total_amount:number; status:string; starts_on:string|null; ends_on:string|null; paid_at:string|null; created_at:string; restaurant?:{name:string}|null };
 const DAY_OPTIONS=[{value:1,label:'Mon'},{value:2,label:'Tue'},{value:3,label:'Wed'},{value:4,label:'Thu'},{value:5,label:'Fri'},{value:6,label:'Sat'},{value:7,label:'Sun'}];
@@ -17,6 +18,11 @@ export default function SubscriptionsPage(){
   const [restaurants,setRestaurants]=useState<Restaurant[]>([]);
   const [restaurantId,setRestaurantId]=useState('');
   const [menu,setMenu]=useState<MenuItem[]>([]);
+  const [addresses,setAddresses]=useState<SavedAddress[]>([]);
+  const [addressId,setAddressId]=useState('');
+  const [platformFee,setPlatformFee]=useState(505);
+  const [deliveryRate,setDeliveryRate]=useState(150);
+  const [minimumDeliveryFee,setMinimumDeliveryFee]=useState(1000);
   const [quantities,setQuantities]=useState<Record<string,number>>({});
   const [weeks,setWeeks]=useState(4);
   const [days,setDays]=useState<number[]>([1,2,3,4,5]);
@@ -40,7 +46,8 @@ export default function SubscriptionsPage(){
       if(!active)return;
       setUserId(user?.id??null);
       if(!user){setLoading(false);return;}
-      const {data,error}=await supabase.from('restaurants').select('id,name,approval_status,is_accepting_orders').eq('approval_status','approved').eq('is_accepting_orders',true).order('name');
+      const [{data,error},{data:addressData},{data:pricingData}]=await Promise.all([supabase.from('restaurants').select('id,name,approval_status,is_accepting_orders,latitude,longitude').eq('approval_status','approved').eq('is_accepting_orders',true).order('name'),supabase.from('saved_addresses').select('id,label,address,lat,lng').eq('customer_id',user.id).order('created_at',{ascending:false}),supabase.from('pricing_config').select('key,value').in('key',['platform_fee','delivery_rate_per_km','minimum_delivery_fee'])]);
+      if(active){setAddresses((addressData??[]) as SavedAddress[]);const price=(key:string,fallback:number)=>{const value=Number(pricingData?.find((row:any)=>row.key===key)?.value);return Number.isFinite(value)&&value>=0?value:fallback;};setPlatformFee(price('platform_fee',505));setDeliveryRate(price('delivery_rate_per_km',150));setMinimumDeliveryFee(price('minimum_delivery_fee',1000));}
       if(!active)return;
       if(error)setError('Could not load kitchens. Please refresh and try again.');
       else setRestaurants((data??[]) as Restaurant[]);
@@ -74,20 +81,25 @@ export default function SubscriptionsPage(){
   },[userId,supabase,loadSubscriptions]);
 
   const selected=useMemo(()=>menu.filter(item=>(quantities[item.id]??0)>0),[menu,quantities]);
+  const selectedRestaurant=restaurants.find(item=>item.id===restaurantId);
+  const selectedAddress=addresses.find(item=>item.id===addressId);
+  const deliveryDistance=useMemo(()=>{if(!selectedRestaurant||selectedRestaurant.latitude==null||selectedRestaurant.longitude==null||selectedAddress?.lat==null||selectedAddress?.lng==null)return null;const rad=(v:number)=>v*Math.PI/180;const dLat=rad(Number(selectedAddress.lat)-Number(selectedRestaurant.latitude));const dLng=rad(Number(selectedAddress.lng)-Number(selectedRestaurant.longitude));const a=Math.sin(dLat/2)**2+Math.cos(rad(Number(selectedRestaurant.latitude)))*Math.cos(rad(Number(selectedAddress.lat)))*Math.sin(dLng/2)**2;return 6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));},[selectedRestaurant,selectedAddress]);
+  const deliveryFee=deliveryDistance==null?minimumDeliveryFee:Math.max(Math.round(deliveryDistance*deliveryRate),minimumDeliveryFee);
+  const perDeliveryWithFees=perDelivery+platformFee+deliveryFee;
   const perDelivery=useMemo(()=>selected.reduce((sum,item)=>{
     const now=Date.now();const start=item.promotion_starts_at?new Date(item.promotion_starts_at).getTime():-Infinity;const end=item.promotion_ends_at?new Date(item.promotion_ends_at).getTime():Infinity;
     const price=item.promotional_price!=null&&now>=start&&now<=end?Number(item.promotional_price):Number(item.price);
     return sum+price*(quantities[item.id]??0);
   },0),[selected,quantities]);
   const estimatedDeliveries=weeks*days.length;
-  const estimate=perDelivery*estimatedDeliveries;
+  const estimate=perDeliveryWithFees*estimatedDeliveries;
 
   async function buyPackage(){
     if(!userId){setError('Please sign in before subscribing to a meal package.');return;}
-    if(!restaurantId||!selected.length||!days.length){setError('Choose a kitchen, at least one meal item and one delivery day.');return;}
+    if(!restaurantId||!selected.length||!days.length||!addressId){setError('Choose a kitchen, delivery address, at least one meal item and one delivery day.');return;}
     setBusy(true);setError(null);setNotice(null);
     const {data,error}=await supabase.functions.invoke('meal-subscription-payment',{body:{
-      action:'initialize',restaurant_id:restaurantId,package_weeks:weeks,delivery_days:days,delivery_time:mealTime,
+      action:'initialize',restaurant_id:restaurantId,saved_address_id:addressId,package_weeks:weeks,delivery_days:days,delivery_time:mealTime,
       items:selected.map(item=>({menu_item_id:item.id,quantity:quantities[item.id]})),callback_origin:window.location.origin
     }});
     if(error||!data?.authorization_url){setError(data?.error??error?.message??'Could not start payment.');setBusy(false);return;}
@@ -111,18 +123,19 @@ export default function SubscriptionsPage(){
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,.8fr)]">
       <section className="space-y-5 rounded-2xl border bg-white p-4 sm:p-6" style={{borderColor:'var(--line)'}}>
         <div><h2 className="text-lg font-bold">1. Choose a kitchen</h2><select value={restaurantId} onChange={e=>setRestaurantId(e.target.value)} className="mt-3 w-full rounded-xl border px-3 py-3 text-sm" style={{borderColor:'var(--line)',background:'white'}}><option value="">Select a kitchen</option>{restaurants.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select>{restaurants.length===0&&<p className="mt-2 text-xs text-gray-500">No approved kitchens are currently accepting orders.</p>}</div>
-        <div><h2 className="text-lg font-bold">2. Select meals</h2><p className="mt-1 text-sm text-gray-500">The same selected items are included in each scheduled delivery.</p>
+        <div><h2 className="text-lg font-bold">2. Delivery address</h2><select value={addressId} onChange={e=>setAddressId(e.target.value)} className="mt-3 w-full rounded-xl border px-3 py-3 text-sm" style={{borderColor:'var(--line)',background:'white'}}><option value="">Choose saved delivery address</option>{addresses.map(address=><option key={address.id} value={address.id}>{address.label?address.label+' — ':''}{address.address}</option>)}</select>{addresses.length===0&&<p className="mt-2 text-xs text-gray-500">You need a saved address with a map location before subscribing. <a href="/order" className="font-semibold underline" style={{color:'var(--orange)'}}>Open checkout to add an address</a>.</p>}{selectedAddress&&deliveryDistance!=null&&<p className="mt-2 text-xs text-gray-500">Estimated kitchen distance: {deliveryDistance.toFixed(1)} km. Final eligibility is checked before payment.</p>}</div>
+        <div><h2 className="text-lg font-bold">3. Select meals</h2><p className="mt-1 text-sm text-gray-500">The same selected items are included in each scheduled delivery.</p>
           {menuLoading?<p className="py-6 text-sm text-gray-500">Loading menu…</p>:!restaurantId?<p className="py-5 text-sm text-gray-500">Choose a kitchen to see its menu.</p>:menu.length===0?<p className="py-5 text-sm text-gray-500">No available menu items found for this kitchen.</p>:<div className="mt-3 divide-y" style={{borderColor:'var(--line)'}}>{menu.map(item=><div key={item.id} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><p className="truncate text-sm font-semibold">{item.name}</p><p className="mt-1 text-xs text-gray-500">{item.category??'Menu item'} · {money(Number(item.price))}</p></div><div className="flex shrink-0 items-center gap-3"><button type="button" aria-label={'Decrease '+item.name} onClick={()=>setQuantities(q=>({...q,[item.id]:Math.max(0,(q[item.id]??0)-1)}))} className="h-9 w-9 rounded-full border text-lg" style={{borderColor:'var(--line)'}} disabled={!quantities[item.id]}>−</button><span className="w-4 text-center text-sm font-semibold">{quantities[item.id]??0}</span><button type="button" aria-label={'Increase '+item.name} onClick={()=>setQuantities(q=>({...q,[item.id]:Math.min(20,(q[item.id]??0)+1)}))} className="h-9 w-9 rounded-full border text-lg" style={{borderColor:'var(--line)'}} disabled={(quantities[item.id]??0)>=20}>+</button></div></div>)}</div>}
         </div>
-        <div><h2 className="text-lg font-bold">3. Set your schedule</h2><label className="mt-3 block text-sm font-medium">Package duration<select value={weeks} onChange={e=>setWeeks(Number(e.target.value))} className="mt-1.5 w-full rounded-xl border px-3 py-3 text-sm" style={{borderColor:'var(--line)',background:'white'}}>{[1,2,3,4,6,8,12].map(w=><option key={w} value={w}>{w} {w===1?'week':'weeks'}</option>)}</select></label>
+        <div><h2 className="text-lg font-bold">4. Set your schedule</h2><label className="mt-3 block text-sm font-medium">Package duration<select value={weeks} onChange={e=>setWeeks(Number(e.target.value))} className="mt-1.5 w-full rounded-xl border px-3 py-3 text-sm" style={{borderColor:'var(--line)',background:'white'}}>{[1,2,3,4,6,8,12].map(w=><option key={w} value={w}>{w} {w===1?'week':'weeks'}</option>)}</select></label>
           <p className="mb-2 mt-4 text-sm font-medium">Delivery days</p><div className="grid grid-cols-4 gap-2 sm:grid-cols-7">{DAY_OPTIONS.map(day=><button type="button" key={day.value} onClick={()=>setDays(prev=>prev.includes(day.value)?prev.filter(d=>d!==day.value):[...prev,day.value].sort((a,b)=>a-b))} className="rounded-xl border px-2 py-3 text-sm font-semibold" style={{borderColor:days.includes(day.value)?'var(--orange)':'var(--line)',background:days.includes(day.value)?'#FFF0E5':'white',color:days.includes(day.value)?'var(--orange)':'var(--ink)'}} aria-pressed={days.includes(day.value)}>{day.label}</button>)}</div>
           <label className="mt-4 block text-sm font-medium">Preferred meal time<select value={mealTime} onChange={e=>setMealTime(e.target.value)} className="mt-1.5 w-full rounded-xl border px-3 py-3 text-sm" style={{borderColor:'var(--line)',background:'white'}}><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Dinner</option></select></label>
         </div>
       </section>
       <aside className="h-fit rounded-2xl border bg-white p-5 sm:p-6" style={{borderColor:'var(--line)'}}>
         <h2 className="text-lg font-bold">Prepaid package summary</h2><p className="mt-1 text-sm text-gray-500">No recurring charge. Pay the full package price now.</p>
-        <div className="mt-5 space-y-3 text-sm"><div className="flex justify-between gap-3"><span className="text-gray-500">Meals per delivery</span><strong>{selected.reduce((n,item)=>n+(quantities[item.id]??0),0)}</strong></div><div className="flex justify-between gap-3"><span className="text-gray-500">Scheduled deliveries</span><strong>{estimatedDeliveries}</strong></div><div className="flex justify-between gap-3"><span className="text-gray-500">Price per delivery (estimate)</span><strong>{money(perDelivery)}</strong></div><div className="border-t pt-4" style={{borderColor:'var(--line)'}}><div className="flex items-center justify-between gap-3"><span className="font-semibold">Pay upfront (estimate)</span><strong className="text-xl" style={{color:'var(--orange)'}}>{money(estimate)}</strong></div><p className="mt-2 text-xs text-gray-500">Final price is calculated securely from current menu prices before payment.</p></div></div>
-        <button type="button" onClick={()=>void buyPackage()} disabled={busy||!restaurantId||!selected.length||!days.length||estimate<=0} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold text-white disabled:opacity-50" style={{background:'var(--orange)'}}>{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<CreditCard className="h-4 w-4"/>}{busy?'Processing…':'Pay and activate package'}</button>
+        <div className="mt-5 space-y-3 text-sm"><div className="flex justify-between gap-3"><span className="text-gray-500">Meals per delivery</span><strong>{selected.reduce((n,item)=>n+(quantities[item.id]??0),0)}</strong></div><div className="flex justify-between gap-3"><span className="text-gray-500">Scheduled deliveries</span><strong>{estimatedDeliveries}</strong></div><div className="flex justify-between gap-3"><span className="text-gray-500">Meals per delivery</span><strong>{money(perDelivery)}</strong></div><div className="flex justify-between gap-3"><span className="text-gray-500">Platform fee per delivery</span><strong>{money(platformFee)}</strong></div><div className="flex justify-between gap-3"><span className="text-gray-500">Delivery fee per delivery (estimate)</span><strong>{money(deliveryFee)}</strong></div><div className="flex justify-between gap-3"><span className="text-gray-500">Total per delivery (estimate)</span><strong>{money(perDeliveryWithFees)}</strong></div><div className="border-t pt-4" style={{borderColor:'var(--line)'}}><div className="flex items-center justify-between gap-3"><span className="font-semibold">Pay upfront (estimate)</span><strong className="text-xl" style={{color:'var(--orange)'}}>{money(estimate)}</strong></div><p className="mt-2 text-xs text-gray-500">Final price is calculated securely from current menu prices before payment.</p></div></div>
+        <button type="button" onClick={()=>void buyPackage()} disabled={busy||!restaurantId||!addressId||!selected.length||!days.length||estimate<=0} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold text-white disabled:opacity-50" style={{background:'var(--orange)'}}>{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<CreditCard className="h-4 w-4"/>}{busy?'Processing…':'Pay and activate package'}</button>
       </aside>
     </div>
     <section className="mt-8 rounded-2xl border bg-white p-4 sm:p-6" style={{borderColor:'var(--line)'}}>
