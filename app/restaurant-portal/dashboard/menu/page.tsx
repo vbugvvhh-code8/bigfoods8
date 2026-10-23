@@ -395,72 +395,82 @@ export default function MenuBuilderPage() {
                             {sub}
                           </p>
                         )}
-                        <div className="space-y-2">
-                          {subcats[sub].map((item) =>
-                            editingId === item.id ? (
-                              <MenuItemForm
-                                key={item.id}
-                                restaurantId={restaurant.id}
-                                existingItem={item}
-                                onSubmit={addMenuItem}
-                                onUpdate={updateMenuItem}
-                                onDone={() => setEditingId(null)}
-                                onCancel={() => setEditingId(null)}
-                              />
-                            ) : (
-                              <div
-                                key={item.id}
-                                className="flex items-center gap-3 p-2.5 rounded-[10px]"
-                                style={{ border: '1px solid var(--line)' }}
-                              >
-                                <input type="checkbox" checked={selectedItemIds.has(item.id)} onChange={() => toggleItemSelection(item.id)} aria-label={`Select ${item.name} for bulk editing`} className="h-4 w-4 shrink-0 accent-orange-500" />
-                                {item.image_url && (
-                                  <SafeImage
-                                    src={item.image_url}
-                                    alt={item.name}
-                                    className="w-11 h-11 rounded-[8px] object-cover flex-shrink-0"
-                                  />
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[13px] font-semibold truncate" style={{ color: 'var(--ink)' }}>
-                                    {item.name}
-                                  </p>
-                                  <p className="text-[11.5px]" style={{ color: 'var(--gray)' }}>
-                                    ₦{Number(item.price).toLocaleString()}
-                                  </p>
-                                </div>
-                                <span className="text-[10.5px] font-semibold px-2 py-1 rounded-full whitespace-nowrap" style={item.is_available ? { background: '#E7F6EC', color: '#207245' } : { background: '#FCE8E6', color: '#B42318' }}>
-                                  {item.is_available ? 'Available' : 'Unavailable'}
-                                </span>
-                                <button type="button" disabled={availabilityBusyId === item.id} onClick={() => toggleAvailability(item)} className="p-1.5 rounded-md disabled:opacity-50" style={{ color: item.is_available ? 'var(--gray)' : '#207245' }} aria-label={item.is_available ? 'Mark ' + item.name + ' unavailable' : 'Mark ' + item.name + ' available'} title={item.is_available ? 'Mark unavailable' : 'Mark available'}>
-                                  {item.is_available ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setShowAddForm(false);
-                                    setEditingId(item.id);
-                                  }}
-                                  className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-semibold active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                                  style={{ color: 'var(--ink)', borderColor: 'var(--line)', background: 'var(--peach)' }}
-                                  aria-label={`Edit ${item.name}`}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                  <span>Edit</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDelete(item)}
-                                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border px-3 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                                  style={{ color: 'var(--red)', borderColor: 'var(--line)', background: 'var(--white)' }}
-                                  aria-label={`Delete ${item.name}`}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  <span className="sr-only">Delete</span>
-                                </button>
-                              </div>
-                            )
-                          )}
+                        <div className="max-w-full overflow-x-auto rounded-lg border" style={{ borderColor: 'var(--line)' }}>
+                          <table className="w-full min-w-[560px] table-fixed border-collapse text-left">
+                            <colgroup>
+                              <col style={{ width: '40px' }} />
+                              <col />
+                              <col style={{ width: '92px' }} />
+                              <col style={{ width: '112px' }} />
+                              <col style={{ width: '116px' }} />
+                            </colgroup>
+                            <thead>
+                              <tr style={{ background: 'var(--peach)' }}>
+                                <th className="px-2 py-3 text-center text-[11px] font-semibold" style={{ color: 'var(--ink)' }}><span className="sr-only">Select</span></th>
+                                <th className="px-3 py-3 text-[11px] font-semibold" style={{ color: 'var(--ink)' }}>Menu item</th>
+                                <th className="px-2 py-3 text-right text-[11px] font-semibold" style={{ color: 'var(--ink)' }}>Price</th>
+                                <th className="px-2 py-3 text-center text-[11px] font-semibold" style={{ color: 'var(--ink)' }}>Availability</th>
+                                <th className="px-2 py-3 text-center text-[11px] font-semibold" style={{ color: 'var(--ink)' }}>Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {subcats[sub].map((item) =>
+                                editingId === item.id ? (
+                                  <tr key={item.id}>
+                                    <td colSpan={5} className="p-3">
+                                      <MenuItemForm
+                                        restaurantId={restaurant.id}
+                                        existingItem={item}
+                                        onSubmit={addMenuItem}
+                                        onUpdate={updateMenuItem}
+                                        onDone={() => setEditingId(null)}
+                                        onCancel={() => setEditingId(null)}
+                                      />
+                                    </td>
+                                  </tr>
+                                ) : (
+                                  <tr key={item.id} className="border-t align-middle" style={{ borderColor: 'var(--line)' }}>
+                                    <td className="px-2 py-3 text-center">
+                                      <input type="checkbox" checked={selectedItemIds.has(item.id)} onChange={() => toggleItemSelection(item.id)} aria-label={`Select ${item.name} for bulk editing`} className="h-4 w-4 accent-orange-500" />
+                                    </td>
+                                    <td className="px-3 py-3">
+                                      <div className="flex min-w-0 items-center gap-2">
+                                        {(Array.isArray((item as any).image_urls) && (item as any).image_urls[0]) || item.image_url ? (
+                                          <SafeImage
+                                            src={(Array.isArray((item as any).image_urls) && (item as any).image_urls[0]) || item.image_url!}
+                                            alt={item.name}
+                                            className="h-9 w-9 shrink-0 rounded-md object-cover"
+                                          />
+                                        ) : (
+                                          <div className="h-9 w-9 shrink-0 rounded-md" style={{ background: 'var(--peach)' }} aria-hidden="true" />
+                                        )}
+                                        <span className="min-w-0 break-words text-[12px] font-semibold" style={{ color: 'var(--ink)', overflowWrap: 'anywhere' }}>{item.name}</span>
+                                      </div>
+                                    </td>
+                                    <td className="px-2 py-3 text-right text-[12px] tabular-nums" style={{ color: 'var(--ink)' }}>₦{Number(item.price).toLocaleString()}</td>
+                                    <td className="px-2 py-3 text-center">
+                                      <span className="inline-block max-w-full rounded-full px-2 py-1 text-[10px] font-semibold" style={item.is_available ? { background: '#E7F6EC', color: '#207245' } : { background: '#FCE8E6', color: '#B42318' }}>
+                                        {item.is_available ? 'Available' : 'Unavailable'}
+                                      </span>
+                                    </td>
+                                    <td className="px-2 py-3">
+                                      <div className="flex items-center justify-center gap-1">
+                                        <button type="button" disabled={availabilityBusyId === item.id} onClick={() => toggleAvailability(item)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md disabled:opacity-50" style={{ color: item.is_available ? 'var(--gray)' : '#207245' }} aria-label={item.is_available ? 'Mark ' + item.name + ' unavailable' : 'Mark ' + item.name + ' available'} title={item.is_available ? 'Mark unavailable' : 'Mark available'}>
+                                          {item.is_available ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                        </button>
+                                        <button type="button" onClick={() => { setShowAddForm(false); setEditingId(item.id); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border" style={{ color: 'var(--ink)', borderColor: 'var(--line)', background: 'var(--peach)' }} aria-label={`Edit ${item.name}`} title="Edit item">
+                                          <Pencil className="h-4 w-4" />
+                                        </button>
+                                        <button type="button" onClick={() => handleDelete(item)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border" style={{ color: 'var(--red)', borderColor: 'var(--line)', background: 'var(--white)' }} aria-label={`Delete ${item.name}`} title="Delete item">
+                                          <Trash2 className="h-4 w-4" />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )
+                              )}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
                     ))}
