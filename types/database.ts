@@ -201,6 +201,7 @@ export interface Database {
           image_urls: string[] | null;
           subcategory: string | null;
           is_available: boolean;
+          admin_disabled: boolean;
           description: string | null;
           ingredients: string | null;
           serving_size: string | null;
