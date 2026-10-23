@@ -453,7 +453,7 @@ Deno.serve(async (req: Request) => {
           return json({ error: orderError.message }, 500);
         }
         const itemsPayload = groupComp.items.map((i: any) => ({
-          order_id: order.id, menu_item_id: i.menu_item_id, quantity: i.quantity ?? 1, unit_price: i.unit_price,
+          order_id: order.id, menu_item_id: i.menu_item_id, quantity: i.quantity ?? 1, unit_price: i.unit_price, selected_options: i.selected_options ?? [],
         }));
         const { error: itemsErr } = await admin.from("order_items").insert(itemsPayload);
         if (itemsErr) {
