@@ -156,8 +156,7 @@ export default function MenuBuilderPage() {
     );
   }
 
-  return (
-    <div>
+  return <div>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-[18px] font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
           Menu
@@ -429,6 +428,5 @@ export default function MenuBuilderPage() {
           </section>
         </div>
       )}
-    </div>
-  );
+    </div>;
 }
