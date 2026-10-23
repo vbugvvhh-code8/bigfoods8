@@ -38,6 +38,8 @@ export interface MenuItemUpdate {
   dietary_tags?: string[];
   option_groups?: MenuItemOptionGroup[];
   stock_quantity?: number | null;
+  availability_schedule_enabled?: boolean;
+  availability_schedule?: { day: number; start: string; end: string }[];
 }
 
 export function useMenuItems(restaurantId?: string) {
