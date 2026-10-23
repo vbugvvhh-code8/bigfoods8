@@ -2,7 +2,7 @@
 
 import SafeImage from '@/components/ui/SafeImage';
 import { useMemo, useState } from 'react';
-import { Plus, Pencil, Trash2, ChevronDown, Search, X, CheckSquare, Square, Eye, EyeOff } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, X, CheckSquare, Square, Eye, EyeOff } from 'lucide-react';
 import useRestaurant from '@/hooks/useRestaurant';
 import { useMenuItems } from '@/hooks/useMenuItems';
 import MenuItemForm, { ChipPicker } from '@/components/restaurant/dashboard/MenuItemForm';
@@ -12,25 +12,12 @@ import type { MenuItem } from '@/types/database';
 const UNCATEGORIZED = 'uncategorized';
 const NO_SUBCATEGORY = 'other';
 
-function groupItems(items: MenuItem[]) {
-  const tree: Record<string, Record<string, MenuItem[]>> = {};
-  for (const item of items) {
-    const cat = item.category || UNCATEGORIZED;
-    const sub = (item as any).subcategory || NO_SUBCATEGORY;
-    tree[cat] = tree[cat] ?? {};
-    tree[cat][sub] = tree[cat][sub] ?? [];
-    tree[cat][sub].push(item);
-  }
-  return tree;
-}
-
 export default function MenuBuilderPage() {
   const { restaurant, loading: restaurantLoading } = useRestaurant();
   const { menuItems, isLoading, addMenuItem, updateMenuItem, deleteMenuItem } = useMenuItems(restaurant?.id);
 
   const [showAddForm, setShowAddForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [availabilityBusyId, setAvailabilityBusyId] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [pageMessage, setPageMessage] = useState<string | null>(null);
@@ -75,19 +62,6 @@ export default function MenuBuilderPage() {
     });
   }, [menuItems, menuSearch, categoryFilter, subcategoryFilter]);
 
-  const tree = useMemo(() => groupItems(filteredItems), [filteredItems]);
-  const categories = Object.keys(tree).sort((a, b) =>
-    a === UNCATEGORIZED ? 1 : b === UNCATEGORIZED ? -1 : a.localeCompare(b)
-  );
-
-  function toggleCategory(cat: string) {
-    setCollapsedCategories((prev) => {
-      const next = new Set(prev);
-      if (next.has(cat)) next.delete(cat);
-      else next.add(cat);
-      return next;
-    });
-  }
 
   function toggleItemSelection(id: string) {
     setSelectedItemIds((prev) => {
@@ -329,23 +303,18 @@ export default function MenuBuilderPage() {
               <div className="space-y-4">
                 <div className="rounded-xl border p-3" style={{borderColor:'var(--line)',background:'var(--white)'}}>
                   <ChipPicker label="Set category" options={MENU_CATEGORY_NAMES} value={bulkCategory} onChange={(value) => { setBulkCategory(value); setBulkSubcategory(''); }} />
-                  <p className="mt-2 text-[11px]" style={{color:'var(--gray)'}}>Choose a category chip or select Custom to type your own. Leave unselected to keep each item's category.</p>
+                  <p className="mt-2 text-[11px]" style={{color:'var(--gray)'}}>Choose a category or Custom. Leave unselected to keep each item's category.</p>
                 </div>
                 <div className="rounded-xl border p-3" style={{borderColor:'var(--line)',background:'var(--white)'}}>
-                  <ChipPicker
-                    label="Set subcategory"
-                    options={bulkCategory ? (MENU_CATEGORY_PRESETS[bulkCategory.toLowerCase()] ?? []) : Array.from(new Set(menuItems.filter((item) => selectedItemIds.has(item.id)).map((item) => (item as any).subcategory).filter((value): value is string => typeof value === 'string' && value.length > 0)))}
-                    value={bulkSubcategory}
-                    onChange={setBulkSubcategory}
-                  />
-                  <p className="mt-2 text-[11px]" style={{color:'var(--gray)'}}>Choose a suggested subcategory or select Custom. Leave unselected to keep each item's subcategory.</p>
+                  <ChipPicker label="Set subcategory" options={bulkCategory ? (MENU_CATEGORY_PRESETS[bulkCategory.toLowerCase()] ?? []) : Array.from(new Set(menuItems.filter((item) => selectedItemIds.has(item.id)).map((item) => (item as any).subcategory).filter((value): value is string => typeof value === 'string' && value.length > 0)))} value={bulkSubcategory} onChange={setBulkSubcategory} />
+                  <p className="mt-2 text-[11px]" style={{color:'var(--gray)'}}>Leave unselected to keep each item's subcategory.</p>
                 </div>
               </div>
               {bulkError && <p role="alert" className="text-sm" style={{color:'var(--red)'}}>{bulkError}</p>}
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <button type="button" disabled={bulkSaving || bulkDeleting} onClick={handleBulkUpdate} className="flex min-h-14 w-full items-center justify-center rounded-xl px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:brightness-95 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50" style={{background:'var(--orange)'}}>{bulkSaving ? 'Saving changes…' : 'Apply changes to selected'}</button>
-                <button type="button" disabled={bulkSaving || bulkDeleting} onClick={() => { setSelectedItemIds(new Set()); setBulkCategory(''); setBulkSubcategory(''); setBulkError(''); }} className="min-h-14 w-full rounded-xl border px-6 py-3 text-sm font-semibold transition hover:bg-gray-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50" style={{borderColor:'var(--line)',color:'var(--ink)',background:'var(--white)'}}>Cancel selection</button>
-                <button type="button" disabled={bulkSaving || bulkDeleting} onClick={handleBulkDelete} className="sm:col-span-2 flex min-h-14 w-full items-center justify-center rounded-xl border-2 px-6 py-3 text-sm font-bold transition hover:bg-red-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50" style={{borderColor:'var(--red)',color:'var(--red)',background:'var(--white)'}}>{bulkDeleting ? 'Deleting selected items…' : 'Delete selected items'}</button>
+                <button type="button" disabled={bulkSaving || bulkDeleting} onClick={handleBulkUpdate} className="min-h-14 rounded-xl px-6 py-3 text-sm font-bold text-white disabled:opacity-50" style={{background:'var(--orange)'}}>{bulkSaving ? 'Saving changes…' : 'Apply changes to selected'}</button>
+                <button type="button" disabled={bulkSaving || bulkDeleting} onClick={() => { setSelectedItemIds(new Set()); setBulkCategory(''); setBulkSubcategory(''); setBulkError(''); }} className="min-h-14 rounded-xl border px-6 py-3 text-sm font-semibold disabled:opacity-50" style={{borderColor:'var(--line)',color:'var(--ink)',background:'var(--white)'}}>Cancel selection</button>
+                <button type="button" disabled={bulkSaving || bulkDeleting} onClick={handleBulkDelete} className="sm:col-span-2 min-h-14 rounded-xl border-2 px-6 py-3 text-sm font-bold disabled:opacity-50" style={{borderColor:'var(--red)',color:'var(--red)',background:'var(--white)'}}>{bulkDeleting ? 'Deleting selected items…' : 'Delete selected items'}</button>
               </div>
             </div>
           )}
@@ -358,118 +327,111 @@ export default function MenuBuilderPage() {
         </p>
       )}
 
-      <div className="space-y-4">
-        {categories.map((cat) => {
-          const subcats = tree[cat];
-          const collapsed = collapsedCategories.has(cat);
-          const itemCount = Object.values(subcats).reduce((sum, arr) => sum + arr.length, 0);
+              {!isLoading && filteredItems.length > 0 && (
+        <div className="max-w-full overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--line)' }}>
+          <table className="w-full min-w-[560px] table-fixed border-collapse text-left">
+            <colgroup>
+              <col style={{ width: '40px' }} />
+              <col style={{ width: '220px' }} />
+              <col style={{ width: '88px' }} />
+              <col style={{ width: '100px' }} />
+              <col style={{ width: '108px' }} />
+            </colgroup>
+            <thead>
+              <tr style={{ background: 'var(--peach)' }}>
+                <th className="px-2 py-3 text-center text-[11px] font-semibold" style={{ color: 'var(--ink)' }}><span className="sr-only">Select</span></th>
+                <th className="px-3 py-3 text-[11px] font-semibold" style={{ color: 'var(--ink)' }}>Menu item</th>
+                <th className="px-2 py-3 text-right text-[11px] font-semibold" style={{ color: 'var(--ink)' }}>Price</th>
+                <th className="px-2 py-3 text-center text-[11px] font-semibold" style={{ color: 'var(--ink)' }}>Availability</th>
+                <th className="px-2 py-3 text-center text-[11px] font-semibold" style={{ color: 'var(--ink)' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredItems.map((item) => (
+                <tr key={item.id} className="border-t align-middle" style={{ borderColor: 'var(--line)' }}>
+                  <td className="px-2 py-3 text-center">
+                    <input type="checkbox" checked={selectedItemIds.has(item.id)} onChange={() => toggleItemSelection(item.id)} aria-label={`Select ${item.name} for bulk editing`} className="h-4 w-4 accent-orange-500" />
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      {(Array.isArray((item as any).image_urls) && (item as any).image_urls[0]) || item.image_url ? (
+                        <SafeImage
+                          src={(Array.isArray((item as any).image_urls) && (item as any).image_urls[0]) || item.image_url!}
+                          alt={item.name}
+                          className="h-9 w-9 shrink-0 rounded-md object-cover"
+                        />
+                      ) : (
+                        <div className="h-9 w-9 shrink-0 rounded-md" style={{ background: 'var(--peach)' }} aria-hidden="true" />
+                      )}
+                      <span className="min-w-0 break-words text-[12px] font-semibold" style={{ color: 'var(--ink)', overflowWrap: 'anywhere' }}>{item.name}</span>
+                    </div>
+                  </td>
+                  <td className="px-2 py-3 text-right text-[12px] tabular-nums" style={{ color: 'var(--ink)' }}>₦{Number(item.price).toLocaleString()}</td>
+                  <td className="px-2 py-3 text-center">
+                    <span className="inline-block max-w-full rounded-full px-2 py-1 text-[10px] font-semibold" style={item.is_available ? { background: '#E7F6EC', color: '#207245' } : { background: '#FCE8E6', color: '#B42318' }}>
+                      {item.is_available ? 'Available' : 'Unavailable'}
+                    </span>
+                  </td>
+                  <td className="px-2 py-3">
+                    <div className="flex items-center justify-center gap-1">
+                      <button type="button" disabled={availabilityBusyId === item.id} onClick={() => toggleAvailability(item)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md disabled:opacity-50" style={{ color: item.is_available ? 'var(--gray)' : '#207245' }} aria-label={item.is_available ? 'Mark ' + item.name + ' unavailable' : 'Mark ' + item.name + ' available'} title={item.is_available ? 'Mark unavailable' : 'Mark available'}>
+                        {item.is_available ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                      <button type="button" onClick={() => { setShowAddForm(false); setEditingItem(item); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border" style={{ color: 'var(--ink)', borderColor: 'var(--line)', background: 'var(--peach)' }} aria-label={`Edit ${item.name}`} title="Edit item">
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button type="button" onClick={() => handleDelete(item)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border" style={{ color: 'var(--red)', borderColor: 'var(--line)', background: 'var(--white)' }} aria-label={`Delete ${item.name}`} title="Delete item">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-          return (
-            <div key={cat} className="rounded-[12px] overflow-hidden" style={{ border: '1px solid var(--line)' }}>
+      {editingItem && (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setEditingItem(null);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-menu-item-title"
+            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border p-4 shadow-2xl sm:p-6"
+            style={{ background: 'var(--white)', borderColor: 'var(--line)' }}
+          >
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 id="edit-menu-item-title" className="text-lg font-bold" style={{ color: 'var(--ink)' }}>
+                Edit menu item
+              </h2>
               <button
                 type="button"
-                onClick={() => toggleCategory(cat)}
-                className="w-full flex items-center justify-between px-4 py-3"
-                style={{ background: 'var(--peach)' }}
+                onClick={() => setEditingItem(null)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
+                style={{ borderColor: 'var(--line)', color: 'var(--gray)' }}
+                aria-label="Close edit menu item"
               >
-                <span className="text-[13.5px] font-semibold capitalize" style={{ color: 'var(--ink)' }}>
-                  {cat === UNCATEGORIZED ? 'Uncategorized' : cat}
-                  <span className="ml-2 text-[11.5px] font-normal" style={{ color: 'var(--gray)' }}>
-                    {itemCount} {itemCount === 1 ? 'item' : 'items'}
-                  </span>
-                </span>
-                <ChevronDown
-                  className="w-4 h-4 transition-transform"
-                  style={{ color: 'var(--gray)', transform: collapsed ? 'rotate(-90deg)' : 'none' }}
-                />
+                <X className="h-4 w-4" />
               </button>
-
-              {!collapsed && (
-                <div className="px-4 py-3 space-y-4">
-                  {Object.keys(subcats)
-                    .sort((a, b) => (a === NO_SUBCATEGORY ? 1 : b === NO_SUBCATEGORY ? -1 : a.localeCompare(b)))
-                    .map((sub) => (
-                      <div key={sub}>
-                        {sub !== NO_SUBCATEGORY && (
-                          <p className="text-[11px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--gray)' }}>
-                            {sub}
-                          </p>
-                        )}
-                        <div className="space-y-2">
-                          {subcats[sub].map((item) =>
-                            editingId === item.id ? (
-                              <MenuItemForm
-                                key={item.id}
-                                restaurantId={restaurant.id}
-                                existingItem={item}
-                                onSubmit={addMenuItem}
-                                onUpdate={updateMenuItem}
-                                onDone={() => setEditingId(null)}
-                                onCancel={() => setEditingId(null)}
-                              />
-                            ) : (
-                              <div
-                                key={item.id}
-                                className="flex items-center gap-3 p-2.5 rounded-[10px]"
-                                style={{ border: '1px solid var(--line)' }}
-                              >
-                                <input type="checkbox" checked={selectedItemIds.has(item.id)} onChange={() => toggleItemSelection(item.id)} aria-label={`Select ${item.name} for bulk editing`} className="h-4 w-4 shrink-0 accent-orange-500" />
-                                {item.image_url && (
-                                  <SafeImage
-                                    src={item.image_url}
-                                    alt={item.name}
-                                    className="w-11 h-11 rounded-[8px] object-cover flex-shrink-0"
-                                  />
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[13px] font-semibold truncate" style={{ color: 'var(--ink)' }}>
-                                    {item.name}
-                                  </p>
-                                  <p className="text-[11.5px]" style={{ color: 'var(--gray)' }}>
-                                    ₦{Number(item.price).toLocaleString()}
-                                  </p>
-                                </div>
-                                <span className="text-[10.5px] font-semibold px-2 py-1 rounded-full whitespace-nowrap" style={item.is_available ? { background: '#E7F6EC', color: '#207245' } : { background: '#FCE8E6', color: '#B42318' }}>
-                                  {item.is_available ? 'Available' : 'Unavailable'}
-                                </span>
-                                <button type="button" disabled={availabilityBusyId === item.id} onClick={() => toggleAvailability(item)} className="p-1.5 rounded-md disabled:opacity-50" style={{ color: item.is_available ? 'var(--gray)' : '#207245' }} aria-label={item.is_available ? 'Mark ' + item.name + ' unavailable' : 'Mark ' + item.name + ' available'} title={item.is_available ? 'Mark unavailable' : 'Mark available'}>
-                                  {item.is_available ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setShowAddForm(false);
-                                    setEditingId(item.id);
-                                  }}
-                                  className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-semibold active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                                  style={{ color: 'var(--ink)', borderColor: 'var(--line)', background: 'var(--peach)' }}
-                                  aria-label={`Edit ${item.name}`}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                  <span>Edit</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDelete(item)}
-                                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border px-3 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                                  style={{ color: 'var(--red)', borderColor: 'var(--line)', background: 'var(--white)' }}
-                                  aria-label={`Delete ${item.name}`}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  <span className="sr-only">Delete</span>
-                                </button>
-                              </div>
-                            )
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              )}
             </div>
-          );
-        })}
-      </div>
+            <MenuItemForm
+              restaurantId={restaurant.id}
+              existingItem={editingItem}
+              onSubmit={addMenuItem}
+              onUpdate={updateMenuItem}
+              onDone={() => setEditingItem(null)}
+              onCancel={() => setEditingItem(null)}
+            />
+          </section>
+        </div>
+      )}
 
       {showBulkDeleteConfirm && (
         <div

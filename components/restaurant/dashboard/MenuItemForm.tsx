@@ -124,6 +124,19 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
     setNewImages((prev) => prev.filter((_, i) => i !== index));
   }
 
+  function getStoragePath(url: string): string | null {
+    try {
+      const pathname = new URL(url).pathname;
+      const marker = '/storage/v1/object/public/menu-images/';
+      const markerIndex = pathname.indexOf(marker);
+      if (markerIndex < 0) return null;
+      const path = decodeURIComponent(pathname.slice(markerIndex + marker.length));
+      return path.startsWith(`${restaurantId}/`) ? path : null;
+    } catch {
+      return null;
+    }
+  }
+
   async function handleSubmit() {
     if (!canSubmit || saving) {
       if (!name.trim()) setError('Enter a dish name.');
@@ -134,6 +147,8 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
     }
     setSaving(true);
     setError(null);
+    const uploadedPaths: string[] = [];
+    let saveCompleted = false;
     try {
       const uploadedUrls: string[] = [];
       for (const file of newImages) {
@@ -141,6 +156,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
         const path = `${restaurantId}/${crypto.randomUUID()}.jpg`;
         const { error: uploadError } = await supabase.storage.from('menu-images').upload(path, compressed);
         if (uploadError) throw uploadError;
+        uploadedPaths.push(path);
         const { data: publicUrl } = supabase.storage.from('menu-images').getPublicUrl(path);
         uploadedUrls.push(publicUrl.publicUrl);
       }
@@ -164,8 +180,28 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
           image_urls: finalImageUrls,
         });
       }
+      saveCompleted = true;
+      if (isEditing && existingItem) {
+        const oldUrls = Array.isArray((existingItem as any).image_urls) && (existingItem as any).image_urls.length > 0
+          ? (existingItem as any).image_urls as string[]
+          : existingItem.image_url ? [existingItem.image_url] : [];
+        const retained = new Set(finalImageUrls);
+        const pathsToRemove = Array.from(new Set(
+          oldUrls.filter((url) => !retained.has(url)).map(getStoragePath).filter((path): path is string => !!path)
+        ));
+        if (pathsToRemove.length > 0) {
+          const { error: cleanupError } = await supabase.storage.from('menu-images').remove(pathsToRemove);
+          if (cleanupError) {
+            setError('Your menu item was saved, but one or more old photos could not be removed from Storage. Check the item before retrying.');
+            return;
+          }
+        }
+      }
       onDone();
     } catch (e: any) {
+      if (!saveCompleted && uploadedPaths.length > 0) {
+        await supabase.storage.from('menu-images').remove(uploadedPaths).catch(() => undefined);
+      }
       setError(e?.message ?? 'Could not save this item — try again.');
     } finally {
       setSaving(false);
