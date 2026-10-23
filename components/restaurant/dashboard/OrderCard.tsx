@@ -103,15 +103,6 @@ export default function OrderCard({
       <p className="text-[11.5px] mb-2" style={{ color: 'var(--gray)' }}>
         ₦{Number(order.subtotal).toLocaleString()} · {order.delivery_address ?? 'No address on file'}
       </p>
-      {(order.items ?? []).length > 0 && <div className="mb-3 rounded-lg border p-2.5" style={{ borderColor: 'var(--line)', background: '#FFFCF9' }}>
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--gray)' }}>Items to prepare</p>
-        <div className="space-y-2">
-          {order.items.map((item) => <div key={item.id} className="text-[11.5px]">
-            <div className="flex justify-between gap-2"><span className="font-semibold" style={{ color: 'var(--ink)' }}>{item.quantity}× {item.name}</span><span className="shrink-0" style={{ color: 'var(--gray)' }}>₦{(item.quantity * item.unit_price).toLocaleString()}</span></div>
-            {(item.selected_options ?? []).length > 0 && <p className="mt-0.5 pl-3 text-[10.5px] leading-5" style={{ color: 'var(--orange)' }}>{item.selected_options.map((option) => `${option.groupName}: ${option.optionName}`).join(' · ')}</p>}
-          </div>)}
-        </div>
-      </div>
 
       {!order.rider_id && order.payment_status === 'paid' && ['placed', 'preparing'].includes(order.status) && (
         <div className="mt-2 mb-2 rounded-[9px] p-2.5 space-y-2" style={{ background: 'var(--peach)', border: '1px solid var(--line)' }}>
