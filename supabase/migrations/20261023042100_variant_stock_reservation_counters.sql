@@ -174,7 +174,7 @@ BEGIN
       FROM jsonb_array_elements(COALESCE(groups_json, '[]'::jsonb)) WITH ORDINALITY g(value, ordinality)
       WHERE g.value->>'id' = r.option_group_id LIMIT 1;
       IF group_index IS NULL THEN RAISE EXCEPTION USING MESSAGE = 'STOCK_OPTION_CHANGED', ERRCODE = 'P0001'; END IF;
-      SELECT o.ordinality, (o.value->>'stock_quantity')::integer,
+      SELECT o.ordinality::integer, (o.value->>'stock_quantity')::integer,
         COALESCE((o.value->>'stock_reserved')::integer, 0)
         INTO option_index, option_stock, option_reserved
       FROM jsonb_array_elements(groups_json->(group_index - 1)->'options') WITH ORDINALITY o(value, ordinality)
