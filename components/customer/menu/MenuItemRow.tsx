@@ -32,6 +32,36 @@ export function MenuItemRow({item, restaurant}: MenuItemRowProps) {
     const endMinutes = Number(end[1]) * 60 + Number(end[2]);
     return startMinutes < endMinutes && currentMinutes >= startMinutes && currentMinutes < endMinutes;
   });
+  const nextAvailabilityLabel = (() => {
+    if (!(item as any).availability_schedule_enabled || !schedule.length) return 'Not available right now';
+    const windows = schedule.flatMap((window: any) => {
+      if (!Number.isInteger(Number(window?.day)) || Number(window.day) < 0 || Number(window.day) > 6 || typeof window?.start !== 'string' || typeof window?.end !== 'string') return [];
+      const start = /^(\\d{2}):(\\d{2})$/.exec(window.start);
+      const end = /^(\\d{2}):(\\d{2})$/.exec(window.end);
+      if (!start || !end) return [];
+      const startMinutes = Number(start[1]) * 60 + Number(start[2]);
+      const endMinutes = Number(end[1]) * 60 + Number(end[2]);
+      return startMinutes < endMinutes ? [{ day: Number(window.day), startMinutes }] : [];
+    });
+    const upcoming = windows
+      .map((window: any) => ({ ...window, daysAway: (window.day - currentDay + 7) % 7 }))
+      .map((window: any) => ({ ...window, minutesAway: window.daysAway * 1440 + window.startMinutes - currentMinutes }))
+      .filter((window: any) => window.minutesAway > 0)
+      .sort((a: any, b: any) => a.minutesAway - b.minutesAway)[0];
+    if (!upcoming) return 'No upcoming hours set';
+    if (upcoming.daysAway === 0) {
+      const hours = Math.floor(upcoming.minutesAway / 60);
+      const minutes = upcoming.minutesAway % 60;
+      if (hours === 0) return `Available in ${minutes} min`;
+      if (minutes === 0) return `Available in ${hours} hr`;
+      return `Available in ${hours} hr ${minutes} min`;
+    }
+    const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][(currentDay + upcoming.daysAway) % 7];
+    const hour = Math.floor(upcoming.startMinutes / 60);
+    const minute = upcoming.startMinutes % 60;
+    const time = new Date(2000, 0, 1, hour, minute).toLocaleTimeString('en-NG', { hour: 'numeric', minute: '2-digit', hour12: true });
+    return `Back ${dayName} at ${time}`;
+  })();
   const canOrder = item.is_available !== false && restaurant.is_accepting_orders !== false && withinSchedule;
   const hasOptions = (item.option_groups ?? []).length > 0;
   const openDetails = () => { if (canOrder) router.push(`/order/restaurant/${restaurant.id}/item/${item.id}`); };
@@ -53,12 +83,12 @@ export function MenuItemRow({item, restaurant}: MenuItemRowProps) {
       >
         {!imageUrls.length && <span className="absolute inset-0 flex items-center justify-center" style={{color:'var(--gray)'}}><ImageIcon className="h-8 w-8 opacity-50" /></span>}
         {imageUrls.length > 1 && <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-1 text-[10px] font-semibold text-white">{imageUrls.length} photos</span>}
-        {!canOrder && <span className="absolute left-2 top-2 rounded-full border border-orange-200 bg-orange-100 px-2.5 py-1 text-[10px] font-bold text-orange-800 shadow-sm">Unavailable</span>}
+        {!canOrder && <span className={`absolute left-2 top-2 rounded-full border px-2.5 py-1 text-[10px] font-bold shadow-sm ${item.is_available === false ? 'border-rose-200 bg-rose-100 text-rose-800' : !withinSchedule ? 'border-amber-200 bg-amber-100 text-amber-900' : 'border-violet-200 bg-violet-100 text-violet-800'}`}>{item.is_available === false ? 'Unavailable' : !withinSchedule ? 'Opens soon' : 'Orders paused'}</span>}
       </div>
       <div className="p-2.5 sm:p-3">
         <h2 className="line-clamp-2 text-sm font-semibold" style={{color:'var(--ink)'}}>{item.name}</h2>
         <p className="mt-1 text-xs font-medium" style={{color:'var(--orange)'}}>₦{item.price.toLocaleString()}</p>
-        {!canOrder && <p className="mt-1 inline-flex rounded-md bg-orange-100 px-2 py-1 text-[11px] font-semibold text-orange-800">{item.is_available === false ? 'Currently unavailable' : !withinSchedule ? 'Available during scheduled hours' : 'Restaurant not accepting orders'}</p>}
+        {!canOrder && <p className={`mt-1 inline-flex max-w-full rounded-md border px-2.5 py-1.5 text-[11px] font-semibold ${item.is_available === false ? 'border-rose-200 bg-rose-50 text-rose-800' : !withinSchedule ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-violet-200 bg-violet-50 text-violet-800'}`}>{item.is_available === false ? 'Currently unavailable' : !withinSchedule ? nextAvailabilityLabel : 'Restaurant not accepting orders'}</p>}
         {canOrder && <div className="mt-3">
           {hasOptions ? (
             <button type="button" onClick={(event) => { event.stopPropagation(); openDetails(); }} className="min-h-10 w-full rounded-full px-2 py-2 text-[11px] font-semibold text-white sm:text-xs" style={{background:'var(--orange)'}}>Choose options</button>
