@@ -39,6 +39,7 @@ export default function MenuBuilderPage() {
   const [bulkSubcategory, setBulkSubcategory] = useState('');
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [bulkError, setBulkError] = useState('');
 
   const categoryOptions = useMemo(() => {
@@ -125,17 +126,27 @@ export default function MenuBuilderPage() {
     }
   }
 
-  async function handleBulkDelete() {
+  function handleBulkDelete() {
+    if (menuItems.some((item) => selectedItemIds.has(item.id))) {
+      setBulkError('');
+      setShowBulkDeleteConfirm(true);
+    }
+  }
+
+  async function confirmBulkDelete() {
     const selectedItems = menuItems.filter((item) => selectedItemIds.has(item.id));
-    if (!selectedItems.length) return;
-    const confirmed = confirm('Delete ' + selectedItems.length + ' selected menu item(s)? This cannot be undone.');
-    if (!confirmed) return;
+    if (!selectedItems.length) {
+      setShowBulkDeleteConfirm(false);
+      return;
+    }
     setBulkDeleting(true);
     setBulkError('');
     try {
       for (const item of selectedItems) await deleteMenuItem(item.id);
       setSelectedItemIds(new Set());
+      setShowBulkDeleteConfirm(false);
     } catch (error) {
+      setShowBulkDeleteConfirm(false);
       setBulkError(error instanceof Error ? error.message : 'Some items could not be deleted. Refresh the menu and check which items remain.');
     } finally {
       setBulkDeleting(false);
@@ -434,6 +445,57 @@ export default function MenuBuilderPage() {
           );
         })}
       </div>
+
+      {showBulkDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !bulkDeleting) setShowBulkDeleteConfirm(false);
+          }}
+        >
+          <section
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="bulk-delete-title"
+            aria-describedby="bulk-delete-description"
+            className="w-full max-w-md rounded-2xl border p-5 shadow-2xl sm:p-6"
+            style={{ background: 'var(--white)', borderColor: 'var(--line)' }}
+          >
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full" style={{ background: '#FDE8E7', color: 'var(--red)' }}>
+              <Trash2 className="h-6 w-6" />
+            </div>
+            <h2 id="bulk-delete-title" className="text-lg font-bold" style={{ color: 'var(--ink)' }}>
+              Delete {menuItems.filter((item) => selectedItemIds.has(item.id)).length} selected menu item{menuItems.filter((item) => selectedItemIds.has(item.id)).length === 1 ? '' : 's'}?
+            </h2>
+            <p id="bulk-delete-description" className="mt-2 text-sm leading-6" style={{ color: 'var(--gray)' }}>
+              This will permanently remove the selected items from your restaurant menu. This action cannot be undone.
+            </p>
+            {bulkError && <p role="alert" className="mt-3 text-sm" style={{ color: 'var(--red)' }}>{bulkError}</p>}
+            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                disabled={bulkDeleting}
+                onClick={() => setShowBulkDeleteConfirm(false)}
+                className="order-2 min-h-12 rounded-xl border px-4 py-3 text-sm font-semibold transition hover:bg-gray-50 disabled:opacity-50 sm:order-1"
+                style={{ borderColor: 'var(--line)', color: 'var(--ink)', background: 'var(--white)' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={bulkDeleting}
+                onClick={confirmBulkDelete}
+                className="order-1 flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 sm:order-2"
+                style={{ background: 'var(--red)' }}
+              >
+                <Trash2 className="h-4 w-4" />
+                {bulkDeleting ? 'Deleting items…' : 'Yes, delete selected'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </>
   );
 }
