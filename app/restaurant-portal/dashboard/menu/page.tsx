@@ -300,6 +300,33 @@ export default function MenuBuilderPage() {
             <div className="space-y-3 border-t pt-3" style={{borderColor:'var(--line)'}}>
               <p className="text-sm font-semibold" style={{color:'var(--ink)'}}>Bulk edit selected items</p>
               <p className="text-xs" style={{color:'var(--gray)'}}>Only fields you fill in will change. Leave a field blank to keep each item's current value.</p>
+              <div className="space-y-4">
+                <div className="rounded-xl border p-3" style={{borderColor:'var(--line)',background:'var(--white)'}}>
+                  <ChipPicker label="Set category" options={MENU_CATEGORY_NAMES} value={bulkCategory} onChange={(value) => { setBulkCategory(value); setBulkSubcategory(''); }} />
+                  <p className="mt-2 text-[11px]" style={{color:'var(--gray)'}}>Choose a category or Custom. Leave unselected to keep each item's category.</p>
+                </div>
+                <div className="rounded-xl border p-3" style={{borderColor:'var(--line)',background:'var(--white)'}}>
+                  <ChipPicker label="Set subcategory" options={bulkCategory ? (MENU_CATEGORY_PRESETS[bulkCategory.toLowerCase()] ?? []) : Array.from(new Set(menuItems.filter((item) => selectedItemIds.has(item.id)).map((item) => (item as any).subcategory).filter((value): value is string => typeof value === 'string' && value.length > 0)))} value={bulkSubcategory} onChange={setBulkSubcategory} />
+                  <p className="mt-2 text-[11px]" style={{color:'var(--gray)'}}>Leave unselected to keep each item's subcategory.</p>
+                </div>
+              </div>
+              {bulkError && <p role="alert" className="text-sm" style={{color:'var(--red)'}}>{bulkError}</p>}
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <button type="button" disabled={bulkSaving || bulkDeleting} onClick={handleBulkUpdate} className="min-h-14 rounded-xl px-6 py-3 text-sm font-bold text-white disabled:opacity-50" style={{background:'var(--orange)'}}>{bulkSaving ? 'Saving changes…' : 'Apply changes to selected'}</button>
+                <button type="button" disabled={bulkSaving || bulkDeleting} onClick={() => { setSelectedItemIds(new Set()); setBulkCategory(''); setBulkSubcategory(''); setBulkError(''); }} className="min-h-14 rounded-xl border px-6 py-3 text-sm font-semibold disabled:opacity-50" style={{borderColor:'var(--line)',color:'var(--ink)',background:'var(--white)'}}>Cancel selection</button>
+                <button type="button" disabled={bulkSaving || bulkDeleting} onClick={handleBulkDelete} className="sm:col-span-2 min-h-14 rounded-xl border-2 px-6 py-3 text-sm font-bold disabled:opacity-50" style={{borderColor:'var(--red)',color:'var(--red)',background:'var(--white)'}}>{bulkDeleting ? 'Deleting selected items…' : 'Delete selected items'}</button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {!isLoading && menuItems.length === 0 && !showAddForm && (
+        <p className="text-[12.5px] py-6 text-center" style={{ color: 'var(--gray)' }}>
+          No menu items yet. Add your first dish to get started.
+        </p>
+      )}
+
               {!isLoading && filteredItems.length > 0 && (
         <div className="max-w-full overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--line)' }}>
           <table className="w-full min-w-[560px] table-fixed border-collapse text-left">
