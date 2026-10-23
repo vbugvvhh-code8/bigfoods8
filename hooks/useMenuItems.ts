@@ -19,6 +19,8 @@ export interface NewMenuItem {
   dietary_tags?: string[];
   option_groups?: MenuItemOptionGroup[];
   stock_quantity?: number | null;
+  availability_schedule_enabled?: boolean;
+  availability_schedule?: { day: number; start: string; end: string }[];
 }
 
 export interface MenuItemUpdate {
@@ -78,6 +80,8 @@ export function useMenuItems(restaurantId?: string) {
         dietary_tags: item.dietary_tags ?? [],
         option_groups: item.option_groups ?? [],
         stock_quantity: item.stock_quantity ?? null,
+        availability_schedule_enabled: item.availability_schedule_enabled ?? false,
+        availability_schedule: item.availability_schedule ?? [],
       })
       .select()
       .single();
