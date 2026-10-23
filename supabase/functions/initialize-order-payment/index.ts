@@ -189,27 +189,37 @@ Deno.serve(async (req: Request) => {
       if (!g || typeof g.restaurant_id !== "string" || !Array.isArray(g.items) || g.items.length === 0) {
         return json({ error: "Each restaurant group must include at least one cart item" }, 400);
       }
-      const seenItemIds = new Set<string>();
+      const seenLineKeys = new Set<string>();
       for (const item of g.items) {
         if (
           !item || typeof item.menu_item_id !== "string" ||
           !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 99 ||
-          seenItemIds.has(item.menu_item_id)
+          (item.selected_options != null && !Array.isArray(item.selected_options))
         ) {
-          return json({ error: "Cart items must have unique item IDs and quantities between 1 and 99" }, 400);
+          return json({ error: "Cart items must have valid IDs, quantities between 1 and 99, and valid option selections" }, 400);
         }
-        seenItemIds.add(item.menu_item_id);
+        const selections = Array.isArray(item.selected_options) ? item.selected_options : [];
+        if (selections.some((selection: any) => !selection || typeof selection.group_id !== "string" || typeof selection.option_id !== "string")) {
+          return json({ error: "One or more selected options are invalid. Please review your cart." }, 400);
+        }
+        const optionSignature = selections.map((selection: any) => `${selection.group_id}:${selection.option_id}`).sort().join(",");
+        const lineKey = `${item.menu_item_id}|${optionSignature}`;
+        if (seenLineKeys.has(lineKey)) {
+          return json({ error: "Duplicate cart lines found. Please refresh your cart and try again." }, 400);
+        }
+        seenLineKeys.add(lineKey);
       }
       itemCount += g.items.length;
       if (itemCount > 100) return json({ error: "Your cart contains too many items" }, 400);
 
+      const uniqueMenuItemIds = [...new Set(g.items.map((i: any) => i.menu_item_id))];
       const { data: menuItems, error: itemsError } = await admin
         .from("menu_items")
-        .select("id, price, restaurant_id, is_available")
-        .in("id", g.items.map((i: any) => i.menu_item_id));
+        .select("id, price, restaurant_id, is_available, option_groups")
+        .in("id", uniqueMenuItemIds);
       if (itemsError) return json({ error: "Unable to validate cart items. Please try again later." }, 503);
       const invalid = menuItems?.find((m: any) => m.restaurant_id !== g.restaurant_id);
-      if (invalid || menuItems?.length !== g.items.length) {
+      if (invalid || menuItems?.length !== uniqueMenuItemIds.length) {
         return json({ error: "One or more items don't belong to their restaurant" }, 400);
       }
       const unavailableItem = menuItems?.find((m: any) => m.is_available === false);
@@ -217,15 +227,62 @@ Deno.serve(async (req: Request) => {
         return json({ error: "One or more items in your cart are currently unavailable. Remove them and try again." }, 409);
       }
       const menuItemById = new Map((menuItems ?? []).map((m: any) => [m.id, m]));
-      const pricedItems = g.items.map((i: any) => {
+      const pricedItems: any[] = [];
+      for (const i of g.items) {
         const menuItem = menuItemById.get(i.menu_item_id) as any;
         const rawPrice = Number(menuItem?.price);
         if (!Number.isFinite(rawPrice) || rawPrice <= 0) throw new Error("Invalid menu item price");
-        // Checkout/payment amounts use whole naira; apply the same rounded unit
-        // price to line items and the subtotal so receipts reconcile exactly.
-        const unitPrice = Math.round(rawPrice);
-        return { menu_item_id: i.menu_item_id, quantity: i.quantity, unit_price: unitPrice };
-      });
+        const basePrice = Math.round(rawPrice);
+        const optionGroups = Array.isArray(menuItem?.option_groups) ? menuItem.option_groups : [];
+        const selections = Array.isArray(i.selected_options) ? i.selected_options : [];
+        const selectionKeys = new Set<string>();
+        const selectedSnapshots: any[] = [];
+        const countsByGroup = new Map<string, number>();
+
+        for (const selection of selections) {
+          const key = `${selection.group_id}:${selection.option_id}`;
+          if (selectionKeys.has(key)) return json({ error: "Duplicate options selected. Please review your cart." }, 400);
+          selectionKeys.add(key);
+          const optionGroup = optionGroups.find((group: any) => group?.id === selection.group_id);
+          const option = optionGroup?.options?.find((candidate: any) => candidate?.id === selection.option_id);
+          if (!optionGroup || !option || option.is_available === false) {
+            return json({ error: "One of your selected options is no longer available. Please update your cart." }, 409);
+          }
+          const optionPrice = Number(option.price);
+          if (!Number.isSafeInteger(optionPrice) || optionPrice < 0 || typeof option.name !== "string" || typeof optionGroup.name !== "string") {
+            return json({ error: "A menu option has invalid pricing. Please contact the restaurant." }, 409);
+          }
+          countsByGroup.set(optionGroup.id, (countsByGroup.get(optionGroup.id) ?? 0) + 1);
+          selectedSnapshots.push({
+            groupId: optionGroup.id,
+            groupName: optionGroup.name,
+            optionId: option.id,
+            optionName: option.name,
+            price: optionPrice,
+          });
+        }
+
+        for (const optionGroup of optionGroups) {
+          if (!optionGroup || typeof optionGroup.id !== "string" || !Array.isArray(optionGroup.options)) {
+            return json({ error: "A menu item's option setup is invalid. Please contact the restaurant." }, 409);
+          }
+          const count = countsByGroup.get(optionGroup.id) ?? 0;
+          const minimum = optionGroup.required ? Math.max(1, Number(optionGroup.min_select ?? 1)) : Number(optionGroup.min_select ?? 0);
+          const maximum = optionGroup.selection_type === "single" ? 1 : Number(optionGroup.max_select ?? optionGroup.options.length);
+          if (!Number.isInteger(minimum) || !Number.isInteger(maximum) || minimum < 0 || maximum < minimum || count < minimum || count > maximum) {
+            return json({ error: `Please review your selection for "${optionGroup.name || "menu options"}".` }, 400);
+          }
+        }
+
+        const unitPrice = basePrice + selectedSnapshots.reduce((sum, option) => sum + option.price, 0);
+        if (!Number.isSafeInteger(unitPrice) || unitPrice <= 0) return json({ error: "Cart item price is invalid." }, 400);
+        pricedItems.push({
+          menu_item_id: i.menu_item_id,
+          quantity: i.quantity,
+          unit_price: unitPrice,
+          selected_options: selectedSnapshots,
+        });
+      }
       const subtotal = pricedItems.reduce((sum: number, i: any) => sum + i.unit_price * i.quantity, 0);
       if (!Number.isSafeInteger(subtotal) || subtotal < 0) {
         return json({ error: "Cart subtotal is invalid. Please refresh your cart." }, 400);
@@ -275,7 +332,7 @@ Deno.serve(async (req: Request) => {
       if (orderError) return json({ error: orderError.message }, 500);
 
       const orderItemsPayload = groupComputations[0].items.map((i: any) => ({
-        order_id: order.id, menu_item_id: i.menu_item_id, quantity: i.quantity ?? 1, unit_price: i.unit_price,
+        order_id: order.id, menu_item_id: i.menu_item_id, quantity: i.quantity ?? 1, unit_price: i.unit_price, selected_options: i.selected_options ?? [],
       }));
       const { error: itemsInsertError } = await admin.from("order_items").insert(orderItemsPayload);
       if (itemsInsertError) {
