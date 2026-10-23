@@ -104,6 +104,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   const [complementaryItemIds, setComplementaryItemIds] = useState<string[]>(existingItem?.complementary_item_ids ?? []);
   const [availableMenuItems, setAvailableMenuItems] = useState<{id:string;name:string}[]>([]);
   useEffect(() => {
+    if (!restaurantId) return;
     let active = true;
     void supabase.from('menu_items').select('id,name').eq('restaurant_id', restaurantId).order('name')
       .then(({data, error}) => {
