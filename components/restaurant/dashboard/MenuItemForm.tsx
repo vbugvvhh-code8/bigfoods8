@@ -107,6 +107,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   });
   const [newImages, setNewImages] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
+  const [step, setStep] = useState(1);
   const [error, setError] = useState<string | null>(null);
 
   const subcategoryOptions = category ? MENU_CATEGORY_PRESETS[category.toLowerCase()] ?? [] : [];
@@ -245,8 +246,15 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   }
 
   return (
-    <div className="p-4 rounded-[12px]" style={{ border: '1px solid var(--line)' }}>
-      <div className="mb-3">
+    <div className="rounded-[16px] p-4 sm:p-6" style={{ border: '1px solid var(--line)', background: 'var(--white)' }}>
+      <div className="mb-6">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div><p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: 'var(--orange)' }}>{isEditing ? 'Edit menu item' : 'New menu item'}</p><h2 className="mt-1 text-xl font-bold" style={{ color: 'var(--ink)' }}>{['Basic information','Photos','Variants & extras','Preparation & details','Review & save'][step-1]}</h2><p className="mt-1 text-xs" style={{color:'var(--gray)'}}>Step {step} of 5 · Your progress stays here while you move between steps.</p></div>
+          <span className="rounded-full px-3 py-1 text-xs font-bold" style={{background:'var(--peach)',color:'var(--ink)'}}>{Math.round(step/5*100)}%</span>
+        </div>
+        <div className="grid grid-cols-5 gap-1.5" aria-label="Form progress">{[1,2,3,4,5].map((n)=><div key={n} className="h-1.5 rounded-full" style={{background:n<=step?'var(--orange)':'var(--line)'}} />)}</div>
+      </div>
+      <div className="mb-3" style={{ display: step === 1 ? undefined : "none" }}>
         <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
           Dish name
         </label>
@@ -259,7 +267,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
         />
       </div>
 
-      <div className="mb-3">
+      <div className="mb-3" style={{ display: step === 1 ? undefined : "none" }}>
         <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
           Price (₦)
         </label>
@@ -273,7 +281,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
         />
       </div>
 
-      <div className="mb-3">
+      <div className="mb-3" style={{ display: step === 1 ? undefined : "none" }}>
         <ChipPicker
           label="Category"
           options={MENU_CATEGORY_NAMES}
@@ -285,7 +293,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
         />
       </div>
 
-      <div className="mb-3">
+      <div className="mb-3" style={{ display: step === 1 ? undefined : "none" }}>
         <ChipPicker
           label="Sub-category (optional)"
           options={subcategoryOptions}
@@ -294,15 +302,15 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
         />
       </div>
 
-      <div className="mb-3">
+      <div className="mb-3" style={{ display: step === 1 ? undefined : "none" }}>
         <label className="mb-1.5 block text-[12px] font-medium" style={{ color: 'var(--ink)' }}>Dish description (optional)</label>
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1200} rows={3} placeholder="Describe the dish, flavour, and what customers can expect." className="w-full rounded-[9px] px-3 py-2.5 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }} />
       </div>
-      <div className="mb-3">
+      <div className="mb-3" style={{ display: step === 4 ? undefined : "none" }}>
         <label className="mb-1.5 block text-[12px] font-medium" style={{ color: 'var(--ink)' }}>Ingredients (optional)</label>
         <textarea value={ingredients} onChange={(e) => setIngredients(e.target.value)} maxLength={1200} rows={2} placeholder="e.g. rice, tomatoes, peppers, chicken" className="w-full rounded-[9px] px-3 py-2.5 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }} />
       </div>
-      <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2" style={{ display: step === 4 ? undefined : "none" }}>
         <div>
           <label className="mb-1.5 block text-[12px] font-medium" style={{ color: 'var(--ink)' }}>Portion / serving size</label>
           <input value={servingSize} onChange={(e) => setServingSize(e.target.value)} maxLength={100} placeholder="e.g. 1 plate, serves 2" className="w-full rounded-[9px] px-3 py-2.5 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }} />
@@ -312,16 +320,16 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
           <input value={preparationTime} onChange={(e) => setPreparationTime(e.target.value.replace(/[^\\d]/g, ''))} inputMode="numeric" placeholder="e.g. 20" className="w-full rounded-[9px] px-3 py-2.5 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }} />
         </div>
       </div>
-      <div className="mb-3">
+      <div className="mb-3" style={{ display: step === 4 ? undefined : "none" }}>
         <label className="mb-1.5 block text-[12px] font-medium" style={{ color: 'var(--ink)' }}>Allergens (comma-separated)</label>
         <input value={allergens} onChange={(e) => setAllergens(e.target.value)} maxLength={500} placeholder="e.g. peanuts, dairy, eggs" className="w-full rounded-[9px] px-3 py-2.5 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }} />
       </div>
-      <div className="mb-4">
+      <div className="mb-4" style={{ display: step === 4 ? undefined : "none" }}>
         <label className="mb-1.5 block text-[12px] font-medium" style={{ color: 'var(--ink)' }}>Dietary tags (comma-separated)</label>
         <input value={dietaryTags} onChange={(e) => setDietaryTags(e.target.value)} maxLength={500} placeholder="e.g. vegetarian, spicy, halal" className="w-full rounded-[9px] px-3 py-2.5 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }} />
       </div>
 
-      <section className="mb-4 rounded-xl border p-3" style={{ borderColor: 'var(--line)', background: 'var(--white)' }}>
+      <section className="mb-4 rounded-xl border p-3" style={{ borderColor: 'var(--line)', background: 'var(--white)', display: step === 3 ? undefined : "none" }}>
         <div className="mb-1 flex items-center justify-between gap-3">
           <h3 className="text-[13px] font-bold" style={{ color: 'var(--ink)' }}>Variants & extras</h3>
           <button type="button" onClick={() => setOptionGroups((prev) => [...prev, { id: crypto.randomUUID(), name: 'Choose an option', required: false, selection_type: 'single', options: [{ id: crypto.randomUUID(), name: '', price: 0 }, { id: crypto.randomUUID(), name: '', price: 0 }] }])} className="rounded-lg px-3 py-2 text-[11px] font-bold text-white" style={{ background: 'var(--orange)' }}>+ Add group</button>
@@ -370,6 +378,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
         </div>
       </section>
 
+      <section style={{ display: step === 2 ? undefined : "none" }}>
       <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
         Photos (1–3 required)
       </label>
@@ -417,6 +426,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
       <p className="text-[11px] mb-3" style={{ color: 'var(--gray)' }}>
         {totalImageCount}/3 photos · At least one photo is required.
       </p>
+      </section>
 
       {error && (
         <p className="text-[11px] mb-2" style={{ color: 'var(--red)' }}>
