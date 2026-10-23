@@ -332,10 +332,12 @@ export default function MenuBuilderPage() {
                 <div className="min-w-0 flex-1">
                   <h2 className="break-words text-sm font-bold leading-5" style={{ color: 'var(--ink)' }}>{item.name}</h2>
                   <p className="mt-1 break-all text-[11px]" style={{ color: 'var(--gray)' }}>SKU: {item.sku}</p>
-                  <p className="mt-2 text-base font-bold tabular-nums" style={{ color: 'var(--ink)' }}>₦{Number(item.price).toLocaleString()}</p>
-                  <span className="mt-2 inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold" style={item.is_available ? { background: '#E7F6EC', color: '#207245' } : { background: '#FCE8E6', color: '#B42318' }}>
-                    {item.is_available ? 'Available' : 'Unavailable'}
-                  </span>
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-base font-bold tabular-nums" style={{ color: 'var(--ink)' }}>₦{Number(item.price).toLocaleString()}</p>
+                    <span className="inline-flex rounded-full px-3 py-1.5 text-[11px] font-semibold" style={item.is_available ? { background: '#E7F6EC', color: '#207245' } : { background: '#FCE8E6', color: '#B42318' }}>
+                      {item.is_available ? 'Available' : 'Unavailable'}
+                    </span>
+                  </div>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-3 gap-3 border-t pt-4" style={{ borderColor: 'var(--line)' }}>
