@@ -37,10 +37,15 @@ export default function MenuItemDetailsPage() {
   const mainStockAvailable = !item || item.stock_quantity == null || Number(item.stock_quantity) - Number(item.stock_reserved ?? 0) > 0;
   const canOrder = !!item && !!restaurant && item.is_available !== false && restaurant.is_accepting_orders !== false && mainStockAvailable;
   const optionsValid = (item?.option_groups ?? []).every((group) => {
-    const count = (selectedByGroup[group.id] ?? []).length;
+    const selectedIds = selectedByGroup[group.id] ?? [];
+    const count = selectedIds.length;
     const min = group.required ? Math.max(1, group.min_select ?? 1) : (group.min_select ?? 0);
     const max = group.selection_type === 'single' ? 1 : (group.max_select ?? group.options.length);
-    return count >= min && count <= max;
+    const unavailableSelection = group.options.some((option) => selectedIds.includes(option.id) && (
+      option.is_available === false ||
+      (option.stock_quantity != null && Number(option.stock_quantity) - Number(option.stock_reserved ?? 0) <= 0)
+    ));
+    return count >= min && count <= max && !unavailableSelection;
   });
   const unitPrice = item ? Number(item.price) + selectedOptions.reduce((sum, option) => sum + option.price, 0) : 0;
   const updateOptionSelection = (groupId: string, optionId: string, selectionType: 'single' | 'multiple') => {
@@ -117,7 +122,7 @@ export default function MenuItemDetailsPage() {
                       const optionOutOfStock = option.stock_quantity != null && Number(option.stock_quantity) - Number(option.stock_reserved ?? 0) <= 0;
                       const optionUnavailable = option.is_available === false || optionOutOfStock;
                       return <label key={option.id} className={`flex items-center gap-3 rounded-xl border p-3 ${optionUnavailable ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`} style={{ borderColor: checked ? 'var(--orange)' : 'var(--line)', background: checked ? '#FFF7F0' : 'var(--white)' }}>
-                        <input type={group.selection_type === 'single' ? 'radio' : 'checkbox'} name={`option-group-${group.id}`} checked={checked} disabled={optionUnavailable || (group.selection_type === 'multiple' && !checked && (selectedByGroup[group.id] ?? []).length >= (group.max_select ?? group.options.length))} onChange={() => updateOptionSelection(group.id, option.id, group.selection_type)} className="h-4 w-4 accent-orange-600" />
+                        <input type={group.selection_type === 'single' ? 'radio' : 'checkbox'} name={`option-group-${group.id}`} checked={checked} disabled={(optionUnavailable && !checked) || (group.selection_type === 'multiple' && !checked && (selectedByGroup[group.id] ?? []).length >= (group.max_select ?? group.options.length))} onChange={() => updateOptionSelection(group.id, option.id, group.selection_type)} className="h-4 w-4 accent-orange-600" />
                         <span className="min-w-0 flex-1 text-sm font-medium" style={{ color: 'var(--ink)' }}>{option.name}{optionOutOfStock ? <span className="ml-2 text-[10px] font-semibold" style={{color:'#B42318'}}>Out of stock</span> : option.is_available === false ? <span className="ml-2 text-[10px] font-semibold" style={{color:'#B42318'}}>Unavailable</span> : null}</span>
                         <span className="text-xs font-semibold" style={{ color: option.price > 0 ? 'var(--orange)' : 'var(--gray)' }}>{option.price > 0 ? `+₦${option.price.toLocaleString()}` : 'Included'}</span>
                       </label>;
@@ -138,7 +143,7 @@ export default function MenuItemDetailsPage() {
                       <button type="button" disabled={!canOrder} onClick={() => canOrder && updateQuantity(cartKey, quantity + 1)} className="flex h-10 w-10 items-center justify-center rounded-full text-white disabled:opacity-40" style={{ background: 'var(--orange)' }} aria-label="Add one more"><Plus className="h-4 w-4" /></button>
                     </div>
                   </div>
-                ) : <button type="button" disabled={!canOrder || !optionsValid} onClick={() => canOrder && optionsValid && addItem({ id: cartKey, menuItemId: item.id, name: item.name, price: unitPrice, selectedOptions, restaurantId: restaurant.id, restaurantName: restaurant.name })} className="w-full rounded-xl px-5 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40" style={{ background: 'var(--orange)' }}>{!canOrder ? 'Not available to order' : !optionsValid ? 'Choose required options' : `Add to cart · ₦${unitPrice.toLocaleString()}`}</button>}
+                ) : <button type="button" disabled={!canOrder || !optionsValid} onClick={() => canOrder && optionsValid && addItem({ id: cartKey, menuItemId: item.id, name: item.name, price: unitPrice, selectedOptions, restaurantId: restaurant.id, restaurantName: restaurant.name })} className="w-full rounded-xl px-5 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40" style={{ background: 'var(--orange)' }}>{!canOrder ? 'Not available to order' : !optionsValid ? 'Review required or out-of-stock options' : `Add to cart · ₦${unitPrice.toLocaleString()}`}</button>}
               </div>
             </div>
           </div>
