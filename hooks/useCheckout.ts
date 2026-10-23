@@ -24,6 +24,19 @@ interface InitializeParams {
   expectedTotal?: number;
 }
 
+async function throwFunctionError(error: any, fallback: string): Promise<never> {
+  let message = error?.message ?? fallback;
+  try {
+    if (typeof error?.context?.json === 'function') {
+      const payload = await error.context.json();
+      message = payload?.error ?? payload?.message ?? message;
+    }
+  } catch {
+    // The response may not contain JSON; retain the SDK message.
+  }
+  throw new Error(message || fallback);
+}
+
 export function useCheckout() {
   const [paymentLink, setPaymentLink] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,7 +58,7 @@ export function useCheckout() {
           callbackOrigin: window.location.origin,
         },
       });
-      if (fnError) throw fnError;
+      if (fnError) await throwFunctionError(fnError, 'Could not start payment. Try again.');
       if (data?.error) throw new Error(data.error);
       if (!data?.authorization_url) throw new Error('Could not start payment');
       if (params.expectedTotal != null && Number.isFinite(Number(data.total_amount)) && Number(data.total_amount) !== params.expectedTotal) {
@@ -67,11 +80,11 @@ export function useCheckout() {
         delivery_note: params.deliveryNote || null, tip_amount: params.tipAmount,
         callbackOrigin: window.location.origin, payment_mode: 'link',
       }});
-      if (init.error) throw init.error;
+      if (init.error) await throwFunctionError(init.error, 'Could not prepare the payment link. Try again.');
       if (init.data?.error) throw new Error(init.data.error);
       if (!init.data?.reference) throw new Error('Could not prepare payment link');
       const created = await supabase.functions.invoke('create-order-payment-link', {body: {reference: init.data.reference}});
-      if (created.error) throw created.error;
+      if (created.error) await throwFunctionError(created.error, 'Could not create the payment link. Try again.');
       if (created.data?.error) throw new Error(created.data.error);
       if (!created.data?.payment_url) throw new Error('Could not create payment link');
       setPaymentLink(created.data.payment_url);
