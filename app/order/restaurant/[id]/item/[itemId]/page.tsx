@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Clock3, Minus, Plus, UtensilsCrossed } from 'lucide-react';
 import { useRestaurant } from '@/hooks/useRestaurants';
@@ -17,6 +17,7 @@ export default function MenuItemDetailsPage() {
   const { items, addItem, updateQuantity } = useCart();
   const [activeImage, setActiveImage] = useState(0);
   const [selectedByGroup, setSelectedByGroup] = useState<Record<string, string[]>>({});
+  useEffect(() => setSelectedByGroup({}), [itemId]);
 
   const item = useMemo(() => menuItems.find((candidate) => candidate.id === itemId), [menuItems, itemId]);
   const images = useMemo(() => {
@@ -113,7 +114,7 @@ export default function MenuItemDetailsPage() {
                     {group.options.filter((option) => option.is_available !== false).map((option) => {
                       const checked = (selectedByGroup[group.id] ?? []).includes(option.id);
                       return <label key={option.id} className="flex cursor-pointer items-center gap-3 rounded-xl border p-3" style={{ borderColor: checked ? 'var(--orange)' : 'var(--line)', background: checked ? '#FFF7F0' : 'var(--white)' }}>
-                        <input type={group.selection_type === 'single' ? 'radio' : 'checkbox'} name={`option-group-${group.id}`} checked={checked} onChange={() => updateOptionSelection(group.id, option.id, group.selection_type)} className="h-4 w-4 accent-orange-600" />
+                        <input type={group.selection_type === 'single' ? 'radio' : 'checkbox'} name={`option-group-${group.id}`} checked={checked} disabled={group.selection_type === 'multiple' && !checked && (selectedByGroup[group.id] ?? []).length >= (group.max_select ?? group.options.length)} onChange={() => updateOptionSelection(group.id, option.id, group.selection_type)} className="h-4 w-4 accent-orange-600" />
                         <span className="min-w-0 flex-1 text-sm font-medium" style={{ color: 'var(--ink)' }}>{option.name}</span>
                         <span className="text-xs font-semibold" style={{ color: option.price > 0 ? 'var(--orange)' : 'var(--gray)' }}>{option.price > 0 ? `+₦${option.price.toLocaleString()}` : 'Included'}</span>
                       </label>;
