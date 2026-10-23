@@ -166,7 +166,7 @@ export default function MenuBuilderPage() {
           <button
             type="button"
             onClick={() => router.push('/restaurant-portal/dashboard/menu/item')}
-            className="flex min-h-12 items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-white"
+            className="flex min-h-12 items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 active:scale-[0.98] sm:px-5"
             style={{ background: 'var(--orange)' }}
           >
             <Plus className="w-3.5 h-3.5" />
@@ -178,7 +178,7 @@ export default function MenuBuilderPage() {
       {pageError && <p role="alert" className="mb-3 rounded-lg p-3 text-[12px]" style={{ background: '#FCE8E6', color: 'var(--red)' }}>{pageError}</p>}
       {pageMessage && <p role="status" className="mb-3 rounded-lg p-3 text-[12px]" style={{ background: 'var(--peach)', color: 'var(--ink)' }}>{pageMessage}</p>}
 
-      <MenuCatalogTransfer menuItems={menuItems} onImport={addMenuItem} />
+      <div className="mb-5"><MenuCatalogTransfer menuItems={menuItems} onImport={addMenuItem} /></div>
 
       {isLoading && (
         <p className="text-[12.5px] py-4 text-center" style={{ color: 'var(--gray)' }}>
@@ -187,7 +187,7 @@ export default function MenuBuilderPage() {
       )}
 
       {!isLoading && menuItems.length > 0 && (
-        <div className="mb-4 space-y-3">
+        <div className="mb-5 space-y-3 rounded-2xl border p-4 sm:p-5" style={{ borderColor: "var(--line)", background: "var(--white)" }}>
           <label htmlFor="menu-item-search" className="mb-1.5 block text-xs font-semibold" style={{color:'var(--ink)'}}>
             Search your menu
           </label>
@@ -319,7 +319,44 @@ export default function MenuBuilderPage() {
       )}
 
               {!isLoading && filteredItems.length > 0 && (
-        <div className="max-w-full overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--line)' }}>
+        <div className="grid grid-cols-1 gap-3 md:hidden">
+          {filteredItems.map((item) => (
+            <article key={item.id} className="overflow-hidden rounded-2xl border p-3 shadow-sm" style={{ borderColor: 'var(--line)', background: 'var(--white)' }}>
+              <div className="flex items-start gap-3">
+                <input type="checkbox" checked={selectedItemIds.has(item.id)} onChange={() => toggleItemSelection(item.id)} aria-label={`Select ${item.name} for bulk editing`} className="mt-1 h-5 w-5 shrink-0 accent-orange-500" />
+                {(Array.isArray((item as any).image_urls) && (item as any).image_urls[0]) || item.image_url ? (
+                  <SafeImage src={(Array.isArray((item as any).image_urls) && (item as any).image_urls[0]) || item.image_url!} alt={item.name} className="h-16 w-16 shrink-0 rounded-xl object-cover" />
+                ) : (
+                  <div className="h-16 w-16 shrink-0 rounded-xl" style={{ background: 'var(--peach)' }} aria-hidden="true" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <h2 className="break-words text-sm font-bold leading-5" style={{ color: 'var(--ink)' }}>{item.name}</h2>
+                  <p className="mt-1 break-all text-[11px]" style={{ color: 'var(--gray)' }}>SKU: {item.sku}</p>
+                  <p className="mt-2 text-base font-bold tabular-nums" style={{ color: 'var(--ink)' }}>₦{Number(item.price).toLocaleString()}</p>
+                  <span className="mt-2 inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold" style={item.is_available ? { background: '#E7F6EC', color: '#207245' } : { background: '#FCE8E6', color: '#B42318' }}>
+                    {item.is_available ? 'Available' : 'Unavailable'}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2 border-t pt-3" style={{ borderColor: 'var(--line)' }}>
+                <button type="button" disabled={availabilityBusyId === item.id} onClick={() => toggleAvailability(item)} className="flex min-h-11 items-center justify-center gap-1 rounded-lg border px-2 text-xs font-semibold disabled:opacity-50" style={{ borderColor: 'var(--line)', color: item.is_available ? 'var(--gray)' : '#207245' }}>
+                  {item.is_available ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {item.is_available ? 'Hide' : 'Show'}
+                </button>
+                <button type="button" onClick={() => router.push('/restaurant-portal/dashboard/menu/item?edit=' + encodeURIComponent(item.id))} className="flex min-h-11 items-center justify-center gap-1 rounded-lg border px-2 text-xs font-semibold" style={{ borderColor: 'var(--line)', color: 'var(--ink)', background: 'var(--peach)' }}>
+                  <Pencil className="h-4 w-4" /> Edit
+                </button>
+                <button type="button" onClick={() => handleDelete(item)} className="flex min-h-11 items-center justify-center gap-1 rounded-lg border px-2 text-xs font-semibold" style={{ borderColor: 'var(--line)', color: 'var(--red)' }}>
+                  <Trash2 className="h-4 w-4" /> Delete
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {!isLoading && filteredItems.length > 0 && (
+        <div className="hidden max-w-full overflow-x-auto rounded-xl border md:block" style={{ borderColor: 'var(--line)' }}>
           <table className="w-full min-w-[560px] table-fixed border-collapse text-left">
             <colgroup>
               <col style={{ width: '40px' }} />
