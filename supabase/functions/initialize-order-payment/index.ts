@@ -214,7 +214,7 @@ Deno.serve(async (req: Request) => {
           return json({ error: "Cart items must have valid IDs, quantities between 1 and 99, and valid option selections" }, 400);
         }
         const selections = Array.isArray(item.selected_options) ? item.selected_options : [];
-        if (selections.some((selection: any) => !selection || typeof selection.group_id !== "string" || typeof selection.option_id !== "string")) {
+        if (selections.some((selection: any) => !selection || typeof selection.group_id !== "string" || typeof selection.option_id !== "string" || (selection.quantity != null && (!Number.isInteger(selection.quantity) || selection.quantity < 1 || selection.quantity > 99)))) {
           return json({ error: "One or more selected options are invalid. Please review your cart." }, 400);
         }
         const optionSignature = selections.map((selection: any) => `${selection.group_id}:${selection.option_id}`).sort().join(",");
@@ -276,12 +276,14 @@ Deno.serve(async (req: Request) => {
             return json({ error: "A menu option has invalid pricing. Please contact the restaurant." }, 409);
           }
           countsByGroup.set(optionGroup.id, (countsByGroup.get(optionGroup.id) ?? 0) + 1);
+          const optionQuantity = Number(selection.quantity ?? 1);
           selectedSnapshots.push({
             groupId: optionGroup.id,
             groupName: optionGroup.name,
             optionId: option.id,
             optionName: option.name,
             price: optionPrice,
+            quantity: optionQuantity,
           });
         }
 
@@ -297,7 +299,7 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        const unitPrice = basePrice + selectedSnapshots.reduce((sum, option) => sum + option.price, 0);
+        const unitPrice = basePrice + selectedSnapshots.reduce((sum, option) => sum + option.price * option.quantity, 0);
         if (!Number.isSafeInteger(unitPrice) || unitPrice <= 0) return json({ error: "Cart item price is invalid." }, 400);
         pricedItems.push({
           menu_item_id: i.menu_item_id,
