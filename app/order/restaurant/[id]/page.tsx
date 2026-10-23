@@ -22,7 +22,7 @@ export default function RestaurantMenuPage() {
   useTrackRestaurantPageView(restaurant?.id);
   const {menuItems, isLoading: menuLoading, error: menuError} = useMenuItems(id);
 
-  // Show unavailable dishes with a clear status instead of hiding them; MenuItemRow prevents adding them to the cart.
+  // Keep unavailable dishes visible so customers can see their status; MenuItemRow blocks adding them to the cart.
   const categories = useMemo(
     () => Array.from(new Set(menuItems.map((m) => m.category).filter((c): c is string => !!c))).sort(),
     [menuItems]
@@ -35,7 +35,7 @@ export default function RestaurantMenuPage() {
 
   return (
     <div className="w-full max-w-[380px] lg:max-w-2xl mx-auto px-4 py-6">
-      <button onClick={() => router.push('/order')} className="flex items-center gap-2.5 mb-4" style={{color: 'var(--gray)'}}>
+      <button type="button" onClick={() => router.push('/order')} className="flex items-center gap-2.5 mb-4" style={{color: 'var(--gray)'}}>
         <ArrowLeft className="w-4 h-4" />
         <span className="text-[12.5px]">Back to restaurants</span>
       </button>
