@@ -164,7 +164,7 @@ export default function MenuBuilderPage() {
         {(
           <button
             type="button"
-            onClick={() => router.push('/restaurant-portal/dashboard/menu/item')
+            onClick={() => router.push('/restaurant-portal/dashboard/menu/item')}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-[9px] text-[12.5px] font-semibold text-white"
             style={{ background: 'var(--orange)' }}
           >
@@ -365,7 +365,7 @@ export default function MenuBuilderPage() {
                       <button type="button" disabled={availabilityBusyId === item.id} onClick={() => toggleAvailability(item)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md disabled:opacity-50" style={{ color: item.is_available ? 'var(--gray)' : '#207245' }} aria-label={item.is_available ? 'Mark ' + item.name + ' unavailable' : 'Mark ' + item.name + ' available'} title={item.is_available ? 'Mark unavailable' : 'Mark available'}>
                         {item.is_available ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
-                      <button type="button" onClick={() => router.push('/restaurant-portal/dashboard/menu/item?edit=' + encodeURIComponent(item.id)) className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border" style={{ color: 'var(--ink)', borderColor: 'var(--line)', background: 'var(--peach)' }} aria-label={`Edit ${item.name}`} title="Edit item">
+                      <button type="button" onClick={() => router.push('/restaurant-portal/dashboard/menu/item?edit=' + encodeURIComponent(item.id))} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border" style={{ color: 'var(--ink)', borderColor: 'var(--line)', background: 'var(--peach)' }} aria-label={`Edit ${item.name}`} title="Edit item">
                         <Pencil className="h-4 w-4" />
                       </button>
                       <button type="button" onClick={() => handleDelete(item)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border" style={{ color: 'var(--red)', borderColor: 'var(--line)', background: 'var(--white)' }} aria-label={`Delete ${item.name}`} title="Delete item">
