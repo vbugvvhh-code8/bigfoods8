@@ -34,7 +34,12 @@ export default function MenuItemDetailsPage() {
   const mainStockAvailable = !item || item.stock_quantity == null || Number(item.stock_quantity) - Number(item.stock_reserved ?? 0) > 0;
   const canOrder = !!item && !!restaurant && item.is_available !== false && restaurant.is_accepting_orders !== false && mainStockAvailable;
   const optionsValid = (item?.option_groups ?? []).every((group) => { const selected = group.options.filter((option) => (optionQuantities[option.id] ?? 0) > 0); const min = group.required ? Math.max(1, group.min_select ?? 1) : (group.min_select ?? 0); const max = group.selection_type === 'single' ? 1 : (group.max_select ?? group.options.length); return selected.length >= min && selected.length <= max && selected.every((option) => option.is_available !== false && (option.stock_quantity == null || Number(option.stock_quantity) - Number(option.stock_reserved ?? 0) >= (optionQuantities[option.id] ?? 0))); });
-  const unitPrice = item ? Number(item.price) + selectedOptions.reduce((sum, option) => sum + option.price * option.quantity, 0) : 0;
+  const now = Date.now();
+  const promotionStart = item?.promotion_starts_at ? new Date(item.promotion_starts_at).getTime() : null;
+  const promotionEnd = item?.promotion_ends_at ? new Date(item.promotion_ends_at).getTime() : null;
+  const promotionActive = !!item && item.promotional_price != null && Number(item.promotional_price) > 0 && Number(item.promotional_price) < Number(item.price) && (promotionStart === null || promotionStart <= now) && (promotionEnd === null || promotionEnd > now);
+  const basePrice = promotionActive ? Number(item?.promotional_price) : Number(item?.price ?? 0);
+  const unitPrice = item ? basePrice + selectedOptions.reduce((sum, option) => sum + option.price * option.quantity, 0) : 0;
   const updateOptionQuantity = (groupId: string, optionId: string, nextQuantity: number, selectionType: 'single' | 'multiple') => setOptionQuantities((prev) => { const next = { ...prev }; if (nextQuantity > 0 && selectionType === 'single') item?.option_groups.find((group) => group.id === groupId)?.options.forEach((option) => { next[option.id] = 0; }); next[optionId] = Math.max(0, Math.min(99, nextQuantity)); return next; });
 
   return (
@@ -74,7 +79,7 @@ export default function MenuItemDetailsPage() {
                   </p>
                   <h1 className="font-display text-2xl font-bold" style={{ color: 'var(--ink)' }}>{item.name}</h1>
                 </div>
-                <p className="shrink-0 text-xl font-bold" style={{ color: 'var(--orange)' }}>₦{Number(item.price).toLocaleString()}</p>
+                <div className="shrink-0 text-right"><p className="text-xl font-bold" style={{ color: 'var(--orange)' }}>₦{basePrice.toLocaleString()}</p>{promotionActive && <p className="text-xs line-through" style={{color:'var(--gray)'}}>₦{Number(item.price).toLocaleString()}</p>}</div>
               </div>
 
               {item.is_available === false ? <p className="mb-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ background: '#FCE8E6', color: '#B42318' }}>Currently unavailable</p> : !mainStockAvailable ? <p className="mb-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ background: '#FCE8E6', color: '#B42318' }}>Out of stock</p> : !restaurant.is_accepting_orders && <p className="mb-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ background: '#FCE8E6', color: '#B42318' }}>Restaurant not accepting orders</p>}
