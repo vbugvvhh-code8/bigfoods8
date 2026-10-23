@@ -85,7 +85,7 @@ export function ChipPicker({
 }
 
 export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onUpdate, onDone, onCancel }: MenuItemFormProps) {
-  const supabase = getBrowserSupabase();
+  const [supabase] = useState(() => getBrowserSupabase());
   const isEditing = !!existingItem;
 
   const [name, setName] = useState(existingItem?.name ?? '');
