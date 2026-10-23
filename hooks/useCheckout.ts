@@ -21,6 +21,7 @@ interface InitializeParams {
   deliveryLng: number;
   deliveryNote?: string;
   tipAmount: number;
+  expectedTotal?: number;
 }
 
 export function useCheckout() {
@@ -47,6 +48,9 @@ export function useCheckout() {
       if (fnError) throw fnError;
       if (data?.error) throw new Error(data.error);
       if (!data?.authorization_url) throw new Error('Could not start payment');
+      if (params.expectedTotal != null && Number.isFinite(Number(data.total_amount)) && Number(data.total_amount) !== params.expectedTotal) {
+        throw new Error(`The checkout estimate (₦${params.expectedTotal.toLocaleString()}) does not match the payment amount (₦${Number(data.total_amount).toLocaleString()}). No payment was started. Refresh checkout and try again.`);
+      }
       window.location.href = data.authorization_url;
     } catch (e: any) {
       setError(e?.message ?? 'Could not start payment. Try again.');
