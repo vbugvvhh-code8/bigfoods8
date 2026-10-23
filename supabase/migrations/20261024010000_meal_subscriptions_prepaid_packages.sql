@@ -66,3 +66,8 @@ alter table public.meal_subscriptions add column if not exists meal_subtotal_per
 alter table public.meal_subscriptions add column if not exists platform_fee_per_delivery numeric(12,2) not null default 0;
 alter table public.meal_subscriptions add column if not exists delivery_fee_per_delivery numeric(12,2) not null default 0;
 alter table public.meal_subscriptions add column if not exists delivery_distance_km numeric(10,3);
+
+drop policy if exists subscription_deliveries_admin_select on public.meal_subscription_deliveries;
+create policy subscription_deliveries_admin_select on public.meal_subscription_deliveries for select to authenticated using (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and lower(p.role) in ('admin','super_admin'))
+);
