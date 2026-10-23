@@ -6,7 +6,7 @@ import getBrowserSupabase from '@/lib/supabase/client';
 interface OrderItemInput {
   menu_item_id: string;
   quantity: number;
-  selected_options?: { group_id: string; option_id: string }[];
+  selected_options?: { group_id: string; option_id: string; quantity?: number }[];
 }
 
 interface RestaurantGroupInput {
@@ -55,6 +55,7 @@ export function useCheckout() {
           delivery_lng: params.deliveryLng,
           delivery_note: params.deliveryNote || null,
           tip_amount: params.tipAmount,
+          expected_total: params.expectedTotal,
           callbackOrigin: window.location.origin,
         },
       });
@@ -78,6 +79,7 @@ export function useCheckout() {
         groups: params.groups, delivery_address: params.deliveryAddress || null,
         delivery_lat: params.deliveryLat, delivery_lng: params.deliveryLng,
         delivery_note: params.deliveryNote || null, tip_amount: params.tipAmount,
+        expected_total: params.expectedTotal,
         callbackOrigin: window.location.origin, payment_mode: 'link',
       }});
       if (init.error) await throwFunctionError(init.error, 'Could not prepare the payment link. Try again.');
