@@ -174,6 +174,12 @@ export interface Database {
           image_urls: string[] | null;
           subcategory: string | null;
           is_available: boolean;
+          description: string | null;
+          ingredients: string | null;
+          serving_size: string | null;
+          preparation_time_minutes: number | null;
+          allergens: string[];
+          dietary_tags: string[];
         };
         Insert: Partial<Database['public']['Tables']['menu_items']['Row']> & { name: string; price: number };
         Update: Partial<Database['public']['Tables']['menu_items']['Row']>;
