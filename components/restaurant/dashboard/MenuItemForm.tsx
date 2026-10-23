@@ -112,9 +112,6 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   type AvailabilityWindow = { day: number; start: string; end: string };
   const [scheduleEnabled, setScheduleEnabled] = useState(Boolean((existingItem as any)?.availability_schedule_enabled));
   const [scheduleWindows, setScheduleWindows] = useState<AvailabilityWindow[]>(() => Array.isArray((existingItem as any)?.availability_schedule) ? (existingItem as any).availability_schedule : []);
-  type AvailabilityWindow = { day: number; start: string; end: string };
-  const [scheduleEnabled, setScheduleEnabled] = useState(Boolean((existingItem as any)?.availability_schedule_enabled));
-  const [scheduleWindows, setScheduleWindows] = useState<AvailabilityWindow[]>(() => Array.isArray((existingItem as any)?.availability_schedule) ? (existingItem as any).availability_schedule : []);
   const [error, setError] = useState<string | null>(null);
 
   const subcategoryOptions = category ? MENU_CATEGORY_PRESETS[category.toLowerCase()] ?? [] : [];
@@ -141,7 +138,12 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   });
   const hasValidFields = name.trim().length > 0 && price.trim().length > 0 &&
     Number.isSafeInteger(parsedPrice) && parsedPrice > 0 && hasValidPreparationTime && hasValidOptionGroups;
-  const canSubmit = hasValidFields && hasValidStockQuantity && totalImageCount >= 1 && totalImageCount <= 3;
+  const hasValidSchedule = !scheduleEnabled || scheduleWindows.every((w) =>
+    Number.isInteger(w.day) && w.day >= 0 && w.day <= 6 &&
+    /^([01]\d|2[0-3]):[0-5]\d$/.test(w.start) &&
+    /^([01]\d|2[0-3]):[0-5]\d$/.test(w.end) && w.start < w.end
+  );
+  const canSubmit = hasValidFields && hasValidStockQuantity && hasValidSchedule && totalImageCount >= 1 && totalImageCount <= 3;
 
   function handleFilesSelected(files: FileList | null) {
     if (!files) return;
@@ -177,6 +179,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
       else if (!hasValidStockQuantity) setError('Stock must be a whole number and cannot be lower than quantities currently reserved for checkout.');
       else if (!hasValidPreparationTime) setError('Preparation time must be a whole number greater than 0, or leave it blank.');
       else if (!hasValidOptionGroups) setError('Each option group needs a name, at least two named options, and valid non-negative extra prices.');
+      else if (!hasValidSchedule) setError('Check each availability window: use valid times and set the end later than the start.');
       else if (totalImageCount < 1) setError('Add at least 1 photo before saving.');
       else if (totalImageCount > 3) setError('A menu item can have no more than 3 photos.');
       return;
@@ -210,8 +213,6 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
           serving_size: servingSize.trim() || null,
           preparation_time_minutes: preparationTime.trim() ? Number(preparationTime) : null,
           stock_quantity: parsedStockQuantity,
-          availability_schedule_enabled: scheduleEnabled,
-          availability_schedule: scheduleEnabled ? scheduleWindows : [],
           availability_schedule_enabled: scheduleEnabled,
           availability_schedule: scheduleEnabled ? scheduleWindows : [],
           allergens: allergens.split(',').map((value) => value.trim()).filter(Boolean),
@@ -485,25 +486,6 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
         </div>}
       </section>
       <section className="mb-4 rounded-xl border p-4" style={{display: step === 4 ? undefined : "none", borderColor:'var(--line)', background:'var(--white)'}}>
-        <h3 className="mb-2 text-sm font-bold" style={{color:'var(--ink)'}}>Scheduled availability</h3>
-        <p className="mb-3 text-xs leading-5" style={{color:'var(--gray)'}}>Set weekly order windows in Nigeria time. Multiple windows per day are supported. The existing unavailable switch still takes priority.</p>
-        <label className="flex min-h-11 items-center gap-3 rounded-xl border p-3 text-sm font-semibold" style={{borderColor:'var(--line)',color:'var(--ink)'}}>
-          <input type="checkbox" checked={scheduleEnabled} onChange={(e)=>setScheduleEnabled(e.target.checked)} className="h-4 w-4" /> Enable weekly schedule
-        </label>
-        {scheduleEnabled && <div className="mt-3 space-y-3">
-          {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((dayName, day) => <div key={day} className="rounded-xl border p-3" style={{borderColor:'var(--line)'}}>
-            <div className="mb-2 flex items-center justify-between"><strong className="text-sm">{dayName}</strong><button type="button" onClick={()=>setScheduleWindows((prev)=>[...prev,{day,start:'09:00',end:'17:00'}])} className="rounded-lg border px-3 py-2 text-xs" style={{borderColor:'var(--line)',color:'var(--orange)'}}>+ Add time</button></div>
-            {scheduleWindows.filter((w)=>w.day===day).map((w)=>{const ix=scheduleWindows.indexOf(w);return <div key={ix} className="mb-2 grid grid-cols-2 gap-2">
-              <label className="text-xs">From<input type="time" value={w.start} onChange={(e)=>setScheduleWindows((prev)=>prev.map((v,i)=>i===ix?{...v,start:e.target.value}:v))} className="mt-1 min-h-10 w-full rounded-lg border px-2" style={{borderColor:'var(--line)'}} /></label>
-              <label className="text-xs">Until<input type="time" value={w.end} onChange={(e)=>setScheduleWindows((prev)=>prev.map((v,i)=>i===ix?{...v,end:e.target.value}:v))} className="mt-1 min-h-10 w-full rounded-lg border px-2" style={{borderColor:'var(--line)'}} /></label>
-              <button type="button" onClick={()=>setScheduleWindows((prev)=>prev.filter((_,i)=>i!==ix))} className="col-span-2 min-h-9 rounded-lg border text-xs" style={{borderColor:'var(--line)',color:'var(--red)'}}>Remove time window</button>
-            </div>})}
-            {scheduleWindows.every((w)=>w.day!==day) && <p className="text-xs" style={{color:'var(--gray)'}}>No ordering times configured</p>}
-          </div>)}
-          {scheduleWindows.some((w)=>w.start>=w.end) && <p className="text-xs" style={{color:'var(--red)'}}>Each end time must be later than its start time on the same day.</p>}
-        </div>}
-      </section>
-      <section className="mb-4 rounded-xl border p-4" style={{display: step === 4 ? undefined : "none", borderColor:'var(--line)', background:'var(--white)'}}>
         <h3 className="mb-2 text-sm font-bold" style={{color:'var(--ink)'}}>Main dish stock</h3>
         <p className="mb-3 text-xs leading-5" style={{color:'var(--gray)'}}>Leave quantity blank if this dish is not stock-tracked. Enter 0 to mark it out of stock. This setting is saved with the item. Stock is reserved when checkout starts, released after a failed or abandoned payment, and deducted when payment succeeds.</p>
         <label className="block text-xs font-semibold" style={{color:'var(--ink)'}}>Available quantity <span className="font-normal" style={{color:'var(--gray)'}}>(optional)</span></label>
@@ -528,6 +510,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
           if (step === 2 && (totalImageCount < 1 || totalImageCount > 3)) { setError('Add between 1 and 3 photos.'); return; }
           if (step === 3 && !hasValidOptionGroups) { setError('Each option group needs a name, at least two named options, and valid non-negative extra prices.'); return; }
           if (step === 4 && !hasValidStockQuantity) { setError('Stock quantity must be a whole number of zero or greater, or leave it blank.'); return; }
+          if (step === 4 && !hasValidSchedule) { setError('Check each availability window: use valid times and set the end later than the start.'); return; }
           if (step === 5 && !hasValidPreparationTime) { setError('Preparation time must be a whole number greater than 0, or leave it blank.'); return; }
           setStep((s)=>Math.min(6,s+1));
         }} className="flex items-center justify-center gap-2 rounded-[10px] px-6 py-2.5 text-[12.5px] font-bold text-white" style={{background:'var(--orange)'}}>Continue <span aria-hidden="true">→</span></button> : <button type="button" onClick={handleSubmit} disabled={!canSubmit || saving} className="flex items-center justify-center gap-2 rounded-[10px] px-6 py-2.5 text-[12.5px] font-bold text-white disabled:opacity-40" style={{background:'var(--orange)'}}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}{saving ? (isEditing ? 'Saving changes…' : 'Adding item…') : isEditing ? 'Save menu item' : 'Add menu item'}</button>}
