@@ -103,7 +103,20 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   const [promotionEndsAt, setPromotionEndsAt] = useState(existingItem?.promotion_ends_at ? new Date(existingItem.promotion_ends_at).toISOString().slice(0,16) : '');
   const [complementaryItemIds, setComplementaryItemIds] = useState<string[]>(existingItem?.complementary_item_ids ?? []);
   const [availableMenuItems, setAvailableMenuItems] = useState<{id:string;name:string}[]>([]);
-  useEffect(() => { let active = true; void supabase.from('menu_items').select('id,name').eq('restaurant_id', restaurantId).order('name').then(({data}) => { if (active) setAvailableMenuItems((data ?? []).filter((row:any) => row.id !== existingItem?.id) as {id:string;name:string}[]); }); return () => { active = false; }; }, [restaurantId, existingItem?.id, supabase]);
+  useEffect(() => {
+    let active = true;
+    void supabase.from('menu_items').select('id,name').eq('restaurant_id', restaurantId).order('name')
+      .then(({data, error}) => {
+        if (!active) return;
+        if (error) {
+          setAvailableMenuItems([]);
+          setError('Could not load related menu items. Refresh and try again.');
+          return;
+        }
+        setAvailableMenuItems((data ?? []).filter((row:any) => row.id !== existingItem?.id) as {id:string;name:string}[]);
+      });
+    return () => { active = false; };
+  }, [restaurantId, existingItem?.id]);
   const [optionGroups, setOptionGroups] = useState<MenuItemOptionGroup[]>(existingItem?.option_groups ?? []);
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>(() => {
     const imageUrls = (existingItem as any)?.image_urls;
