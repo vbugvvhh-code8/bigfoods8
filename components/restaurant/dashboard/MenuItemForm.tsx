@@ -434,27 +434,23 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
         </p>
       )}
 
-      <div className="flex gap-2">
-        {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex-1 py-2.5 rounded-[9px] text-[12.5px] font-semibold"
-            style={{ border: '1px solid var(--line)', color: 'var(--gray)' }}
-          >
-            Cancel
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={!canSubmit || saving}
-          className="flex-1 py-2.5 rounded-[9px] text-[12.5px] font-semibold text-white disabled:opacity-40 flex items-center justify-center gap-2"
-          style={{ background: 'var(--orange)' }}
-        >
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-          {saving ? (isEditing ? 'Saving changes…' : 'Adding item…') : isEditing ? 'Save changes' : 'Add item'}
-        </button>
+      <section className="mb-4 rounded-xl p-4" style={{display: step === 5 ? undefined : "none", background: 'var(--peach)'}}>
+        <h3 className="mb-3 text-sm font-bold" style={{color:'var(--ink)'}}>Review your item</h3>
+        <div className="flex items-start gap-3">{(existingImageUrls[0] || newImages[0]) && <img src={existingImageUrls[0] || URL.createObjectURL(newImages[0])} alt="" className="h-20 w-20 rounded-xl object-cover" />}<div><p className="font-bold" style={{color:'var(--ink)'}}>{name.trim() || 'Untitled dish'}</p><p className="mt-1 text-sm font-semibold" style={{color:'var(--orange)'}}>₦{Number(price || 0).toLocaleString()}</p><p className="mt-1 text-xs" style={{color:'var(--gray)'}}>{category || 'No category'}{subcategory ? ' · ' + subcategory : ''}</p><p className="mt-1 text-xs" style={{color:'var(--gray)'}}>{totalImageCount} photo(s) · {optionGroups.length} option group(s)</p></div></div>
+      </section>
+      <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-2">
+          {onCancel && <button type="button" onClick={onCancel} disabled={saving} className="rounded-[10px] border px-4 py-2.5 text-[12.5px] font-semibold disabled:opacity-50" style={{borderColor:'var(--line)',color:'var(--gray)'}}>Cancel</button>}
+          {step > 1 && <button type="button" onClick={() => { setError(null); setStep((s)=>Math.max(1,s-1)); }} disabled={saving} className="rounded-[10px] border px-5 py-2.5 text-[12.5px] font-semibold" style={{borderColor:'var(--line)',color:'var(--ink)'}}>Back</button>}
+        </div>
+        {step < 5 ? <button type="button" onClick={() => {
+          setError(null);
+          if (step === 1 && (!name.trim() || !price.trim() || !Number.isSafeInteger(parsedPrice) || parsedPrice <= 0)) { setError(!name.trim() ? 'Enter a dish name.' : 'Enter a valid price greater than ₦0.'); return; }
+          if (step === 2 && (totalImageCount < 1 || totalImageCount > 3)) { setError('Add between 1 and 3 photos.'); return; }
+          if (step === 3 && !hasValidOptionGroups) { setError('Each option group needs a name, at least two named options, and valid non-negative extra prices.'); return; }
+          if (step === 4 && !hasValidPreparationTime) { setError('Preparation time must be a whole number greater than 0, or leave it blank.'); return; }
+          setStep((s)=>Math.min(5,s+1));
+        }} className="flex items-center justify-center gap-2 rounded-[10px] px-6 py-2.5 text-[12.5px] font-bold text-white" style={{background:'var(--orange)'}}>Continue <span aria-hidden="true">→</span></button> : <button type="button" onClick={handleSubmit} disabled={!canSubmit || saving} className="flex items-center justify-center gap-2 rounded-[10px] px-6 py-2.5 text-[12.5px] font-bold text-white disabled:opacity-40" style={{background:'var(--orange)'}}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}{saving ? (isEditing ? 'Saving changes…' : 'Adding item…') : isEditing ? 'Save menu item' : 'Add menu item'}</button>}
       </div>
     </div>
   );
