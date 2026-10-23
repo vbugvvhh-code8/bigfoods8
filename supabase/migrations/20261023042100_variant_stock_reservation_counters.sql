@@ -4,8 +4,8 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   r record;
   groups_json jsonb;
-  group_index bigint;
-  option_index bigint;
+  group_index integer;
+  option_index integer;
 BEGIN
   FOR r IN
     SELECT * FROM public.menu_stock_reservations
@@ -20,11 +20,11 @@ BEGIN
     ELSE
       SELECT option_groups INTO groups_json
       FROM public.menu_items WHERE id = r.menu_item_id FOR UPDATE;
-      SELECT g.ordinality INTO group_index
+      SELECT g.ordinality::integer INTO group_index
       FROM jsonb_array_elements(COALESCE(groups_json, '[]'::jsonb)) WITH ORDINALITY g(value, ordinality)
       WHERE g.value->>'id' = r.option_group_id LIMIT 1;
       IF group_index IS NOT NULL THEN
-        SELECT o.ordinality INTO option_index
+        SELECT o.ordinality::integer INTO option_index
         FROM jsonb_array_elements(COALESCE(groups_json->(group_index - 1)->'options', '[]'::jsonb)) WITH ORDINALITY o(value, ordinality)
         WHERE o.value->>'id' = r.option_id LIMIT 1;
         IF option_index IS NOT NULL THEN
@@ -58,8 +58,8 @@ DECLARE
   v_option_id text;
   option_stock integer;
   reserved_option integer;
-  v_group_index bigint;
-  v_option_index bigint;
+  v_group_index integer;
+  v_option_index integer;
 BEGIN
   IF p_reference IS NULL OR length(trim(p_reference)) = 0 OR jsonb_typeof(p_items) <> 'array' THEN
     RAISE EXCEPTION USING MESSAGE = 'INVALID_STOCK_RESERVATION_REQUEST', ERRCODE = '22023';
@@ -95,8 +95,8 @@ BEGIN
 
     FOR selection IN SELECT value FROM jsonb_array_elements(COALESCE(line->'selected_options', '[]'::jsonb))
     LOOP
-      v_group_id := selection->>'groupId';
-      v_option_id := selection->>'optionId';
+      v_group_id := COALESCE(selection->>'groupId', selection->>'group_id');
+      v_option_id := COALESCE(selection->>'optionId', selection->>'option_id');
       SELECT g.value INTO group_json
       FROM jsonb_array_elements(COALESCE(mi.option_groups, '[]'::jsonb)) g(value)
       WHERE g.value->>'id' = v_group_id LIMIT 1;
@@ -117,10 +117,10 @@ BEGIN
         IF option_stock - reserved_option < requested_qty THEN
           RAISE EXCEPTION USING MESSAGE = 'OUT_OF_STOCK: A selected variant or extra is out of stock.', ERRCODE = 'P0001';
         END IF;
-        SELECT g.ordinality INTO v_group_index
+        SELECT g.ordinality::integer INTO v_group_index
         FROM jsonb_array_elements(COALESCE(mi.option_groups, '[]'::jsonb)) WITH ORDINALITY g(value, ordinality)
         WHERE g.value->>'id' = v_group_id LIMIT 1;
-        SELECT o.ordinality INTO v_option_index
+        SELECT o.ordinality::integer INTO v_option_index
         FROM jsonb_array_elements(COALESCE(mi.option_groups->(v_group_index - 1)->'options', '[]'::jsonb)) WITH ORDINALITY o(value, ordinality)
         WHERE o.value->>'id' = v_option_id LIMIT 1;
         UPDATE public.menu_items
@@ -145,8 +145,8 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   r record;
   groups_json jsonb;
-  group_index bigint;
-  option_index bigint;
+  group_index integer;
+  option_index integer;
   option_stock integer;
   option_reserved integer;
 BEGIN
