@@ -103,6 +103,15 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   const [promotionEndsAt, setPromotionEndsAt] = useState(existingItem?.promotion_ends_at ? new Date(existingItem.promotion_ends_at).toISOString().slice(0,16) : '');
   const [complementaryItemIds, setComplementaryItemIds] = useState<string[]>(existingItem?.complementary_item_ids ?? []);
   const [availableMenuItems, setAvailableMenuItems] = useState<{id:string;name:string}[]>([]);
+  const [catalogCategories, setCatalogCategories] = useState<{category_name:string;subcategory_name:string|null}[]>([]);
+  useEffect(() => {
+    let active = true;
+    void supabase.from('menu_catalog_categories').select('category_name, subcategory_name').then(({data,error}) => {
+      if (!active || error) return;
+      setCatalogCategories((data ?? []) as {category_name:string;subcategory_name:string|null}[]);
+    });
+    return () => { active = false; };
+  }, [supabase]);
   useEffect(() => {
     if (!restaurantId) return;
     let active = true;
@@ -134,7 +143,8 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   const [scheduleWindows, setScheduleWindows] = useState<AvailabilityWindow[]>(() => Array.isArray((existingItem as any)?.availability_schedule) ? (existingItem as any).availability_schedule : []);
   const [error, setError] = useState<string | null>(null);
 
-  const subcategoryOptions = category ? MENU_CATEGORY_PRESETS[category.toLowerCase()] ?? [] : [];
+  const categoryOptions = Array.from(new Set([...MENU_CATEGORY_NAMES, ...catalogCategories.map(row => row.category_name.trim().toLowerCase()).filter(Boolean)])).sort((a,b)=>a.localeCompare(b));
+  const subcategoryOptions = category ? Array.from(new Set([...(MENU_CATEGORY_PRESETS[category.toLowerCase()] ?? []), ...catalogCategories.filter(row => row.category_name.trim().toLowerCase() === category.trim().toLowerCase()).map(row => row.subcategory_name?.trim().toLowerCase()).filter((value): value is string => Boolean(value))])).sort((a,b)=>a.localeCompare(b)) : [];
   const totalImageCount = existingImageUrls.length + newImages.length;
   const canAddMoreImages = totalImageCount < 3;
   const parsedPrice = Number(price);
@@ -340,7 +350,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
       <div className="mb-3" style={{ display: step === 1 ? undefined : "none" }}>
         <ChipPicker
           label="Category"
-          options={MENU_CATEGORY_NAMES}
+          options={categoryOptions}
           value={category}
           onChange={(v) => {
             setCategory(v);
