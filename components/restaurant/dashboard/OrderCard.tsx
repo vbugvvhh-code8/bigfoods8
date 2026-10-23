@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import getBrowserSupabase from '@/lib/supabase/client';
 import { Clock, Bike } from 'lucide-react';
 import type { OrderWithRider } from '@/hooks/useRestaurantOrders';
+import type { SelectedMenuOption } from '@/types/database';
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   placed: { label: 'New order', color: 'var(--orange)' },
@@ -27,6 +28,31 @@ export default function OrderCard({
   const [eligibleRiders, setEligibleRiders] = useState<{ id: string; name: string; zone: string | null }[]>([]);
   const [selectedRider, setSelectedRider] = useState('');
   const [assignmentMessage, setAssignmentMessage] = useState('');
+  const [orderItems, setOrderItems] = useState<{ id: string; name: string; quantity: number; unit_price: number; selected_options: SelectedMenuOption[] }[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const supabase = getBrowserSupabase();
+      const { data } = await supabase.from('order_items')
+        .select('id, menu_item_id, quantity, unit_price, selected_options')
+        .eq('order_id', order.id);
+      const rows = data ?? [];
+      const menuItemIds = Array.from(new Set(rows.map((item) => item.menu_item_id).filter((id): id is string => !!id)));
+      const { data: menuItems } = menuItemIds.length
+        ? await supabase.from('menu_items').select('id, name').in('id', menuItemIds)
+        : { data: [] };
+      const mapped = rows.map((item) => ({
+        id: item.id,
+        name: menuItems?.find((menuItem) => menuItem.id === item.menu_item_id)?.name ?? 'Menu item',
+        quantity: Number(item.quantity ?? 1),
+        unit_price: Number(item.unit_price ?? 0),
+        selected_options: (item.selected_options ?? []) as SelectedMenuOption[],
+      }));
+      if (!cancelled) setOrderItems(mapped);
+    })();
+    return () => { cancelled = true; };
+  }, [order.id]);
   useEffect(() => {
     if (order.rider_id || !['placed', 'preparing'].includes(order.status)) return;
     setAssignmentReady(false);
@@ -103,6 +129,15 @@ export default function OrderCard({
       <p className="text-[11.5px] mb-2" style={{ color: 'var(--gray)' }}>
         ₦{Number(order.subtotal).toLocaleString()} · {order.delivery_address ?? 'No address on file'}
       </p>
+      {orderItems.length > 0 && <div className="mb-3 rounded-lg border p-2.5" style={{ borderColor: 'var(--line)', background: '#FFFCF9' }}>
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--gray)' }}>Items to prepare</p>
+        <div className="space-y-2">
+          {orderItems.map((item) => <div key={item.id} className="text-[11.5px]">
+            <div className="flex justify-between gap-2"><span className="font-semibold" style={{ color: 'var(--ink)' }}>{item.quantity}× {item.name}</span><span className="shrink-0" style={{ color: 'var(--gray)' }}>₦{(item.quantity * item.unit_price).toLocaleString()}</span></div>
+            {item.selected_options.length > 0 && <p className="mt-0.5 pl-3 text-[10.5px] leading-5" style={{ color: 'var(--orange)' }}>{item.selected_options.map((option) => `${option.groupName}: ${option.optionName}`).join(' · ')}</p>}
+          </div>)}
+        </div>
+      </div>
 
       {!order.rider_id && order.payment_status === 'paid' && ['placed', 'preparing'].includes(order.status) && (
         <div className="mt-2 mb-2 rounded-[9px] p-2.5 space-y-2" style={{ background: 'var(--peach)', border: '1px solid var(--line)' }}>
