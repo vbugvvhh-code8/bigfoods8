@@ -9,7 +9,7 @@ import useRestaurantOrders from '@/hooks/useRestaurantOrders';
 
 export default function OrdersPage() {
   const { restaurant, loading: restaurantLoading } = useRestaurant();
-  const { active, history, loading, updateStatus, ordersToday, statusBreakdown } = useRestaurantOrders(restaurant?.id);
+  const { active, awaitingPayment, history, loading, updateStatus, ordersToday, statusBreakdown } = useRestaurantOrders(restaurant?.id);
 
   if (restaurantLoading || !restaurant) {
     return (
@@ -27,7 +27,8 @@ export default function OrdersPage() {
       <PageHeader title="Orders" subtitle="Live incoming and in-progress orders" />
 
       <div className="grid grid-cols-2 gap-3">
-        <KpiTile label="New orders" value={String(pendingCount)} />
+        <KpiTile label="New paid orders" value={String(pendingCount)} />
+        <KpiTile label="Awaiting payment" value={String(awaitingPayment.length)} />
         <KpiTile label="Preparing" value={String(preparingCount)} />
         <KpiTile label="Orders today" value={String(ordersToday)} />
         <KpiTile label="Active total" value={String(active.length)} />
@@ -39,7 +40,22 @@ export default function OrdersPage() {
       </div>
 
       <div>
-        <p className="text-[12.5px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>Active orders</p>
+        <p className="text-[12.5px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>Awaiting payment</p>
+        {loading ? (
+          <p className="text-[12px] py-4 text-center" style={{ color: 'var(--gray)' }}>Loading…</p>
+        ) : awaitingPayment.length === 0 ? (
+          <p className="text-[12px] py-3" style={{ color: 'var(--gray)' }}>No unpaid orders awaiting payment.</p>
+        ) : (
+          <div className="space-y-2.5">
+            {awaitingPayment.map((o) => (
+              <OrderCard key={o.id} order={o} onUpdateStatus={updateStatus} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <p className="text-[12.5px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>Paid active orders</p>
         {loading ? (
           <p className="text-[12px] py-4 text-center" style={{ color: 'var(--gray)' }}>Loading…</p>
         ) : active.length === 0 ? (
