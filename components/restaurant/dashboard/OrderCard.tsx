@@ -21,6 +21,7 @@ export default function OrderCard({
   onUpdateStatus: (id: string, status: string) => Promise<void>;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [assignmentEnabled, setAssignmentEnabled] = useState(false);
   const [assignmentReady, setAssignmentReady] = useState(false);
@@ -104,22 +105,82 @@ export default function OrderCard({
         ₦{Number(order.subtotal).toLocaleString()} · {order.delivery_address ?? 'No address on file'}
       </p>
 
-      {order.items?.length > 0 && (
-        <div className="rounded-[9px] p-2.5 mb-2 space-y-2" style={{ background: 'var(--surface, var(--peach))', border: '1px solid var(--line)' }}>
-          <p className="text-[11px] font-semibold" style={{ color: 'var(--ink)' }}>Customer order</p>
-          {order.items.map((item) => (
-            <div key={item.id} className="text-[11.5px]" style={{ color: 'var(--ink)' }}>
-              <div className="flex justify-between gap-2">
-                <span>{item.quantity} × {item.name}</span>
-                <span>₦{(item.unit_price * item.quantity).toLocaleString()}</span>
+      <button
+        type="button"
+        onClick={() => setDetailsOpen(true)}
+        className="w-full py-2 mb-2 rounded-[8px] text-[12px] font-semibold"
+        style={{ border: '1px solid var(--line)', color: 'var(--orange)', background: 'var(--white)' }}
+      >
+        View order details {order.items?.length ? `(${order.items.length} item types)` : ''}
+      </button>
+
+      {detailsOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4"
+          style={{ background: 'rgba(0, 0, 0, 0.48)' }}
+          onClick={() => setDetailsOpen(false)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`order-details-title-${order.id}`}
+            className="w-full max-w-lg max-h-[88vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl p-5"
+            style={{ background: 'var(--white)', color: 'var(--ink)' }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h2 id={`order-details-title-${order.id}`} className="text-base font-bold">Order details</h2>
+                <p className="text-xs mt-1" style={{ color: 'var(--gray)' }}>Order #{order.id.slice(0, 8)}</p>
               </div>
-              {item.selected_options?.map((option, index) => (
-                <p key={index} className="pl-3 text-[10.5px]" style={{ color: 'var(--gray)' }}>
-                  {option.groupName ? option.groupName + ': ' : ''}{(option.quantity ?? 1) > 1 ? (option.quantity ?? 1) + ' × ' : ''}{option.optionName ?? 'Selected option'}
-                </p>
-              ))}
+              <button type="button" onClick={() => setDetailsOpen(false)} aria-label="Close order details" className="rounded-full px-3 py-1.5 text-sm" style={{ background: 'var(--peach)' }}>✕</button>
             </div>
-          ))}
+
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="rounded-lg p-3" style={{ background: 'var(--peach)' }}>
+                <p className="text-[10px]" style={{ color: 'var(--gray)' }}>Payment</p>
+                <p className="text-sm font-semibold mt-1">{order.payment_status === 'paid' ? 'Paid' : 'Payment pending'}</p>
+              </div>
+              <div className="rounded-lg p-3" style={{ background: 'var(--peach)' }}>
+                <p className="text-[10px]" style={{ color: 'var(--gray)' }}>Order status</p>
+                <p className="text-sm font-semibold mt-1 capitalize">{order.status.replace('_', ' ')}</p>
+              </div>
+            </div>
+
+            <h3 className="text-xs font-bold mb-2">Items ordered</h3>
+            {order.items?.length ? (
+              <div className="space-y-3">
+                {order.items.map((item) => (
+                  <div key={item.id} className="rounded-lg p-3" style={{ border: '1px solid var(--line)' }}>
+                    <div className="flex justify-between gap-3 text-sm font-semibold">
+                      <span>{item.quantity} × {item.name}</span>
+                      <span>₦{(item.unit_price * item.quantity).toLocaleString()}</span>
+                    </div>
+                    {item.selected_options?.map((option, index) => (
+                      <p key={index} className="mt-1 pl-3 text-xs" style={{ color: 'var(--gray)' }}>
+                        {option.groupName ? option.groupName + ': ' : ''}{(option.quantity ?? 1) > 1 ? (option.quantity ?? 1) + ' × ' : ''}{option.optionName ?? 'Selected option'}
+                      </p>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm py-4" style={{ color: 'var(--gray)' }}>Item details are not available for this order.</p>
+            )}
+
+            <div className="mt-4 pt-3 space-y-2" style={{ borderTop: '1px solid var(--line)' }}>
+              <div className="flex justify-between text-sm"><span style={{ color: 'var(--gray)' }}>Subtotal</span><strong>₦{Number(order.subtotal).toLocaleString()}</strong></div>
+              <div className="flex justify-between text-sm"><span style={{ color: 'var(--gray)' }}>Delivery fee</span><span>₦{Number(order.delivery_fee).toLocaleString()}</span></div>
+              <div className="flex justify-between text-sm"><span style={{ color: 'var(--gray)' }}>Platform fee</span><span>₦{Number(order.platform_fee).toLocaleString()}</span></div>
+              <div className="flex justify-between text-base font-bold pt-2" style={{ borderTop: '1px solid var(--line)' }}><span>Total shown</span><span>₦{(Number(order.subtotal) + Number(order.delivery_fee) + Number(order.platform_fee)).toLocaleString()}</span></div>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-xs font-semibold">Delivery address</p>
+              <p className="text-sm mt-1" style={{ color: 'var(--gray)' }}>{order.delivery_address ?? 'No address on file'}</p>
+            </div>
+            <button type="button" onClick={() => setDetailsOpen(false)} className="w-full mt-5 py-3 rounded-lg text-sm font-semibold text-white" style={{ background: 'var(--orange)' }}>Close details</button>
+          </section>
         </div>
       )}
 
