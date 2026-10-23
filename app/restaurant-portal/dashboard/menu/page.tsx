@@ -37,6 +37,7 @@ export default function MenuBuilderPage() {
   const [bulkCategory, setBulkCategory] = useState('');
   const [bulkSubcategory, setBulkSubcategory] = useState('');
   const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkError, setBulkError] = useState('');
 
   const categoryOptions = useMemo(() => {
@@ -123,6 +124,23 @@ export default function MenuBuilderPage() {
     }
   }
 
+  async function handleBulkDelete() {
+    const selectedItems = menuItems.filter((item) => selectedItemIds.has(item.id));
+    if (!selectedItems.length) return;
+    const confirmed = confirm('Delete ' + selectedItems.length + ' selected menu item(s)? This cannot be undone.');
+    if (!confirmed) return;
+    setBulkDeleting(true);
+    setBulkError('');
+    try {
+      for (const item of selectedItems) await deleteMenuItem(item.id);
+      setSelectedItemIds(new Set());
+    } catch (error) {
+      setBulkError(error instanceof Error ? error.message : 'Some items could not be deleted. Refresh the menu and check which items remain.');
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
+
   async function handleDelete(item: MenuItem) {
     if (!confirm(`Remove "${item.name}" from your menu?`)) return;
     await deleteMenuItem(item.id);
@@ -194,7 +212,7 @@ export default function MenuBuilderPage() {
               </button>
             )}
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <div>
               <label htmlFor="menu-category-filter" className="mb-1.5 block text-xs font-semibold" style={{color:'var(--ink)'}}>
                 Filter by category
@@ -289,8 +307,9 @@ export default function MenuBuilderPage() {
               </div>
               {bulkError && <p role="alert" className="text-sm" style={{color:'var(--red)'}}>{bulkError}</p>}
               <div className="flex flex-wrap gap-2">
-                <button type="button" disabled={bulkSaving} onClick={handleBulkUpdate} className="min-h-11 rounded-xl px-4 text-sm font-semibold text-white disabled:opacity-60" style={{background:'var(--orange)'}}>{bulkSaving ? 'Saving changes…' : 'Update selected items'}</button>
+                <button type="button" disabled={bulkSaving || bulkDeleting} onClick={handleBulkUpdate} className="min-h-11 rounded-xl px-4 text-sm font-semibold text-white disabled:opacity-60" style={{background:'var(--orange)'}}>{bulkSaving ? 'Saving changes…' : 'Update selected items'}</button>
                 <button type="button" disabled={bulkSaving} onClick={() => { setSelectedItemIds(new Set()); setBulkError(''); }} className="min-h-11 rounded-xl border px-4 text-sm font-semibold disabled:opacity-60" style={{borderColor:'var(--line)',color:'var(--ink)'}}>Cancel selection</button>
+                <button type="button" disabled={bulkSaving || bulkDeleting} onClick={handleBulkDelete} className="min-h-11 rounded-xl border px-4 text-sm font-semibold disabled:opacity-60" style={{borderColor:'var(--red)',color:'var(--red)'}}>{bulkDeleting ? 'Deleting selected…' : 'Delete selected'}</button>
               </div>
             </div>
           )}
