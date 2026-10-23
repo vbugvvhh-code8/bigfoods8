@@ -92,6 +92,12 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   const [price, setPrice] = useState(existingItem?.price ? String(existingItem.price) : '');
   const [category, setCategory] = useState(existingItem?.category ?? '');
   const [subcategory, setSubcategory] = useState(existingItem?.subcategory ?? '');
+  const [description, setDescription] = useState(existingItem?.description ?? '');
+  const [ingredients, setIngredients] = useState(existingItem?.ingredients ?? '');
+  const [servingSize, setServingSize] = useState(existingItem?.serving_size ?? '');
+  const [preparationTime, setPreparationTime] = useState(existingItem?.preparation_time_minutes ? String(existingItem.preparation_time_minutes) : '');
+  const [allergens, setAllergens] = useState((existingItem?.allergens ?? []).join(', '));
+  const [dietaryTags, setDietaryTags] = useState((existingItem?.dietary_tags ?? []).join(', '));
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>(() => {
     const imageUrls = (existingItem as any)?.image_urls;
     // Older rows may have an empty image_urls array while image_url is populated.
@@ -169,6 +175,12 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
           price: parsedPrice,
           category: category.trim() || null,
           subcategory: subcategory.trim() || null,
+          description: description.trim() || null,
+          ingredients: ingredients.trim() || null,
+          serving_size: servingSize.trim() || null,
+          preparation_time_minutes: preparationTime.trim() ? Number(preparationTime) : null,
+          allergens: allergens.split(',').map((value) => value.trim()).filter(Boolean),
+          dietary_tags: dietaryTags.split(',').map((value) => value.trim()).filter(Boolean),
           image_urls: finalImageUrls,
         });
       } else {
@@ -177,6 +189,12 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
           price: parsedPrice,
           category: category.trim() || undefined,
           subcategory: subcategory.trim() || undefined,
+          description: description.trim() || null,
+          ingredients: ingredients.trim() || null,
+          serving_size: servingSize.trim() || null,
+          preparation_time_minutes: preparationTime.trim() ? Number(preparationTime) : null,
+          allergens: allergens.split(',').map((value) => value.trim()).filter(Boolean),
+          dietary_tags: dietaryTags.split(',').map((value) => value.trim()).filter(Boolean),
           image_urls: finalImageUrls,
         });
       }
@@ -256,6 +274,33 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
           value={subcategory}
           onChange={setSubcategory}
         />
+      </div>
+
+      <div className="mb-3">
+        <label className="mb-1.5 block text-[12px] font-medium" style={{ color: 'var(--ink)' }}>Dish description (optional)</label>
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1200} rows={3} placeholder="Describe the dish, flavour, and what customers can expect." className="w-full rounded-[9px] px-3 py-2.5 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }} />
+      </div>
+      <div className="mb-3">
+        <label className="mb-1.5 block text-[12px] font-medium" style={{ color: 'var(--ink)' }}>Ingredients (optional)</label>
+        <textarea value={ingredients} onChange={(e) => setIngredients(e.target.value)} maxLength={1200} rows={2} placeholder="e.g. rice, tomatoes, peppers, chicken" className="w-full rounded-[9px] px-3 py-2.5 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }} />
+      </div>
+      <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label className="mb-1.5 block text-[12px] font-medium" style={{ color: 'var(--ink)' }}>Portion / serving size</label>
+          <input value={servingSize} onChange={(e) => setServingSize(e.target.value)} maxLength={100} placeholder="e.g. 1 plate, serves 2" className="w-full rounded-[9px] px-3 py-2.5 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }} />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-[12px] font-medium" style={{ color: 'var(--ink)' }}>Preparation time (minutes)</label>
+          <input value={preparationTime} onChange={(e) => setPreparationTime(e.target.value.replace(/[^\\d]/g, ''))} inputMode="numeric" placeholder="e.g. 20" className="w-full rounded-[9px] px-3 py-2.5 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }} />
+        </div>
+      </div>
+      <div className="mb-3">
+        <label className="mb-1.5 block text-[12px] font-medium" style={{ color: 'var(--ink)' }}>Allergens (comma-separated)</label>
+        <input value={allergens} onChange={(e) => setAllergens(e.target.value)} maxLength={500} placeholder="e.g. peanuts, dairy, eggs" className="w-full rounded-[9px] px-3 py-2.5 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }} />
+      </div>
+      <div className="mb-4">
+        <label className="mb-1.5 block text-[12px] font-medium" style={{ color: 'var(--ink)' }}>Dietary tags (comma-separated)</label>
+        <input value={dietaryTags} onChange={(e) => setDietaryTags(e.target.value)} maxLength={500} placeholder="e.g. vegetarian, spicy, halal" className="w-full rounded-[9px] px-3 py-2.5 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }} />
       </div>
 
       <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
