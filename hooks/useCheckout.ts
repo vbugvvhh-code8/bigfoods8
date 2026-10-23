@@ -53,7 +53,7 @@ export function useCheckout() {
     }
   };
 
-  const createPaymentLink = async (params: InitializeParams) => {
+  const createPaymentLink = async (params: InitializeParams): Promise<string | null> => {
     setIsSubmitting(true); setError(null); setPaymentLink(null);
     try {
       const init = await supabase.functions.invoke('initialize-order-payment', {body: {
@@ -70,7 +70,8 @@ export function useCheckout() {
       if (created.data?.error) throw new Error(created.data.error);
       if (!created.data?.payment_url) throw new Error('Could not create payment link');
       setPaymentLink(created.data.payment_url);
-    } catch (e: any) { setError(e?.message ?? 'Could not create payment link. Try again.'); }
+      return created.data.payment_url;
+    } catch (e: any) { setError(e?.message ?? 'Could not create payment link. Try again.'); return null; }
     finally { setIsSubmitting(false); }
   };
   return {initializePayment, createPaymentLink, paymentLink, isSubmitting, error};
