@@ -5,7 +5,8 @@ import { useMemo, useState } from 'react';
 import { Plus, Pencil, Trash2, ChevronDown, Search, X, CheckSquare, Square } from 'lucide-react';
 import useRestaurant from '@/hooks/useRestaurant';
 import { useMenuItems } from '@/hooks/useMenuItems';
-import MenuItemForm from '@/components/restaurant/dashboard/MenuItemForm';
+import MenuItemForm, { ChipPicker } from '@/components/restaurant/dashboard/MenuItemForm';
+import { MENU_CATEGORY_PRESETS, MENU_CATEGORY_NAMES } from '@/lib/menuCategoryPresets';
 import type { MenuItem } from '@/types/database';
 
 const UNCATEGORIZED = 'uncategorized';
@@ -295,21 +296,26 @@ export default function MenuBuilderPage() {
             <div className="space-y-3 border-t pt-3" style={{borderColor:'var(--line)'}}>
               <p className="text-sm font-semibold" style={{color:'var(--ink)'}}>Bulk edit selected items</p>
               <p className="text-xs" style={{color:'var(--gray)'}}>Only fields you fill in will change. Leave a field blank to keep each item's current value.</p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="bulk-category" className="mb-1 block text-xs font-semibold" style={{color:'var(--ink)'}}>Set category</label>
-                  <input id="bulk-category" value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)} maxLength={80} placeholder="New category" className="min-h-11 w-full rounded-xl border px-3 text-sm" style={{borderColor:'var(--line)',color:'var(--ink)',background:'var(--white)'}} />
+              <div className="space-y-4">
+                <div className="rounded-xl border p-3" style={{borderColor:'var(--line)',background:'var(--white)'}}>
+                  <ChipPicker label="Set category" options={MENU_CATEGORY_NAMES} value={bulkCategory} onChange={(value) => { setBulkCategory(value); setBulkSubcategory(''); }} />
+                  <p className="mt-2 text-[11px]" style={{color:'var(--gray)'}}>Choose a category chip or select Custom to type your own. Leave unselected to keep each item's category.</p>
                 </div>
-                <div>
-                  <label htmlFor="bulk-subcategory" className="mb-1 block text-xs font-semibold" style={{color:'var(--ink)'}}>Set subcategory</label>
-                  <input id="bulk-subcategory" value={bulkSubcategory} onChange={(e) => setBulkSubcategory(e.target.value)} maxLength={80} placeholder="New subcategory" className="min-h-11 w-full rounded-xl border px-3 text-sm" style={{borderColor:'var(--line)',color:'var(--ink)',background:'var(--white)'}} />
+                <div className="rounded-xl border p-3" style={{borderColor:'var(--line)',background:'var(--white)'}}>
+                  <ChipPicker
+                    label="Set subcategory"
+                    options={bulkCategory ? (MENU_CATEGORY_PRESETS[bulkCategory.toLowerCase()] ?? []) : Array.from(new Set(menuItems.filter((item) => selectedItemIds.has(item.id)).map((item) => (item as any).subcategory).filter((value): value is string => typeof value === 'string' && value.length > 0)))}
+                    value={bulkSubcategory}
+                    onChange={setBulkSubcategory}
+                  />
+                  <p className="mt-2 text-[11px]" style={{color:'var(--gray)'}}>Choose a suggested subcategory or select Custom. Leave unselected to keep each item's subcategory.</p>
                 </div>
               </div>
               {bulkError && <p role="alert" className="text-sm" style={{color:'var(--red)'}}>{bulkError}</p>}
-              <div className="flex flex-wrap gap-2">
-                <button type="button" disabled={bulkSaving || bulkDeleting} onClick={handleBulkUpdate} className="min-h-11 rounded-xl px-4 text-sm font-semibold text-white disabled:opacity-60" style={{background:'var(--orange)'}}>{bulkSaving ? 'Saving changes…' : 'Update selected items'}</button>
-                <button type="button" disabled={bulkSaving} onClick={() => { setSelectedItemIds(new Set()); setBulkError(''); }} className="min-h-11 rounded-xl border px-4 text-sm font-semibold disabled:opacity-60" style={{borderColor:'var(--line)',color:'var(--ink)'}}>Cancel selection</button>
-                <button type="button" disabled={bulkSaving || bulkDeleting} onClick={handleBulkDelete} className="min-h-11 rounded-xl border px-4 text-sm font-semibold disabled:opacity-60" style={{borderColor:'var(--red)',color:'var(--red)'}}>{bulkDeleting ? 'Deleting selected…' : 'Delete selected'}</button>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <button type="button" disabled={bulkSaving || bulkDeleting} onClick={handleBulkUpdate} className="flex min-h-12 w-full items-center justify-center rounded-xl px-4 text-sm font-bold text-white shadow-sm transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50" style={{background:'var(--orange)'}}>{bulkSaving ? 'Saving changes…' : 'Apply changes to selected'}</button>
+                <button type="button" disabled={bulkSaving || bulkDeleting} onClick={() => { setSelectedItemIds(new Set()); setBulkCategory(''); setBulkSubcategory(''); setBulkError(''); }} className="min-h-12 w-full rounded-xl border px-4 text-sm font-semibold transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50" style={{borderColor:'var(--line)',color:'var(--ink)',background:'var(--white)'}}>Cancel selection</button>
+                <button type="button" disabled={bulkSaving || bulkDeleting} onClick={handleBulkDelete} className="sm:col-span-2 flex min-h-12 w-full items-center justify-center rounded-xl border-2 px-4 text-sm font-bold transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50" style={{borderColor:'var(--red)',color:'var(--red)',background:'var(--white)'}}>{bulkDeleting ? 'Deleting selected items…' : 'Delete selected items'}</button>
               </div>
             </div>
           )}
