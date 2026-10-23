@@ -2,7 +2,7 @@
 
 import SafeImage from '@/components/ui/SafeImage';
 import { useMemo, useState } from 'react';
-import { Plus, Pencil, Trash2, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, ChevronDown, Eye, EyeOff } from 'lucide-react';
 import useRestaurant from '@/hooks/useRestaurant';
 import { useMenuItems } from '@/hooks/useMenuItems';
 import MenuItemForm from '@/components/restaurant/dashboard/MenuItemForm';
@@ -30,6 +30,9 @@ export default function MenuBuilderPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  const [availabilityBusyId, setAvailabilityBusyId] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [pageMessage, setPageMessage] = useState<string | null>(null);
 
   const tree = useMemo(() => groupItems(menuItems), [menuItems]);
   const categories = Object.keys(tree).sort((a, b) =>
@@ -47,7 +50,28 @@ export default function MenuBuilderPage() {
 
   async function handleDelete(item: MenuItem) {
     if (!confirm(`Remove "${item.name}" from your menu?`)) return;
-    await deleteMenuItem(item.id);
+    setPageError(null);
+    setPageMessage(null);
+    try {
+      await deleteMenuItem(item.id);
+      setPageMessage(`"${item.name}" was deleted.`);
+    } catch (error: any) {
+      setPageError(error?.message ?? 'Could not delete this item. Please try again.');
+    }
+  }
+
+  async function toggleAvailability(item: MenuItem) {
+    setAvailabilityBusyId(item.id);
+    setPageError(null);
+    setPageMessage(null);
+    try {
+      await updateMenuItem(item.id, { is_available: !item.is_available });
+      setPageMessage(`"${item.name}" is now ${item.is_available ? 'unavailable' : 'available'}.`);
+    } catch (error: any) {
+      setPageError(error?.message ?? 'Could not update availability. Please try again.');
+    } finally {
+      setAvailabilityBusyId(null);
+    }
   }
 
   if (restaurantLoading || !restaurant) {
@@ -76,6 +100,9 @@ export default function MenuBuilderPage() {
           </button>
         )}
       </div>
+
+      {pageError && <p role="alert" className="mb-3 rounded-lg p-3 text-[12px]" style={{ background: '#FCE8E6', color: 'var(--red)' }}>{pageError}</p>}
+      {pageMessage && <p role="status" className="mb-3 rounded-lg p-3 text-[12px]" style={{ background: 'var(--peach)', color: 'var(--ink)' }}>{pageMessage}</p>}
 
       {showAddForm && (
         <div className="mb-5">
@@ -170,6 +197,23 @@ export default function MenuBuilderPage() {
                                     ₦{Number(item.price).toLocaleString()}
                                   </p>
                                 </div>
+                                <span
+                                  className="text-[10.5px] font-semibold px-2 py-1 rounded-full whitespace-nowrap"
+                                  style={item.is_available ? { background: '#E7F6EC', color: '#207245' } : { background: '#FCE8E6', color: '#B42318' }}
+                                >
+                                  {item.is_available ? 'Available' : 'Unavailable'}
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={availabilityBusyId === item.id}
+                                  onClick={() => toggleAvailability(item)}
+                                  className="p-1.5 rounded-md disabled:opacity-50"
+                                  style={{ color: item.is_available ? 'var(--gray)' : '#207245' }}
+                                  aria-label={item.is_available ? `Mark ${item.name} unavailable` : `Mark ${item.name} available`}
+                                  title={item.is_available ? 'Mark unavailable' : 'Mark available'}
+                                >
+                                  {item.is_available ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => setEditingId(item.id)}
