@@ -52,8 +52,21 @@ export function useRestaurants(options?: {
       if (options?.category && options.category !== 'All') {
         query = query.eq('category', options.category);
       }
+      // Paid placement depends on promotion dates, not the legacy is_featured flag.
       if (options?.featuredOnly) {
-        query = query.eq('is_featured', true);
+        const now = new Date().toISOString();
+        const {data: livePromotions, error: promotionsError} = await supabase
+          .from('promotions')
+          .select('restaurant_id')
+          .eq('status', 'active')
+          .lte('starts_at', now)
+          .gt('ends_at', now);
+        if (promotionsError) throw promotionsError;
+        const promotedIds = (livePromotions ?? [])
+          .map((p) => p.restaurant_id)
+          .filter((id, index, ids) => Boolean(id) && ids.indexOf(id) === index);
+        if (promotedIds.length === 0) return [];
+        query = query.in('id', promotedIds);
       }
       if (options?.customerState) {
         query = query.eq('state', options.customerState);

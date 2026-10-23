@@ -63,3 +63,124 @@
     @apply text-xxs text-gray;
   }
 }
+
+
+/* Compact receipt printing: print the receipt itself, not the full app page. */
+@media print {
+  @page {
+    size: auto;
+    margin: 5mm;
+  }
+
+  html,
+  body {
+    width: auto !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+    overflow: visible !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  #printable-receipt,
+  #printable-receipt * {
+    visibility: visible !important;
+  }
+
+  .receipt-page {
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #printable-receipt {
+    position: static !important;
+    display: block !important;
+    box-sizing: border-box !important;
+    width: 72mm !important;
+    max-width: 72mm !important;
+    margin: 0 !important;
+    padding: 3mm !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 9pt !important;
+    line-height: 1.3 !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  #printable-receipt h1 {
+    font-size: 13pt !important;
+    line-height: 1.2 !important;
+  }
+
+  #printable-receipt .text-xl {
+    font-size: 13pt !important;
+  }
+
+  #printable-receipt .text-base {
+    font-size: 10pt !important;
+  }
+
+  #printable-receipt .text-sm {
+    font-size: 9pt !important;
+  }
+
+  #printable-receipt .text-xs {
+    font-size: 8pt !important;
+  }
+
+  #printable-receipt .p-5 {
+    padding: 0 !important;
+  }
+
+  #printable-receipt .py-4 {
+    padding-top: 2.5mm !important;
+    padding-bottom: 2.5mm !important;
+  }
+
+  #printable-receipt .mb-5 {
+    margin-bottom: 3mm !important;
+  }
+
+  #printable-receipt .mb-4 {
+    margin-bottom: 2.5mm !important;
+  }
+
+  #printable-receipt .mt-4 {
+    margin-top: 2.5mm !important;
+  }
+
+  #printable-receipt .no-print,
+  .no-print {
+    display: none !important;
+  }
+
+  #printable-receipt .rounded-xl {
+    border-radius: 0 !important;
+    padding: 2mm !important;
+  }
+
+  #printable-receipt .bg-\[var\(--peach\)\] {
+    background: #fff !important;
+  }
+
+  #printable-receipt * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  a[href]::after {
+    content: none !important;
+  }
+}

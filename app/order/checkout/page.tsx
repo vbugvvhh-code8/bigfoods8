@@ -1,8 +1,8 @@
 'use client';
 
-import {useState, useMemo} from 'react';
+import {useState, useMemo, useEffect} from 'react';
 import {useRouter} from 'next/navigation';
-import {ArrowLeft} from 'lucide-react';
+import {ArrowLeft, Gift, Info, X} from 'lucide-react';
 import {useCart} from '@/hooks/useCart';
 import {useRestaurant, useRestaurants} from '@/hooks/useRestaurants';
 import {useCheckout} from '@/hooks/useCheckout';
@@ -20,11 +20,21 @@ function CheckoutContent() {
   const router = useRouter();
   const {items, groups, total: subtotal, isMultiRestaurant} = useCart();
   const {prices} = usePricingConfig(['platform_fee', 'delivery_rate_per_km', 'minimum_delivery_fee']);
-  const {initializePayment, isSubmitting, error: paymentError} = useCheckout();
+  const {initializePayment, createPaymentLink, paymentLink, isSubmitting, error: paymentError} = useCheckout();
 
   const [deliveryPoint, setDeliveryPoint] = useState<DeliveryPoint | null>(null);
   const [note, setNote] = useState('');
   const [tipAmount, setTipAmount] = useState(0);
+  const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
+  const [shareError, setShareError] = useState('');
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  useEffect(() => {
+    if (paymentLink) {
+      setShareError('');
+      setShowPaymentLinkModal(true);
+    }
+  }, [paymentLink]);
 
   // Rough client-side estimate only -- the real fee (with proper batch
   // clustering for 3+ restaurants) is computed server-side at payment init.
@@ -38,6 +48,9 @@ function CheckoutContent() {
   }));
 
   const minDeliveryFee = prices.minimum_delivery_fee ?? 1000;
+
+  // Open the share modal only after the link has actually been created.
+  const hasPaymentLink = Boolean(paymentLink);
   const platformFee = (prices.platform_fee ?? 500) * groups.length;
 
   const estimatedDeliveryFee = useMemo(() => {
@@ -81,6 +94,20 @@ function CheckoutContent() {
     );
   }
 
+  const handleCreatePaymentLink = async () => {
+    if (!deliveryPoint || isSubmitting) return;
+    setShareError('');
+    setLinkCopied(false);
+    const url = await createPaymentLink({
+      groups: groups.map((g) => ({restaurant_id: g.restaurantId, items: g.items.map((i) => ({menu_item_id: i.id, quantity: i.quantity}))})),
+      deliveryAddress: deliveryPoint.label + (note ? ` — ${note}` : ''),
+      deliveryLat: deliveryPoint.lat,
+      deliveryLng: deliveryPoint.lng,
+      deliveryNote: note,
+      tipAmount,
+    });
+    if (url) setShowPaymentLinkModal(true);
+  };
   const handlePay = () => {
     if (!deliveryPoint) return;
     initializePayment({
@@ -142,6 +169,48 @@ function CheckoutContent() {
         </p>
       )}
 
+      <button
+        onClick={() => { if (paymentLink) setShowPaymentLinkModal(true); else handleCreatePaymentLink(); }}
+        disabled={!deliveryPoint || isSubmitting}
+        className="mt-3 w-full flex items-center justify-between gap-2.5 rounded-xl border bg-white px-3 py-3 text-left disabled:opacity-50"
+        style={{borderColor: '#E9E9E9', color: 'var(--ink)'}}
+      >
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{background: 'var(--peach)', color: 'var(--orange)'}}>
+            <Gift className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[13px] font-bold">Ask someone to pay</span>
+            <span className="mt-0.5 block text-[11px] leading-snug" style={{color: 'var(--gray)'}}>Share a link. They pay, you receive.</span>
+          </span>
+          {hasPaymentLink && <Info className="h-4 w-4 shrink-0" style={{color: 'var(--gray)'}} />}
+        </span>
+        <span
+          className="shrink-0 rounded-lg border-2 px-3 py-2.5 text-[11px] font-bold"
+          style={{borderColor: 'var(--ink)', color: 'var(--ink)'}}
+        >
+          {isSubmitting ? 'Creating link…' : hasPaymentLink ? 'View link' : 'Get link'}
+        </span>
+      </button>
+
+      {showPaymentLinkModal && paymentLink && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 px-5" onClick={() => setShowPaymentLinkModal(false)}>
+          <section role="dialog" aria-modal="true" aria-labelledby="payment-link-title" className="w-full max-w-[340px] rounded-2xl bg-white p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-3 flex items-start justify-between gap-2">
+              <div>
+                <h2 id="payment-link-title" className="text-[16px] font-bold" style={{color: 'var(--orange)'}}>Payment link ready</h2>
+                <p className="mt-1 text-[12px]" style={{color: 'var(--gray)'}}>Share this link with the person helping you pay.</p>
+              </div>
+              <button aria-label="Close payment link dialog" onClick={() => setShowPaymentLinkModal(false)} className="rounded-full p-1.5" style={{color: 'var(--gray)'}}><X className="h-5 w-5" /></button>
+            </div>
+            <div className="break-all rounded-lg border p-2.5 text-[11px]" style={{borderColor: 'var(--peach)', color: 'var(--ink)', background: '#FFFAF7'}}>{paymentLink}</div>
+            {shareError && <p role="alert" className="mt-2 text-[12px]" style={{color: 'var(--red, #C1453A)'}}>{shareError}</p>}
+            <button onClick={async () => { try { await navigator.clipboard.writeText(paymentLink); setLinkCopied(true); setShareError(''); } catch { setLinkCopied(false); setShareError('Could not copy automatically. Press and hold the link above to copy it.'); } }} className="mt-3 w-full rounded-xl py-2.5 text-[12px] font-bold text-white" style={{background: 'var(--orange)'}}>{linkCopied ? 'Copied!' : 'Copy link'}</button>
+            {typeof navigator !== 'undefined' && !!navigator.share && <button onClick={() => navigator.share({title: 'Big Foods payment link', text: 'Please help me pay for my Big Foods order.', url: paymentLink}).catch(() => {})} className="mt-2 w-full rounded-xl border py-2.5 text-[12px] font-semibold" style={{borderColor: 'var(--orange)', color: 'var(--orange)'}}>Share link</button>}
+          </section>
+        </div>
+      )}
+
       <div className="fixed bottom-20 lg:bottom-4 left-0 right-0 px-4 z-30">
         <div className="max-w-[380px] lg:max-w-2xl mx-auto">
           <button
@@ -153,8 +222,8 @@ function CheckoutContent() {
             {isSubmitting
               ? 'Starting payment…'
               : deliveryPoint
-              ? `Pay ₦${(subtotal + platformFee + (estimatedDeliveryFee ?? 0) + tipAmount).toLocaleString()}`
-              : 'Choose a delivery location to pay'}
+              ? `Continue to payment · est. ₦${(subtotal + platformFee + (estimatedDeliveryFee ?? 0) + tipAmount).toLocaleString()}`
+              : 'Choose a delivery location to continue'}
           </button>
         </div>
       </div>

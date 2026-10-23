@@ -11,6 +11,7 @@ import {OrderTray} from '@/components/customer/menu/OrderTray';
 import {EmptyState} from '@/components/customer/shared/EmptyState';
 import {ErrorState} from '@/components/customer/shared/ErrorState';
 import {UtensilsCrossed} from 'lucide-react';
+import {useTrackRestaurantPageView} from '@/hooks/useTrackRestaurantEvent';
 
 export default function RestaurantMenuPage() {
   const {id} = useParams<{id: string}>();
@@ -18,6 +19,7 @@ export default function RestaurantMenuPage() {
   const [activeCategory, setActiveCategory] = useState('All');
 
   const {restaurant, isLoading: restaurantLoading, error: restaurantError} = useRestaurant(id);
+  useTrackRestaurantPageView(restaurant?.id);
   const {menuItems, isLoading: menuLoading, error: menuError} = useMenuItems(id);
 
   const categories = useMemo(

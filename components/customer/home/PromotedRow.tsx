@@ -1,5 +1,6 @@
 'use client';
 
+import {useEffect} from 'react';
 import Link from 'next/link';
 import type {RestaurantWithMeta} from '@/lib/customer/types';
 import {trackRestaurantEvent} from '@/hooks/useTrackRestaurantEvent';
@@ -9,6 +10,35 @@ interface PromotedRowProps {
 }
 
 export function PromotedRow({restaurants}: PromotedRowProps) {
+  useEffect(() => {
+    const cards = document.querySelectorAll<HTMLElement>('[data-promotion-impression]');
+    const tracked = new WeakSet<Element>();
+    if (!('IntersectionObserver' in window)) {
+      cards.forEach((card) => {
+        const id = card.dataset.restaurantId;
+        if (id && !tracked.has(card)) {
+          tracked.add(card);
+          trackRestaurantEvent(id, 'card_impression');
+        }
+      });
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting || entry.intersectionRatio < 0.5) return;
+        const card = entry.target as HTMLElement;
+        const id = card.dataset.restaurantId;
+        if (id && !tracked.has(card)) {
+          tracked.add(card);
+          trackRestaurantEvent(id, 'card_impression');
+        }
+        observer.unobserve(card);
+      });
+    }, {threshold: [0, 0.5]});
+    cards.forEach((card) => observer.observe(card));
+    return () => observer.disconnect();
+  }, [restaurants]);
+
   if (restaurants.length === 0) return null;
 
   return (
@@ -21,6 +51,8 @@ export function PromotedRow({restaurants}: PromotedRowProps) {
           <Link
             key={r.id}
             href={`/order/restaurant/${r.id}`}
+            data-promotion-impression
+            data-restaurant-id={r.id}
             onClick={() => trackRestaurantEvent(r.id, 'card_click')}
             className="flex-shrink-0 w-[150px] text-left"
           >

@@ -7,6 +7,8 @@ import type {Order} from '@/types/database';
 export interface OrderWithRestaurant extends Order {
   restaurantName: string | null;
   itemCount: number;
+  batchDeliveryFee: number;
+  batchTipAmount: number;
 }
 
 export function useMyOrders() {
@@ -47,11 +49,22 @@ export function useMyOrders() {
         ? await supabase.from('order_items').select('order_id, quantity').in('order_id', orderIds)
         : {data: []};
 
-      const enriched = (orderRows ?? []).map((o) => ({
-        ...o,
-        restaurantName: restaurants?.find((r) => r.id === o.restaurant_id)?.name ?? null,
-        itemCount: (itemRows ?? []).filter((i) => i.order_id === o.id).reduce((sum, i) => sum + i.quantity, 0),
-      }));
+      const batchIds = Array.from(new Set((orderRows ?? []).map((o) => o.delivery_batch_id).filter((id): id is string => !!id)));
+      const {data: batchRows} = batchIds.length
+        ? await supabase.from('delivery_batches').select('id, delivery_fee, tip_amount').in('id', batchIds)
+        : {data: []};
+
+      const enriched = (orderRows ?? []).map((o) => {
+        const batch = batchRows?.find((b) => b.id === o.delivery_batch_id);
+        return {
+          ...o,
+          restaurantName: restaurants?.find((r) => r.id === o.restaurant_id)?.name ?? null,
+          itemCount: (itemRows ?? []).filter((i) => i.order_id === o.id).reduce((sum, i) => sum + i.quantity, 0),
+          // Multi-restaurant delivery and tip charges live on the batch, not each order leg.
+          batchDeliveryFee: Number(batch?.delivery_fee ?? 0),
+          batchTipAmount: Number(batch?.tip_amount ?? 0),
+        };
+      });
 
       if (!cancelled) {
         setOrders(enriched);

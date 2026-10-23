@@ -16,6 +16,8 @@ import { PUBLIC_LAUNCH_DATE, isBeforeLaunch } from '@/lib/launchDate';
 import type { DateRange } from '@/hooks/useRestaurantAnalytics';
 
 type Plan = '1_day' | '2_days' | '1_week' | '2_weeks' | '1_month';
+const LEGACY_PLAN_LABELS: Record<string, string> = { '3_months': '3 months' };
+const planLabel = (plan: string) => PLAN_LABELS[plan as Plan] ?? LEGACY_PLAN_LABELS[plan] ?? plan.replaceAll('_', ' ');
 
 const PLAN_LABELS: Record<Plan, string> = {
   '1_day': '1 day',
@@ -66,9 +68,30 @@ export default function PromotionsPage() {
       .eq('restaurant_id', restaurant.id)
       .order('starts_at', { ascending: false, nullsFirst: false });
     const rows = (data as PromotionRow[]) ?? [];
-    const active = rows.find((r) => r.status === 'active' || r.status === 'pending') ?? null;
+    const now = Date.now();
+    // Prefer a promotion that is actually running now over future-dated
+    // records. Old duplicate/scheduled rows must not hide a current paid plan.
+    const currentPromotion = rows.find((r) =>
+      r.status === 'active' &&
+      (!r.starts_at || new Date(r.starts_at).getTime() <= now) &&
+      (!r.ends_at || new Date(r.ends_at).getTime() > now)
+    ) ?? rows.find((r) =>
+      (r.status === 'pending' || r.status === 'active') &&
+      !!r.starts_at &&
+      new Date(r.starts_at).getTime() > now &&
+      (!r.ends_at || new Date(r.ends_at).getTime() > now)
+    ) ?? rows.find((r) => r.status === 'pending');
+    // Keep the latest expired promotion visible when there is no live or scheduled one.
+    const latestExpired = rows.find((r) =>
+      r.status === 'active' && !!r.ends_at && new Date(r.ends_at).getTime() <= now
+    );
+    const active = currentPromotion ?? latestExpired ?? null;
     setCurrent(active);
-    setHistory(rows.filter((r) => r.id !== active?.id));
+    setHistory(rows.filter((r) => {
+      if (r.id === active?.id || r.status === 'pending') return false;
+      const isStillRunning = r.status === 'active' && (!r.ends_at || new Date(r.ends_at).getTime() > now);
+      return !isStillRunning;
+    }));
     setLoadingPromotions(false);
   }, [restaurant?.id, supabase]);
 
@@ -100,6 +123,7 @@ export default function PromotionsPage() {
     ? Math.max(0, Math.ceil((new Date(current.ends_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
     : null;
   const hasStarted = current?.starts_at ? new Date(current.starts_at) <= new Date() : false;
+  const hasExpired = current?.status === 'active' && !!current.ends_at && new Date(current.ends_at).getTime() <= Date.now();
 
   if (restaurantLoading || !restaurant) {
     return <p className="text-[12.5px] py-6 text-center" style={{ color: 'var(--gray)' }}>Loading…</p>;
@@ -116,19 +140,23 @@ export default function PromotionsPage() {
           <div className="flex items-center gap-2 mb-2">
             <Megaphone className="w-4 h-4" style={{ color: 'var(--orange)' }} />
             <p className="text-[13px] font-semibold" style={{ color: 'var(--ink)' }}>
-              {hasStarted ? 'Promotion active' : 'Promotion scheduled'}
+              {hasExpired ? 'Promotion expired' : hasStarted ? 'Promotion active' : 'Promotion scheduled'}
             </p>
           </div>
 
-          {!hasStarted && isBeforeLaunch() ? (
+          {hasExpired ? (
             <p className="text-[12px] mb-1" style={{ color: 'var(--ink)' }}>
-              Your {PLAN_LABELS[current.plan as Plan] ?? current.plan} promotion is paid for and will start counting
+              Your {planLabel(current.plan)} promotion ended on {new Date(current.ends_at!).toLocaleDateString()}. Renew to get promoted again.
+            </p>
+          ) : !hasStarted && isBeforeLaunch() ? (
+            <p className="text-[12px] mb-1" style={{ color: 'var(--ink)' }}>
+              Your {planLabel(current.plan)} promotion is paid for and will start counting
               down from launch day —{' '}
               {PUBLIC_LAUNCH_DATE.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}.
             </p>
           ) : (
             <p className="text-[12px] mb-1" style={{ color: 'var(--ink)' }}>
-              {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left on your {PLAN_LABELS[current.plan as Plan] ?? current.plan} promotion.
+              {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left on your {planLabel(current.plan)} promotion.
             </p>
           )}
 
@@ -143,6 +171,12 @@ export default function PromotionsPage() {
         </p>
       )}
 
+      {hasExpired && (
+        <p className="text-[11px] p-2.5 rounded-[9px]" style={{ background: 'var(--peach)', color: 'var(--ink)' }}>
+          This paid promotion has ended. Your restaurant and menu remain available, but this promotion no longer qualifies for promoted placement. Choose a plan below to renew.
+        </p>
+      )}
+
       {isBeforeLaunch() && (
         <p className="text-[11px] p-2.5 rounded-[9px]" style={{ background: 'var(--peach)', color: 'var(--ink)' }}>
           BigFoods hasn't launched publicly yet — any promotion bought now starts counting on launch day, so you
@@ -152,7 +186,7 @@ export default function PromotionsPage() {
 
       <div className="p-4 rounded-[12px]" style={{ border: '1px solid var(--line)' }}>
         <p className="text-[12.5px] font-semibold mb-3" style={{ color: 'var(--ink)' }}>
-          {current ? 'Extend or buy another promotion' : 'Promote your restaurant'}
+          {hasExpired ? 'Renew your promotion' : current ? 'Extend or buy another promotion' : 'Promote your restaurant'}
         </p>
 
         <div className="grid grid-cols-2 gap-2 mb-3">
@@ -198,7 +232,8 @@ export default function PromotionsPage() {
           <p className="text-[12.5px] font-semibold" style={{ color: 'var(--ink)' }}>Analytics</p>
           <DateRangeFilter value={analyticsRange} onChange={setAnalyticsRange} />
         </div>
-        <div className="grid grid-cols-3 gap-2.5 mb-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-3">
+          <KpiTile label="Card impressions" value={String(stats.cardImpressions)} />
           <KpiTile label="Card clicks" value={String(stats.cardClicks)} />
           <KpiTile label="Page views" value={String(stats.pageViews)} />
           <KpiTile label="Click-through" value={stats.clickThroughRate !== null ? `${stats.clickThroughRate}%` : '—'} />
@@ -221,15 +256,17 @@ export default function PromotionsPage() {
               <div key={p.id} className="flex items-center justify-between p-2.5 rounded-[8px]" style={{ border: '1px solid var(--line)' }}>
                 <div>
                   <p className="text-[12px]" style={{ color: 'var(--ink)' }}>
-                    {PLAN_LABELS[p.plan as Plan] ?? p.plan} · ₦{Number(p.amount_paid).toLocaleString()}
+                    {planLabel(p.plan)} · ₦{Number(p.amount_paid).toLocaleString()}
                   </p>
                   <p className="text-[10.5px]" style={{ color: 'var(--gray)' }}>
                     {p.starts_at ? new Date(p.starts_at).toLocaleDateString() : '—'}
                     {p.ends_at ? ` – ${new Date(p.ends_at).toLocaleDateString()}` : ''}
                   </p>
                 </div>
-                <span className="text-[10.5px] font-semibold capitalize" style={{ color: 'var(--gray)' }}>
-                  {p.status}
+                <span className="text-[10.5px] font-semibold" style={{ color: 'var(--gray)' }}>
+                  {p.status === 'active' && p.ends_at && new Date(p.ends_at).getTime() <= Date.now()
+                    ? 'Expired'
+                    : p.status.replaceAll('_', ' ')}
                 </span>
               </div>
             ))}

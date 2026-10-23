@@ -66,7 +66,7 @@ async function assignRiderToBatch(admin: ReturnType<typeof createClient>, batchI
 async function createRiderOffersForOrder(admin: ReturnType<typeof createClient>, orderId: string) {
   const { data: setting } = await admin.from("platform_settings").select("value")
     .eq("key", "dispatch_rider_offers_enabled").maybeSingle();
-  const offersEnabled = setting?.value === true || setting?.value === "true" || setting == null;
+  const offersEnabled = setting?.value === true || setting?.value === "true";
   if (!offersEnabled) return 0;
 
   const { data: order, error: orderError } = await admin.from("orders")
@@ -96,11 +96,25 @@ async function createRiderOffersForOrder(admin: ReturnType<typeof createClient>,
 }
 
 async function dispatchSingleOrder(admin: ReturnType<typeof createClient>, orderId: string) {
-  // Offers are created only after Paystack verification has succeeded. Do not
-  // silently pre-assign the nearest rider: riders must accept their own offer.
-  const { error } = await admin.from("orders")
-    .update({ payment_status: "paid", last_dispatch_attempt_at: new Date().toISOString(), dispatch_retry_count: 0 })
-    .eq("id", orderId);
+  const { data: order, error: loadError } = await admin
+    .from("orders")
+    .select("id, status, cancelled_at, cancelled_by")
+    .eq("id", orderId)
+    .single();
+  if (loadError || !order) throw loadError ?? new Error("Order not found");
+
+  // initialize-order-payment creates unpaid placeholder rows with status
+  // cancelled. Restore only those placeholders after Paystack verifies payment;
+  // never resurrect a genuine cancellation.
+  const patch: Record<string, unknown> = {
+    payment_status: "paid",
+    last_dispatch_attempt_at: new Date().toISOString(),
+    dispatch_retry_count: 0,
+  };
+  if (order.status === "cancelled" && !order.cancelled_at && !order.cancelled_by) {
+    patch.status = "placed";
+  }
+  const { error } = await admin.from("orders").update(patch).eq("id", orderId);
   if (error) throw error;
   await createRiderOffersForOrder(admin, orderId);
 }
@@ -149,7 +163,7 @@ Deno.serve(async (req: Request) => {
         return json({ success: true, order_id: txn.order_id, delivery_code: existingOrder?.delivery_code, already_processed: true });
       }
       if (txn.order_group_id) {
-        const { data: batches } = await admin.from("delivery_batches").select("id, delivery_code").eq("order_group_id", txn.order_group_id);
+        const { data: batches } = await admin.from("delivery_batches").select("id, delivery_code, route_sequence").eq("order_group_id", txn.order_group_id);
         return json({ success: true, order_group_id: txn.order_group_id, batches, already_processed: true });
       }
     }
@@ -160,59 +174,59 @@ Deno.serve(async (req: Request) => {
       headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
     });
     const verifyData = await verifyRes.json();
-    const paystackStatus = verifyData?.data?.status;
-    const paystackCurrency = verifyData?.data?.currency;
+    const paystackTransaction = verifyData?.data;
+    const paystackStatus = paystackTransaction?.status;
+    const paystackAmountKobo = Number(paystackTransaction?.amount);
+    const expectedAmountKobo = Math.round(Number(txn.amount) * 100);
+    const paystackCurrency = paystackTransaction?.currency;
+    const paystackReference = paystackTransaction?.reference;
 
     if (!verifyRes.ok || verifyData?.status !== true || paystackStatus !== "success") {
-      // Never downgrade a transaction that has already been confirmed successful.
-      // Only pending transactions can be marked failed by a verification attempt.
-      if (txn.status === "pending") {
-        await admin.from("transactions").update({ status: "failed" }).eq("id", txn.id).eq("status", "pending");
-        if (txn.order_id) {
-          await admin.from("orders").update({ payment_status: "failed" })
-            .eq("id", txn.order_id).eq("payment_status", "pending");
-        }
-        if (txn.order_group_id) {
-          await admin.from("order_groups").update({ payment_status: "failed" })
-            .eq("id", txn.order_group_id).eq("payment_status", "pending");
-        }
-      }
       return json({ success: false, error: "Payment was not successful" });
     }
 
+    // Verify every provider-owned payment attribute before mutating any order.
     // Paystack reports amounts in kobo; transactions.amount is stored in naira.
-    // Never mark an order paid unless the provider-confirmed amount matches.
-    const paidKobo = Number(verifyData?.data?.amount);
-    const expectedKobo = Math.round(Number(txn.amount) * 100);
-    if (!Number.isFinite(paidKobo) || !Number.isFinite(expectedKobo) || paidKobo !== expectedKobo) {
-      console.error("ORDER_PAYMENT_AMOUNT_MISMATCH", {
+    if (
+      !Number.isSafeInteger(expectedAmountKobo) || expectedAmountKobo <= 0 ||
+      !Number.isSafeInteger(paystackAmountKobo) || paystackAmountKobo !== expectedAmountKobo ||
+      paystackCurrency !== "NGN" || paystackReference !== reference
+    ) {
+      console.error("ORDER_PAYMENT_VERIFICATION_MISMATCH", {
         transactionId: txn.id,
-        reference,
-        paidKobo,
-        expectedKobo,
-      });
-      return json({
-        success: false,
-        error: "Payment amount did not match. If you were charged, contact support before retrying.",
-      }, 400);
-    }
-
-    // BigFoods charges in Nigerian naira. An amount match in a different
-    // currency must never be accepted as a successful order payment.
-    if (paystackCurrency !== "NGN") {
-      console.error("ORDER_PAYMENT_CURRENCY_MISMATCH", {
-        transactionId: txn.id,
-        reference,
-        paidCurrency: paystackCurrency,
+        expectedAmountKobo,
+        paystackAmountKobo,
         expectedCurrency: "NGN",
+        paystackCurrency,
+        referenceMatches: paystackReference === reference,
       });
-      return json({
-        success: false,
-        error: "Payment currency did not match. If you were charged, contact support before retrying.",
-      }, 400);
+      await admin.from("transactions").update({ status: "failed" }).eq("id", txn.id);
+      return json({ success: false, error: "Payment details could not be verified. Please contact support before retrying." }, 400);
     }
 
-    await admin.from("transactions").update({ status: "success" }).eq("id", txn.id).neq("status", "success");
+    // Claim success only after amount, currency, reference, and provider status match.
+    const { data: claimed, error: claimError } = await admin.from("transactions")
+      .update({ status: "success" })
+      .eq("id", txn.id)
+      .eq("status", "pending")
+      .select("id")
+      .maybeSingle();
+    if (claimError) return json({ error: "Could not finalize payment verification. Please retry." }, 503);
+    if (!claimed) {
+      const { data: currentTxn } = await admin.from("transactions").select("status").eq("id", txn.id).single();
+      if (currentTxn?.status === "success") {
+        if (txn.order_id) {
+          await dispatchSingleOrder(admin, txn.order_id);
+          const { data: existingOrder } = await admin.from("orders").select("delivery_code").eq("id", txn.order_id).single();
+          return json({ success: true, order_id: txn.order_id, delivery_code: existingOrder?.delivery_code, already_processed: true });
+        }
+        if (txn.order_group_id) {
+          const { data: batches } = await admin.from("delivery_batches").select("id, delivery_code").eq("order_group_id", txn.order_group_id);
+          return json({ success: true, order_group_id: txn.order_group_id, batches, already_processed: true });
+        }
+      }
+      return json({ success: false, error: "This payment attempt has already been processed." }, 409);
+    }
 
     if (txn.order_id) {
       await dispatchSingleOrder(admin, txn.order_id);
@@ -222,11 +236,21 @@ Deno.serve(async (req: Request) => {
 
     if (txn.order_group_id) {
       await admin.from("order_groups").update({ payment_status: "paid" }).eq("id", txn.order_group_id);
-      await admin.from("orders").update({ payment_status: "paid" }).eq("order_group_id", txn.order_group_id);
-      const { data: batches } = await admin.from("delivery_batches").select("id").eq("order_group_id", txn.order_group_id);
-      for (const b of batches ?? []) {
-        await assignRiderToBatch(admin, b.id);
-      }
+      // These rows are initialized as cancelled placeholders, not user-cancelled
+      // orders. Restore only rows with no cancellation metadata.
+      await admin.from("orders")
+        .update({ status: "placed", payment_status: "paid" })
+        .eq("order_group_id", txn.order_group_id)
+        .eq("status", "cancelled")
+        .is("cancelled_at", null)
+        .is("cancelled_by", null);
+      await admin.from("orders")
+        .update({ payment_status: "paid" })
+        .eq("order_group_id", txn.order_group_id)
+        .neq("status", "cancelled");
+      // Default dispatch policy is admin assignment only. Do not select or
+      // assign a rider during payment verification. Rider self-assignment and
+      // restaurant-owner assignment are controlled separately by admin settings.
       const { data: batchCodes } = await admin.from("delivery_batches").select("id, delivery_code").eq("order_group_id", txn.order_group_id);
       return json({ success: true, order_group_id: txn.order_group_id, batches: batchCodes });
     }

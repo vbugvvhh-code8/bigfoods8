@@ -2,10 +2,11 @@
 
 import SafeImage from '@/components/ui/SafeImage';
 import { useMemo, useState } from 'react';
-import { Plus, Pencil, Trash2, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, ChevronDown, Search, X, CheckSquare, Square } from 'lucide-react';
 import useRestaurant from '@/hooks/useRestaurant';
 import { useMenuItems } from '@/hooks/useMenuItems';
-import MenuItemForm from '@/components/restaurant/dashboard/MenuItemForm';
+import MenuItemForm, { ChipPicker } from '@/components/restaurant/dashboard/MenuItemForm';
+import { MENU_CATEGORY_PRESETS, MENU_CATEGORY_NAMES } from '@/lib/menuCategoryPresets';
 import type { MenuItem } from '@/types/database';
 
 const UNCATEGORIZED = 'uncategorized';
@@ -30,8 +31,48 @@ export default function MenuBuilderPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  const [menuSearch, setMenuSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [subcategoryFilter, setSubcategoryFilter] = useState('all');
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [bulkCategory, setBulkCategory] = useState('');
+  const [bulkSubcategory, setBulkSubcategory] = useState('');
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [bulkError, setBulkError] = useState('');
 
-  const tree = useMemo(() => groupItems(menuItems), [menuItems]);
+  const categoryOptions = useMemo(() => {
+    const values = new Set(menuItems.map((item) => item.category?.trim() || UNCATEGORIZED));
+    return Array.from(values).sort((a, b) =>
+      a === UNCATEGORIZED ? 1 : b === UNCATEGORIZED ? -1 : a.localeCompare(b)
+    );
+  }, [menuItems]);
+
+  const subcategoryOptions = useMemo(() => {
+    const relevantItems = categoryFilter === 'all'
+      ? menuItems
+      : menuItems.filter((item) => (item.category?.trim() || UNCATEGORIZED) === categoryFilter);
+    const values = new Set(relevantItems.map((item) => (item as any).subcategory?.trim() || NO_SUBCATEGORY));
+    return Array.from(values).sort((a, b) =>
+      a === NO_SUBCATEGORY ? 1 : b === NO_SUBCATEGORY ? -1 : a.localeCompare(b)
+    );
+  }, [menuItems, categoryFilter]);
+
+  const filteredItems = useMemo(() => {
+    const query = menuSearch.trim().toLocaleLowerCase();
+    return menuItems.filter((item) => {
+      const category = item.category?.trim() || UNCATEGORIZED;
+      const subcategory = (item as any).subcategory?.trim() || NO_SUBCATEGORY;
+      const matchesSearch = !query || [item.name, item.category, (item as any).subcategory]
+        .some((value) => typeof value === 'string' && value.toLocaleLowerCase().includes(query));
+      return matchesSearch
+        && (categoryFilter === 'all' || category === categoryFilter)
+        && (subcategoryFilter === 'all' || subcategory === subcategoryFilter);
+    });
+  }, [menuItems, menuSearch, categoryFilter, subcategoryFilter]);
+
+  const tree = useMemo(() => groupItems(filteredItems), [filteredItems]);
   const categories = Object.keys(tree).sort((a, b) =>
     a === UNCATEGORIZED ? 1 : b === UNCATEGORIZED ? -1 : a.localeCompare(b)
   );
@@ -43,6 +84,73 @@ export default function MenuBuilderPage() {
       else next.add(cat);
       return next;
     });
+  }
+
+  function toggleItemSelection(id: string) {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleVisibleSelection() {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      const allVisibleSelected = filteredItems.length > 0 && filteredItems.every((item) => next.has(item.id));
+      filteredItems.forEach((item) => allVisibleSelected ? next.delete(item.id) : next.add(item.id));
+      return next;
+    });
+  }
+
+  async function handleBulkUpdate() {
+    const patch: { category?: string; subcategory?: string } = {};
+    if (bulkCategory.trim()) patch.category = bulkCategory.trim();
+    if (bulkSubcategory.trim()) patch.subcategory = bulkSubcategory.trim();
+    if (!selectedItemIds.size || Object.keys(patch).length === 0) {
+      setBulkError('Select items and enter a category or subcategory to update.');
+      return;
+    }
+    setBulkSaving(true);
+    setBulkError('');
+    try {
+      for (const id of Array.from(selectedItemIds)) await updateMenuItem(id, patch);
+      setSelectedItemIds(new Set());
+      setBulkCategory('');
+      setBulkSubcategory('');
+    } catch (error) {
+      setBulkError(error instanceof Error ? error.message : 'Some items could not be updated. Refresh and check the menu before retrying.');
+    } finally {
+      setBulkSaving(false);
+    }
+  }
+
+  function handleBulkDelete() {
+    if (menuItems.some((item) => selectedItemIds.has(item.id))) {
+      setBulkError('');
+      setShowBulkDeleteConfirm(true);
+    }
+  }
+
+  async function confirmBulkDelete() {
+    const selectedItems = menuItems.filter((item) => selectedItemIds.has(item.id));
+    if (!selectedItems.length) {
+      setShowBulkDeleteConfirm(false);
+      return;
+    }
+    setBulkDeleting(true);
+    setBulkError('');
+    try {
+      for (const item of selectedItems) await deleteMenuItem(item.id);
+      setSelectedItemIds(new Set());
+      setShowBulkDeleteConfirm(false);
+    } catch (error) {
+      setShowBulkDeleteConfirm(false);
+      setBulkError(error instanceof Error ? error.message : 'Some items could not be deleted. Refresh the menu and check which items remain.');
+    } finally {
+      setBulkDeleting(false);
+    }
   }
 
   async function handleDelete(item: MenuItem) {
@@ -92,6 +200,137 @@ export default function MenuBuilderPage() {
         <p className="text-[12.5px] py-4 text-center" style={{ color: 'var(--gray)' }}>
           Loading your menu…
         </p>
+      )}
+
+      {!isLoading && menuItems.length > 0 && (
+        <div className="mb-4 space-y-3">
+          <label htmlFor="menu-item-search" className="mb-1.5 block text-xs font-semibold" style={{color:'var(--ink)'}}>
+            Search your menu
+          </label>
+          <div className="flex min-h-11 items-center gap-2 rounded-xl border px-3" style={{borderColor:'var(--line)',background:'var(--white)'}}>
+            <Search className="h-4 w-4 shrink-0" style={{color:'var(--gray)'}} />
+            <input
+              id="menu-item-search"
+              type="search"
+              value={menuSearch}
+              onChange={(event) => setMenuSearch(event.target.value)}
+              placeholder="Search dishes or categories"
+              className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none"
+              style={{color:'var(--ink)'}}
+            />
+            {menuSearch && (
+              <button type="button" onClick={() => setMenuSearch('')} aria-label="Clear menu search" className="flex h-8 w-8 items-center justify-center rounded-lg" style={{color:'var(--gray)'}}>
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <div>
+              <label htmlFor="menu-category-filter" className="mb-1.5 block text-xs font-semibold" style={{color:'var(--ink)'}}>
+                Filter by category
+              </label>
+              <select
+                id="menu-category-filter"
+                value={categoryFilter}
+                onChange={(event) => {
+                  setCategoryFilter(event.target.value);
+                  setSubcategoryFilter('all');
+                }}
+                className="min-h-11 w-full rounded-xl border px-3 text-sm"
+                style={{borderColor:'var(--line)',background:'var(--white)',color:'var(--ink)'}}
+              >
+                <option value="all">All categories</option>
+                {categoryOptions.map((category) => (
+                  <option key={category} value={category}>
+                    {category === UNCATEGORIZED ? 'Uncategorized' : category}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="menu-subcategory-filter" className="mb-1.5 block text-xs font-semibold" style={{color:'var(--ink)'}}>
+                Filter by subcategory
+              </label>
+              <select
+                id="menu-subcategory-filter"
+                value={subcategoryFilter}
+                onChange={(event) => setSubcategoryFilter(event.target.value)}
+                className="min-h-11 w-full rounded-xl border px-3 text-sm"
+                style={{borderColor:'var(--line)',background:'var(--white)',color:'var(--ink)'}}
+              >
+                <option value="all">All subcategories</option>
+                {subcategoryOptions.map((subcategory) => (
+                  <option key={subcategory} value={subcategory}>
+                    {subcategory === NO_SUBCATEGORY ? 'No subcategory' : subcategory}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {(menuSearch.trim() || categoryFilter !== 'all' || subcategoryFilter !== 'all') && (
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs" style={{color:'var(--gray)'}}>
+                {filteredItems.length} matching {filteredItems.length === 1 ? 'item' : 'items'}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuSearch('');
+                  setCategoryFilter('all');
+                  setSubcategoryFilter('all');
+                }}
+                className="min-h-11 rounded-lg px-3 text-sm font-semibold"
+                style={{color:'var(--orange)'}}
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!isLoading && menuItems.length > 0 && filteredItems.length === 0 && (
+        <p className="rounded-xl border px-4 py-6 text-center text-sm" style={{borderColor:'var(--line)',color:'var(--gray)'}}>
+          No menu items match the current search and filters. Try changing or clearing them.
+        </p>
+      )}
+      {!isLoading && filteredItems.length > 0 && (
+        <section className="mb-4 rounded-xl border p-3 space-y-3" style={{borderColor:'var(--line)',background:'var(--white)'}}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <button type="button" onClick={toggleVisibleSelection} className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold" style={{color:'var(--ink)'}}>
+              {filteredItems.every((item) => selectedItemIds.has(item.id)) ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+              {filteredItems.every((item) => selectedItemIds.has(item.id)) ? 'Deselect visible items' : 'Select visible items'}
+            </button>
+            <span className="text-xs" style={{color:'var(--gray)'}}>{selectedItemIds.size} selected</span>
+          </div>
+          {selectedItemIds.size > 0 && (
+            <div className="space-y-3 border-t pt-3" style={{borderColor:'var(--line)'}}>
+              <p className="text-sm font-semibold" style={{color:'var(--ink)'}}>Bulk edit selected items</p>
+              <p className="text-xs" style={{color:'var(--gray)'}}>Only fields you fill in will change. Leave a field blank to keep each item's current value.</p>
+              <div className="space-y-4">
+                <div className="rounded-xl border p-3" style={{borderColor:'var(--line)',background:'var(--white)'}}>
+                  <ChipPicker label="Set category" options={MENU_CATEGORY_NAMES} value={bulkCategory} onChange={(value) => { setBulkCategory(value); setBulkSubcategory(''); }} />
+                  <p className="mt-2 text-[11px]" style={{color:'var(--gray)'}}>Choose a category chip or select Custom to type your own. Leave unselected to keep each item's category.</p>
+                </div>
+                <div className="rounded-xl border p-3" style={{borderColor:'var(--line)',background:'var(--white)'}}>
+                  <ChipPicker
+                    label="Set subcategory"
+                    options={bulkCategory ? (MENU_CATEGORY_PRESETS[bulkCategory.toLowerCase()] ?? []) : Array.from(new Set(menuItems.filter((item) => selectedItemIds.has(item.id)).map((item) => (item as any).subcategory).filter((value): value is string => typeof value === 'string' && value.length > 0)))}
+                    value={bulkSubcategory}
+                    onChange={setBulkSubcategory}
+                  />
+                  <p className="mt-2 text-[11px]" style={{color:'var(--gray)'}}>Choose a suggested subcategory or select Custom. Leave unselected to keep each item's subcategory.</p>
+                </div>
+              </div>
+              {bulkError && <p role="alert" className="text-sm" style={{color:'var(--red)'}}>{bulkError}</p>}
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <button type="button" disabled={bulkSaving || bulkDeleting} onClick={handleBulkUpdate} className="flex min-h-14 w-full items-center justify-center rounded-xl px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:brightness-95 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50" style={{background:'var(--orange)'}}>{bulkSaving ? 'Saving changes…' : 'Apply changes to selected'}</button>
+                <button type="button" disabled={bulkSaving || bulkDeleting} onClick={() => { setSelectedItemIds(new Set()); setBulkCategory(''); setBulkSubcategory(''); setBulkError(''); }} className="min-h-14 w-full rounded-xl border px-6 py-3 text-sm font-semibold transition hover:bg-gray-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50" style={{borderColor:'var(--line)',color:'var(--ink)',background:'var(--white)'}}>Cancel selection</button>
+                <button type="button" disabled={bulkSaving || bulkDeleting} onClick={handleBulkDelete} className="sm:col-span-2 flex min-h-14 w-full items-center justify-center rounded-xl border-2 px-6 py-3 text-sm font-bold transition hover:bg-red-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50" style={{borderColor:'var(--red)',color:'var(--red)',background:'var(--white)'}}>{bulkDeleting ? 'Deleting selected items…' : 'Delete selected items'}</button>
+              </div>
+            </div>
+          )}
+        </section>
       )}
 
       {!isLoading && menuItems.length === 0 && !showAddForm && (
@@ -155,6 +394,7 @@ export default function MenuBuilderPage() {
                                 className="flex items-center gap-3 p-2.5 rounded-[10px]"
                                 style={{ border: '1px solid var(--line)' }}
                               >
+                                <input type="checkbox" checked={selectedItemIds.has(item.id)} onChange={() => toggleItemSelection(item.id)} aria-label={`Select ${item.name} for bulk editing`} className="h-4 w-4 shrink-0 accent-orange-500" />
                                 {item.image_url && (
                                   <SafeImage
                                     src={item.image_url}
@@ -172,19 +412,26 @@ export default function MenuBuilderPage() {
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => setEditingId(item.id)}
-                                  style={{ color: 'var(--gray)' }}
+                                  onClick={() => {
+                                    setShowAddForm(false);
+                                    setEditingId(item.id);
+                                  }}
+                                  className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-semibold active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                                  style={{ color: 'var(--ink)', borderColor: 'var(--line)', background: 'var(--peach)' }}
                                   aria-label={`Edit ${item.name}`}
                                 >
-                                  <Pencil className="w-3.5 h-3.5" />
+                                  <Pencil className="h-4 w-4" />
+                                  <span>Edit</span>
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleDelete(item)}
-                                  style={{ color: 'var(--red)' }}
+                                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border px-3 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                                  style={{ color: 'var(--red)', borderColor: 'var(--line)', background: 'var(--white)' }}
                                   aria-label={`Delete ${item.name}`}
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <Trash2 className="h-4 w-4" />
+                                  <span className="sr-only">Delete</span>
                                 </button>
                               </div>
                             )
@@ -198,6 +445,57 @@ export default function MenuBuilderPage() {
           );
         })}
       </div>
+
+      {showBulkDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !bulkDeleting) setShowBulkDeleteConfirm(false);
+          }}
+        >
+          <section
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="bulk-delete-title"
+            aria-describedby="bulk-delete-description"
+            className="w-full max-w-md rounded-2xl border p-5 shadow-2xl sm:p-6"
+            style={{ background: 'var(--white)', borderColor: 'var(--line)' }}
+          >
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full" style={{ background: '#FDE8E7', color: 'var(--red)' }}>
+              <Trash2 className="h-6 w-6" />
+            </div>
+            <h2 id="bulk-delete-title" className="text-lg font-bold" style={{ color: 'var(--ink)' }}>
+              Delete {menuItems.filter((item) => selectedItemIds.has(item.id)).length} selected menu item{menuItems.filter((item) => selectedItemIds.has(item.id)).length === 1 ? '' : 's'}?
+            </h2>
+            <p id="bulk-delete-description" className="mt-2 text-sm leading-6" style={{ color: 'var(--gray)' }}>
+              This will permanently remove the selected items from your restaurant menu. This action cannot be undone.
+            </p>
+            {bulkError && <p role="alert" className="mt-3 text-sm" style={{ color: 'var(--red)' }}>{bulkError}</p>}
+            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                disabled={bulkDeleting}
+                onClick={() => setShowBulkDeleteConfirm(false)}
+                className="order-2 min-h-12 rounded-xl border px-4 py-3 text-sm font-semibold transition hover:bg-gray-50 disabled:opacity-50 sm:order-1"
+                style={{ borderColor: 'var(--line)', color: 'var(--ink)', background: 'var(--white)' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={bulkDeleting}
+                onClick={confirmBulkDelete}
+                className="order-1 flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 sm:order-2"
+                style={{ background: 'var(--red)' }}
+              >
+                <Trash2 className="h-4 w-4" />
+                {bulkDeleting ? 'Deleting items…' : 'Yes, delete selected'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </>
   );
 }
