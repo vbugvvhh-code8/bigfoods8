@@ -20,7 +20,7 @@ interface MenuItemFormProps {
 // One chip grid for picking a category or sub-category — preset chips plus
 // an always-available "Custom" chip that reveals a free text field. Presets
 // are suggestions only, never enforced (per product decision).
-function ChipPicker({
+export function ChipPicker({
   label,
   options,
   value,
@@ -139,16 +139,16 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
         await onUpdate(existingItem.id, {
           name,
           price: Number(price),
-          category: category || null,
-          subcategory: subcategory || null,
+          category: category.trim() || null,
+          subcategory: subcategory.trim() || null,
           image_urls: finalImageUrls,
         });
       } else {
         await onSubmit({
           name,
           price: Number(price),
-          category: category || undefined,
-          subcategory: subcategory || undefined,
+          category: category.trim() || undefined,
+          subcategory: subcategory.trim() || undefined,
           image_urls: finalImageUrls,
         });
       }
