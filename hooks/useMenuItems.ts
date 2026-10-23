@@ -63,7 +63,7 @@ export function useMenuItems(restaurantId?: string) {
       .from('menu_items')
       .insert({
         restaurant_id: restaurantId,
-        name: item.name,
+        name: item.name.trim(),
         price: item.price,
         category: item.category ?? null,
         subcategory: item.subcategory ?? null,
@@ -81,23 +81,51 @@ export function useMenuItems(restaurantId?: string) {
       })
       .select()
       .single();
+    if (error?.code === '23505') {
+      throw new Error('A menu item with this name already exists in your restaurant. Use a different name or edit the existing item.');
+    }
+    if (error?.code === '23514') {
+      throw new Error('The menu item has invalid data. Check the name and required fields, then try again.');
+    }
     if (error) throw error;
     mutate();
     return data as MenuItem;
   }
 
   async function updateMenuItem(id: string, patch: MenuItemUpdate) {
+    if (!restaurantId) throw new Error('Missing restaurant');
     const update: Record<string, unknown> = { ...patch };
+    if (typeof patch.name === 'string') update.name = patch.name.trim();
     if (patch.image_urls) update.image_url = patch.image_urls[0];
-    const { data, error } = await supabase.from('menu_items').update(update).eq('id', id).select().single();
+    const { data, error } = await supabase
+      .from('menu_items')
+      .update(update)
+      .eq('id', id)
+      .eq('restaurant_id', restaurantId)
+      .select()
+      .single();
+    if (error?.code === '23505') {
+      throw new Error('A menu item with this name already exists in your restaurant. Use a different name or edit the existing item.');
+    }
+    if (error?.code === '23514') {
+      throw new Error('The menu item has invalid data. Check the name and required fields, then try again.');
+    }
     if (error) throw error;
+    if (!data) throw new Error('This menu item was not found in your restaurant. Refresh and try again.');
     mutate();
     return data as MenuItem;
   }
 
   async function deleteMenuItem(id: string) {
-    const { error } = await supabase.from('menu_items').delete().eq('id', id);
+    if (!restaurantId) throw new Error('Missing restaurant');
+    const { data, error } = await supabase
+      .from('menu_items')
+      .delete()
+      .eq('id', id)
+      .eq('restaurant_id', restaurantId)
+      .select('id');
     if (error) throw error;
+    if (!data?.length) throw new Error('This menu item was not found in your restaurant. Refresh and try again.');
     mutate();
   }
 
