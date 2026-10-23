@@ -29,7 +29,7 @@ export default function MenuItemDetailsPage() {
       groupId: group.id, groupName: group.name, optionId: option.id, optionName: option.name, price: option.price,
     }))
   ), [item, selectedByGroup]);
-  const cartKey = item ? `${item.id}::${selectedOptions.map((option) => `${option.groupId}:${option.optionId}`).sort().join('|')}` : '';
+  const cartKey = item ? (selectedOptions.length ? `${item.id}::${selectedOptions.map((option) => `${option.groupId}:${option.optionId}`).sort().join('|')}` : item.id) : '';
   const cartItem = items.find((candidate) => candidate.id === cartKey);
   const quantity = cartItem?.quantity ?? 0;
   const isLoading = restaurantLoading || menuLoading;
