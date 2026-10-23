@@ -246,8 +246,8 @@ Deno.serve(async (req: Request) => {
         const windows = Array.isArray(m.availability_schedule) ? m.availability_schedule : [];
         return !windows.some((window: any) => {
           if (Number(window?.day) !== currentDay || typeof window?.start !== "string" || typeof window?.end !== "string") return false;
-          const startMatch = /^(\\d{2}):(\\d{2})$/.exec(window.start);
-          const endMatch = /^(\\d{2}):(\\d{2})$/.exec(window.end);
+          const startMatch = /^(\d{2}):(\d{2})$/.exec(window.start);
+          const endMatch = /^(\d{2}):(\d{2})$/.exec(window.end);
           if (!startMatch || !endMatch) return false;
           const start = Number(startMatch[1]) * 60 + Number(startMatch[2]);
           const end = Number(endMatch[1]) * 60 + Number(endMatch[2]);
