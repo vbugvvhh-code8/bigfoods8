@@ -269,7 +269,9 @@ Deno.serve(async (req: Request) => {
       for (const i of g.items) {
         const menuItem = menuItemById.get(i.menu_item_id) as any;
         const rawPrice = Number(menuItem?.price);
-        if (!Number.isFinite(rawPrice) || rawPrice <= 0) throw new Error("Invalid menu item price");
+        if (!Number.isSafeInteger(rawPrice) || rawPrice <= 0) {
+          return json({ error: "A menu item's price is invalid. Please contact the restaurant." }, 409);
+        }
         const now = Date.now();
         const promotionStart = menuItem?.promotion_starts_at ? new Date(menuItem.promotion_starts_at).getTime() : null;
         const promotionEnd = menuItem?.promotion_ends_at ? new Date(menuItem.promotion_ends_at).getTime() : null;
