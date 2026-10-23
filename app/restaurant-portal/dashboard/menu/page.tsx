@@ -172,19 +172,26 @@ export default function MenuBuilderPage() {
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => setEditingId(item.id)}
-                                  style={{ color: 'var(--gray)' }}
+                                  onClick={() => {
+                                    setShowAddForm(false);
+                                    setEditingId(item.id);
+                                  }}
+                                  className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-semibold active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                                  style={{ color: 'var(--ink)', borderColor: 'var(--line)', background: 'var(--peach)' }}
                                   aria-label={`Edit ${item.name}`}
                                 >
-                                  <Pencil className="w-3.5 h-3.5" />
+                                  <Pencil className="h-4 w-4" />
+                                  <span>Edit</span>
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleDelete(item)}
-                                  style={{ color: 'var(--red)' }}
+                                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border px-3 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                                  style={{ color: 'var(--red)', borderColor: 'var(--line)', background: 'var(--white)' }}
                                   aria-label={`Delete ${item.name}`}
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <Trash2 className="h-4 w-4" />
+                                  <span className="sr-only">Delete</span>
                                 </button>
                               </div>
                             )
