@@ -363,7 +363,8 @@ Deno.serve(async (req: Request) => {
       if (itemsInsertError) {
         await admin.from("order_items").delete().eq("order_id", order.id);
         await admin.from("transactions").delete().eq("reference", reference);
-        await admin.from("orders").delete().eq("id", order.id);
+        console.error("[initialize-order-payment] stock reservation failure", singleReservationError ?? singleReservation);
+        await admin.from("orders").update({ status: "cancelled", payment_status: "failed" }).eq("id", order.id);
         return json({ error: itemsInsertError.message }, 500);
       }
 
