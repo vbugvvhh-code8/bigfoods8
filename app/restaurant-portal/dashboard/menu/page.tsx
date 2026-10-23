@@ -2,7 +2,7 @@
 
 import SafeImage from '@/components/ui/SafeImage';
 import { useMemo, useState } from 'react';
-import { Plus, Pencil, Trash2, ChevronDown, Search, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, ChevronDown, Search, X, CheckSquare, Square } from 'lucide-react';
 import useRestaurant from '@/hooks/useRestaurant';
 import { useMenuItems } from '@/hooks/useMenuItems';
 import MenuItemForm from '@/components/restaurant/dashboard/MenuItemForm';
@@ -33,6 +33,11 @@ export default function MenuBuilderPage() {
   const [menuSearch, setMenuSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [subcategoryFilter, setSubcategoryFilter] = useState('all');
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [bulkCategory, setBulkCategory] = useState('');
+  const [bulkSubcategory, setBulkSubcategory] = useState('');
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkError, setBulkError] = useState('');
 
   const categoryOptions = useMemo(() => {
     const values = new Set(menuItems.map((item) => item.category?.trim() || UNCATEGORIZED));
@@ -76,6 +81,46 @@ export default function MenuBuilderPage() {
       else next.add(cat);
       return next;
     });
+  }
+
+  function toggleItemSelection(id: string) {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleVisibleSelection() {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      const allVisibleSelected = filteredItems.length > 0 && filteredItems.every((item) => next.has(item.id));
+      filteredItems.forEach((item) => allVisibleSelected ? next.delete(item.id) : next.add(item.id));
+      return next;
+    });
+  }
+
+  async function handleBulkUpdate() {
+    const patch: { category?: string; subcategory?: string } = {};
+    if (bulkCategory.trim()) patch.category = bulkCategory.trim();
+    if (bulkSubcategory.trim()) patch.subcategory = bulkSubcategory.trim();
+    if (!selectedItemIds.size || Object.keys(patch).length === 0) {
+      setBulkError('Select items and enter a category or subcategory to update.');
+      return;
+    }
+    setBulkSaving(true);
+    setBulkError('');
+    try {
+      for (const id of selectedItemIds) await updateMenuItem(id, patch);
+      setSelectedItemIds(new Set());
+      setBulkCategory('');
+      setBulkSubcategory('');
+    } catch (error) {
+      setBulkError(error instanceof Error ? error.message : 'Some items could not be updated. Refresh and check the menu before retrying.');
+    } finally {
+      setBulkSaving(false);
+    }
   }
 
   async function handleDelete(item: MenuItem) {
@@ -219,6 +264,38 @@ export default function MenuBuilderPage() {
           No menu items match the current search and filters. Try changing or clearing them.
         </p>
       )}
+      {!isLoading && filteredItems.length > 0 && (
+        <section className="mb-4 rounded-xl border p-3 space-y-3" style={{borderColor:'var(--line)',background:'var(--white)'}}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <button type="button" onClick={toggleVisibleSelection} className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold" style={{color:'var(--ink)'}}>
+              {filteredItems.every((item) => selectedItemIds.has(item.id)) ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+              {filteredItems.every((item) => selectedItemIds.has(item.id)) ? 'Deselect visible items' : 'Select visible items'}
+            </button>
+            <span className="text-xs" style={{color:'var(--gray)'}}>{selectedItemIds.size} selected</span>
+          </div>
+          {selectedItemIds.size > 0 && (
+            <div className="space-y-3 border-t pt-3" style={{borderColor:'var(--line)'}}>
+              <p className="text-sm font-semibold" style={{color:'var(--ink)'}}>Bulk edit selected items</p>
+              <p className="text-xs" style={{color:'var(--gray)'}}>Only fields you fill in will change. Leave a field blank to keep each item's current value.</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="bulk-category" className="mb-1 block text-xs font-semibold" style={{color:'var(--ink)'}}>Set category</label>
+                  <input id="bulk-category" value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)} maxLength={80} placeholder="New category" className="min-h-11 w-full rounded-xl border px-3 text-sm" style={{borderColor:'var(--line)',color:'var(--ink)',background:'var(--white)'}} />
+                </div>
+                <div>
+                  <label htmlFor="bulk-subcategory" className="mb-1 block text-xs font-semibold" style={{color:'var(--ink)'}}>Set subcategory</label>
+                  <input id="bulk-subcategory" value={bulkSubcategory} onChange={(e) => setBulkSubcategory(e.target.value)} maxLength={80} placeholder="New subcategory" className="min-h-11 w-full rounded-xl border px-3 text-sm" style={{borderColor:'var(--line)',color:'var(--ink)',background:'var(--white)'}} />
+                </div>
+              </div>
+              {bulkError && <p role="alert" className="text-sm" style={{color:'var(--red)'}}>{bulkError}</p>}
+              <div className="flex flex-wrap gap-2">
+                <button type="button" disabled={bulkSaving} onClick={handleBulkUpdate} className="min-h-11 rounded-xl px-4 text-sm font-semibold text-white disabled:opacity-60" style={{background:'var(--orange)'}}>{bulkSaving ? 'Saving changes…' : 'Update selected items'}</button>
+                <button type="button" disabled={bulkSaving} onClick={() => { setSelectedItemIds(new Set()); setBulkError(''); }} className="min-h-11 rounded-xl border px-4 text-sm font-semibold disabled:opacity-60" style={{borderColor:'var(--line)',color:'var(--ink)'}}>Cancel selection</button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {!isLoading && menuItems.length === 0 && !showAddForm && (
         <p className="text-[12.5px] py-6 text-center" style={{ color: 'var(--gray)' }}>
@@ -281,6 +358,7 @@ export default function MenuBuilderPage() {
                                 className="flex items-center gap-3 p-2.5 rounded-[10px]"
                                 style={{ border: '1px solid var(--line)' }}
                               >
+                                <input type="checkbox" checked={selectedItemIds.has(item.id)} onChange={() => toggleItemSelection(item.id)} aria-label={`Select ${item.name} for bulk editing`} className="h-4 w-4 shrink-0 accent-orange-500" />
                                 {item.image_url && (
                                   <SafeImage
                                     src={item.image_url}
