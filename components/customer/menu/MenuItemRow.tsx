@@ -45,7 +45,9 @@ export function MenuItemRow({item, restaurant}: MenuItemRowProps) {
         {!canOrder && <div className="mt-0.5 text-[10px] font-semibold" style={{color: 'var(--red, #C1453A)'}}>{item.is_available === false ? 'Currently unavailable' : 'Restaurant not accepting orders'}</div>}
       </div>
 
-      {quantity === 0 ? (
+      {(item.option_groups ?? []).length > 0 ? (
+        <Link href={`/order/restaurant/${restaurant.id}/item/${item.id}`} className="rounded-full border px-3 py-2 text-[10.5px] font-semibold" style={{borderColor: 'var(--orange)', color: 'var(--orange)'}}>Choose options</Link>
+      ) : quantity === 0 ? (
         <button
           type="button"
           disabled={!canOrder}
