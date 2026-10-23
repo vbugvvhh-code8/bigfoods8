@@ -237,9 +237,10 @@ Deno.serve(async (req: Request) => {
       if (invalid || menuItems?.length !== uniqueMenuItemIds.length) {
         return json({ error: "One or more items don't belong to their restaurant" }, 400);
       }
-      const nowInNigeria = new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Lagos" }));
-      const currentDay = nowInNigeria.getDay();
-      const currentMinutes = nowInNigeria.getHours() * 60 + nowInNigeria.getMinutes();
+      const nigeriaParts = new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date());
+      const dayNumbers: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+      const currentDay = dayNumbers[nigeriaParts.find((part) => part.type === "weekday")?.value ?? ""];
+      const currentMinutes = Number(nigeriaParts.find((part) => part.type === "hour")?.value ?? 0) * 60 + Number(nigeriaParts.find((part) => part.type === "minute")?.value ?? 0);
       const outsideSchedule = (menuItems ?? []).some((m: any) => {
         if (!m.availability_schedule_enabled) return false;
         const windows = Array.isArray(m.availability_schedule) ? m.availability_schedule : [];
