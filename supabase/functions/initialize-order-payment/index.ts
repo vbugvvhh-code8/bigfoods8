@@ -98,7 +98,8 @@ Deno.serve(async (req: Request) => {
     const customerId = userData.user.id;
     const customerEmail = userData.user.email;
 
-    const { groups, delivery_address, delivery_lat, delivery_lng, delivery_note, tip_amount, callbackOrigin, payment_mode } = await req.json();
+    const body = await req.json();
+    const { groups, delivery_address, delivery_lat, delivery_lng, delivery_note, tip_amount, callbackOrigin, payment_mode } = body;
     if (payment_mode != null && payment_mode !== 'link') return json({ error: 'Invalid payment mode.' }, 400);
     if (!Array.isArray(groups) || groups.length === 0) {
       return json({ error: "At least one restaurant group is required" }, 400);
