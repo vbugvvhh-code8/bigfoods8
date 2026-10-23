@@ -23,7 +23,7 @@ export function useSavedAddresses() {
       ].join('|');
       if (!unique.has(key)) unique.set(key, address);
     }
-    setAddresses([...unique.values()]);
+    setAddresses(Array.from(unique.values()));
     setIsLoading(false);
   }, [supabase]);
 
