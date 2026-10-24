@@ -86,12 +86,22 @@ export async function middleware(req: NextRequest) {
       });
       if (!check.ok) return NextResponse.redirect(new URL(STAFF_LOGIN_PATH, req.url));
       const sessionData = await check.json().catch(() => ({}));
-      const mustChangePassword = Boolean(sessionData?.staff?.must_change_password);
+      const staff = sessionData?.staff;
+      const mustChangePassword = Boolean(staff?.must_change_password);
       if (mustChangePassword && pathname !== '/staff/change-password') {
         return NextResponse.redirect(new URL('/staff/change-password', req.url));
       }
       if (!mustChangePassword && pathname === '/staff/change-password') {
         return NextResponse.redirect(new URL('/staff', req.url));
+      }
+      // Restrict the staff-management screen at the route boundary as well as
+      // inside its API; non-managers should not see the management UI.
+      const isStaffManageRoute = pathname === '/staff/manage' || pathname.startsWith('/staff/manage/');
+      if (isStaffManageRoute) {
+        const permissions = staff?.permissions;
+        const canManageStaff = staff && staff.is_active !== false &&
+          (['owner', 'admin'].includes(staff.role) || (Array.isArray(permissions) && permissions.includes('staff.manage')));
+        if (!canManageStaff) return NextResponse.redirect(new URL('/staff', req.url));
       }
       return NextResponse.next();
     } catch {
