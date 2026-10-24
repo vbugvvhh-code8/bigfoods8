@@ -60,6 +60,25 @@ Deno.serve(async (req: Request) => {
       return json({ success: false, error: "Paystack could not verify the exact amount, currency, and reference." }, 400);
     }
 
+    // Only decrement actual item/variant stock after Paystack confirms the
+    // exact successful payment. Initialization holds stock in stock_reserved;
+    // consume_menu_stock_reservation performs the real stock reduction here.
+    const { data: stockResult, error: stockError } = await admin.rpc(
+      "consume_menu_stock_reservation",
+      { p_reference: reference },
+    );
+    if (stockError || stockResult?.success !== true) {
+      console.error("ORDER_PAYMENT_LINK_STOCK_CONSUMPTION_FAILED", {
+        reference,
+        message: stockError?.message ?? null,
+        stockResult: stockResult ?? null,
+      });
+      return json({
+        success: false,
+        error: "Payment may have been received, but stock could not be confirmed. Please contact BigFoods support before trying to pay again.",
+      }, 409);
+    }
+
     const { data: claimed, error: claimError } = await admin.from("transactions")
       .update({ status: "success" }).eq("id", txn.id).eq("status", "pending").select("id").maybeSingle();
     if (claimError) return json({ error: "Unable to finalize payment. Please contact support before retrying." }, 503);

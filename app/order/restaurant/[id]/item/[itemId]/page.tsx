@@ -1,0 +1,142 @@
+'use client';
+
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { ArrowLeft, Clock3, Minus, Plus, UtensilsCrossed } from 'lucide-react';
+import { useRestaurant } from '@/hooks/useRestaurants';
+import { useMenuItems } from '@/hooks/useMenuItems';
+import { useCart } from '@/hooks/useCart';
+import { OrderTray } from '@/components/customer/menu/OrderTray';
+import { ErrorState } from '@/components/customer/shared/ErrorState';
+
+export default function MenuItemDetailsPage() {
+  const { id, itemId } = useParams<{ id: string; itemId: string }>();
+  const { restaurant, isLoading: restaurantLoading, error: restaurantError } = useRestaurant(id);
+  const { menuItems, isLoading: menuLoading, error: menuError } = useMenuItems(id);
+  const { items, addItem, updateQuantity } = useCart();
+  const [activeImage, setActiveImage] = useState(0);
+  const [requestedQuantity, setRequestedQuantity] = useState(1);
+  const [optionQuantities, setOptionQuantities] = useState<Record<string, number>>({});
+  useEffect(() => { setOptionQuantities({}); setRequestedQuantity(1); setActiveImage(0); }, [itemId]);
+
+  const item = useMemo(() => menuItems.find((candidate) => candidate.id === itemId), [menuItems, itemId]);
+  const images = useMemo(() => {
+    if (!item) return [];
+    const stored = Array.isArray(item.image_urls) ? item.image_urls.filter(Boolean) : [];
+    return stored.length ? stored : item.image_url ? [item.image_url] : [];
+  }, [item]);
+  const selectedOptions = useMemo(() => (item?.option_groups ?? []).flatMap((group) => group.options.filter((option) => (optionQuantities[option.id] ?? 0) > 0).map((option) => ({ groupId: group.id, groupName: group.name, optionId: option.id, optionName: option.name, price: option.price, quantity: optionQuantities[option.id] ?? 0 }))), [item, optionQuantities]);
+  const cartKey = item ? (selectedOptions.length ? item.id + '::' + selectedOptions.map((option) => option.groupId + ':' + option.optionId + 'x' + option.quantity).sort().join('|') : item.id) : '';
+  const cartItem = items.find((candidate) => candidate.id === cartKey);
+  const quantity = cartItem?.quantity ?? 0;
+  const isLoading = restaurantLoading || menuLoading;
+  const mainStockAvailable = !item || item.stock_quantity == null || Number(item.stock_quantity) - Number(item.stock_reserved ?? 0) > 0;
+  const canOrder = !!item && !!restaurant && item.is_available !== false && restaurant.is_accepting_orders !== false && mainStockAvailable;
+  const optionsValid = (item?.option_groups ?? []).every((group) => { const selected = group.options.filter((option) => (optionQuantities[option.id] ?? 0) > 0); const min = group.required ? Math.max(1, group.min_select ?? 1) : (group.min_select ?? 0); const max = group.selection_type === 'single' ? 1 : (group.max_select ?? group.options.length); return selected.length >= min && selected.length <= max && selected.every((option) => option.is_available !== false && (option.stock_quantity == null || Number(option.stock_quantity) - Number(option.stock_reserved ?? 0) >= (optionQuantities[option.id] ?? 0))); });
+  const now = Date.now();
+  const promotionStart = item?.promotion_starts_at ? new Date(item.promotion_starts_at).getTime() : null;
+  const promotionEnd = item?.promotion_ends_at ? new Date(item.promotion_ends_at).getTime() : null;
+  const promotionActive = !!item && item.promotional_price != null && Number(item.promotional_price) > 0 && Number(item.promotional_price) < Number(item.price) && (promotionStart === null || promotionStart <= now) && (promotionEnd === null || promotionEnd > now);
+  const basePrice = promotionActive ? Number(item?.promotional_price) : Number(item?.price ?? 0);
+  const unitPrice = item ? basePrice + selectedOptions.reduce((sum, option) => sum + option.price * option.quantity, 0) : 0;
+  const updateOptionQuantity = (groupId: string, optionId: string, nextQuantity: number, selectionType: 'single' | 'multiple') => setOptionQuantities((prev) => { const next = { ...prev }; if (nextQuantity > 0 && selectionType === 'single') item?.option_groups.find((group) => group.id === groupId)?.options.forEach((option) => { next[option.id] = 0; }); next[optionId] = Math.max(0, Math.min(99, nextQuantity)); return next; });
+
+  return (
+    <div className="mx-auto w-full max-w-2xl px-4 py-6 pb-28">
+      <Link href={`/order/restaurant/${id}`} className="mb-4 inline-flex items-center gap-2 text-sm" style={{ color: 'var(--gray)' }}>
+        <ArrowLeft className="h-4 w-4" /> Back to menu
+      </Link>
+
+      {isLoading && <div className="h-72 animate-pulse rounded-2xl" style={{ background: 'var(--peach)' }} aria-label="Loading dish details" />}
+      {!isLoading && (restaurantError || menuError || !restaurant) && <ErrorState message="Couldn't load this dish. Please return to the restaurant menu and try again." />}
+      {!isLoading && restaurant && !menuError && !item && <ErrorState message="This dish could not be found in this restaurant's menu." />}
+
+      {!isLoading && restaurant && item && (
+        <article>
+          <div className="overflow-hidden rounded-3xl" style={{ background: 'var(--white)' }}>
+            {images.length > 0 ? (
+              <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={images[Math.min(activeImage, images.length - 1)]} alt={item.name} className="aspect-square w-full rounded-2xl object-cover" />
+                {images.length > 1 && <div className="flex gap-2 overflow-x-auto p-3">
+                  {images.map((url, index) => (
+                    <button key={url} type="button" onClick={() => setActiveImage(index)} aria-label={`Show photo ${index + 1}`} aria-pressed={activeImage === index} className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border-2" style={{ borderColor: activeImage === index ? 'var(--orange)' : 'var(--line)' }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt="" className="h-full w-full rounded-2xl object-cover" />
+                    </button>
+                  ))}
+                </div>}
+              </div>
+            ) : <div className="flex aspect-square items-center justify-center rounded-2xl" style={{ background: 'var(--peach)' }}><UtensilsCrossed className="h-12 w-12" style={{ color: 'var(--gray)' }} /></div>}
+
+            <div className="px-1 py-6 sm:px-2">
+              <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="mb-1 text-xs" style={{ color: 'var(--gray)' }}>
+                    <Link href={`/order/restaurant/${id}`} className="underline underline-offset-2">{restaurant.name}</Link>
+                    {item.category ? ` · ${item.category}` : ''}{item.subcategory ? ` · ${item.subcategory}` : ''}
+                  </p>
+                  <h1 className="font-display text-2xl font-bold" style={{ color: 'var(--ink)' }}>{item.name}</h1>
+                </div>
+                <div className="shrink-0 text-right"><p className="text-xl font-bold" style={{ color: 'var(--orange)' }}>₦{basePrice.toLocaleString()}</p>{promotionActive && <p className="text-xs line-through" style={{color:'var(--gray)'}}>₦{Number(item.price).toLocaleString()}</p>}</div>
+              </div>
+
+              {item.is_available === false ? <p className="mb-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ background: '#FCE8E6', color: '#B42318' }}>Currently unavailable</p> : !mainStockAvailable ? <p className="mb-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ background: '#FCE8E6', color: '#B42318' }}>Out of stock</p> : !restaurant.is_accepting_orders && <p className="mb-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold" style={{ background: '#FCE8E6', color: '#B42318' }}>Restaurant not accepting orders</p>}
+
+              {item.description && <p className="mt-3 whitespace-pre-line text-sm leading-6" style={{ color: 'var(--ink)' }}>{item.description}</p>}
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                {item.preparation_time_minutes && <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs" style={{ background: 'var(--peach)', color: 'var(--ink)' }}><Clock3 className="h-3.5 w-3.5" /> About {item.preparation_time_minutes} min</span>}
+                {item.serving_size && <span className="rounded-full px-3 py-1.5 text-xs" style={{ background: 'var(--peach)', color: 'var(--ink)' }}>Serving: {item.serving_size}</span>}
+                {(item.dietary_tags ?? []).map((tag) => <span key={tag} className="rounded-full px-3 py-1.5 text-xs font-medium" style={{ background: '#E7F6EC', color: '#207245' }}>{tag}</span>)}
+              </div>
+
+              {item.ingredients && <section className="mt-7 pt-2"><h2 className="mb-2 text-sm font-bold" style={{ color: 'var(--ink)' }}>Ingredients</h2><p className="whitespace-pre-line text-sm leading-6" style={{ color: 'var(--gray)' }}>{item.ingredients}</p></section>}
+
+              {(item.option_groups ?? []).map((group) => (
+                <section key={group.id} className="mt-7 pt-1">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div><h2 className="text-sm font-bold" style={{ color: 'var(--ink)' }}>{group.name}</h2><p className="mt-1 text-[11px]" style={{ color: 'var(--gray)' }}>{group.selection_type === 'single' ? 'Choose one' : `Choose up to ${group.max_select ?? group.options.length}`}{group.required ? ' · Required' : ' · Optional'}</p></div>
+                    {group.required && <span className="rounded-full px-2 py-1 text-[10px] font-semibold" style={{ background: 'var(--peach)', color: 'var(--ink)' }}>Required</span>}
+                  </div>
+                  <div className="space-y-2">
+                    {group.options.map((option) => { const q = optionQuantities[option.id] ?? 0; const stock = option.stock_quantity == null ? null : Math.max(0, Number(option.stock_quantity) - Number(option.stock_reserved ?? 0)); const unavailable = option.is_available === false || stock === 0; const count = group.options.filter((candidate) => (optionQuantities[candidate.id] ?? 0) > 0).length; const limit = group.selection_type === 'multiple' && q === 0 && count >= (group.max_select ?? group.options.length); return <div key={option.id} className={'flex items-center gap-3 rounded-2xl px-3 py-3.5 ' + (q ? 'bg-orange-50' : 'bg-stone-50')}><div className="min-w-0 flex-1"><p className="text-sm font-semibold" style={{color:'var(--ink)'}}>{option.name}</p><p className="mt-1 text-xs" style={{color:'var(--orange)'}}>{option.price > 0 ? '+₦' + option.price.toLocaleString() + ' each' : 'Included'}</p>{unavailable && <p className="text-[10px]" style={{color:'#B42318'}}>{stock === 0 ? 'Out of stock' : 'Unavailable'}</p>}</div><div className="flex items-center gap-2"><button type="button" aria-label={'Remove one ' + option.name} disabled={q === 0} onClick={() => updateOptionQuantity(group.id, option.id, q - 1, group.selection_type)} className="h-9 w-9 rounded-full bg-white disabled:opacity-30" style={{color:'var(--orange)'}}><Minus className="mx-auto h-4 w-4" /></button><span className="w-5 text-center text-sm font-bold">{q}</span><button type="button" aria-label={'Add one ' + option.name} disabled={!canOrder || unavailable || limit || q >= 99 || (stock != null && q >= stock)} onClick={() => updateOptionQuantity(group.id, option.id, q + 1, group.selection_type)} className="h-9 w-9 rounded-full text-white disabled:opacity-30" style={{background:'var(--orange)'}}><Plus className="mx-auto h-4 w-4" /></button></div></div>; })}
+                  </div>
+                  {group.selection_type === 'multiple' && group.min_select != null && group.min_select > 0 && <p className="mt-2 text-[10px]" style={{ color: 'var(--gray)' }}>Select at least {group.min_select}.</p>}
+                </section>
+              ))}
+              {(item.allergens ?? []).length > 0 && <section className="mt-5 rounded-xl border p-4" style={{ borderColor: '#F3C78B', background: '#FFF8EC' }}><h2 className="mb-1 text-sm font-bold" style={{ color: '#8A4B08' }}>Allergen information</h2><p className="text-sm" style={{ color: '#8A4B08' }}>Contains or may contain: {item.allergens.join(', ')}. Please contact the restaurant if you have an allergy or need ingredient confirmation.</p></section>}
+
+              <div className="mt-6 border-t pt-5" style={{ borderColor: 'var(--line)' }}>
+                {quantity > 0 ? (
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>In your cart</span>
+                    <div className="flex items-center gap-4">
+                      <button type="button" onClick={() => updateQuantity(cartKey, quantity - 1)} className="flex h-10 w-10 items-center justify-center rounded-full border" style={{ borderColor: 'var(--orange)', color: 'var(--orange)' }} aria-label="Remove one"><Minus className="h-4 w-4" /></button>
+                      <span className="min-w-4 text-center font-bold">{quantity}</span>
+                      <button type="button" disabled={!canOrder} onClick={() => canOrder && updateQuantity(cartKey, quantity + 1)} className="flex h-10 w-10 items-center justify-center rounded-full text-white disabled:opacity-40" style={{ background: 'var(--orange)' }} aria-label="Add one more"><Plus className="h-4 w-4" /></button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>Quantity</span>
+                      <div className="flex items-center gap-3">
+                        <button type="button" disabled={requestedQuantity <= 1} onClick={() => setRequestedQuantity((value) => Math.max(1, value - 1))} className="flex h-9 w-9 items-center justify-center rounded-full border disabled:opacity-40" style={{ borderColor: 'var(--orange)', color: 'var(--orange)' }} aria-label="Decrease quantity"><Minus className="h-4 w-4" /></button>
+                        <span className="min-w-5 text-center font-bold" aria-live="polite">{requestedQuantity}</span>
+                        <button type="button" disabled={requestedQuantity >= 99 || !canOrder} onClick={() => setRequestedQuantity((value) => Math.min(99, value + 1))} className="flex h-9 w-9 items-center justify-center rounded-full border disabled:opacity-40" style={{ borderColor: 'var(--orange)', color: 'var(--orange)' }} aria-label="Increase quantity"><Plus className="h-4 w-4" /></button>
+                      </div>
+                    </div>
+                    <button type="button" disabled={!canOrder || !optionsValid} onClick={() => { if (!canOrder || !optionsValid) return; for (let index = 0; index < requestedQuantity; index += 1) addItem({ id: cartKey, menuItemId: item.id, name: item.name, price: unitPrice, selectedOptions, restaurantId: restaurant.id, restaurantName: restaurant.name }); }} className="w-full rounded-xl px-5 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40" style={{ background: 'var(--orange)' }}>{!canOrder ? 'Not available to order' : !optionsValid ? 'Review required or out-of-stock options' : `Add ${requestedQuantity} to cart · ₦${(unitPrice * requestedQuantity).toLocaleString()}`}</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </article>
+      )}
+      <OrderTray />
+    </div>
+  );
+}

@@ -1,6 +1,21 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { areAllServiceAreasActive, type ServiceLocation } from "../_shared/service-area.ts";
+type ServiceLocation = { state: string; lga: string; is_active: boolean };
+function areAllServiceAreasActive(
+  restaurants: { state?: string | null; zone?: string | null }[],
+  locations: ServiceLocation[],
+) {
+  if (!restaurants.length) return false;
+  const lgaCounts = new Map<string, number>();
+  for (const location of locations) lgaCounts.set(location.lga, (lgaCounts.get(location.lga) ?? 0) + 1);
+  const canonicalZone = (location: ServiceLocation) =>
+    (lgaCounts.get(location.lga) ?? 0) > 1 ? `${location.lga} (${location.state})` : location.lga;
+  return restaurants.every((restaurant) =>
+    !!restaurant.state && !!restaurant.zone && locations.some((location) =>
+      location.state === restaurant.state && canonicalZone(location) === restaurant.zone && location.is_active === true
+    )
+  );
+}
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -83,7 +98,8 @@ Deno.serve(async (req: Request) => {
     const customerId = userData.user.id;
     const customerEmail = userData.user.email;
 
-    const { groups, delivery_address, delivery_lat, delivery_lng, delivery_note, tip_amount, callbackOrigin, payment_mode } = await req.json();
+    const body = await req.json();
+    const { groups, delivery_address, delivery_lat, delivery_lng, delivery_note, tip_amount, callbackOrigin, payment_mode } = body;
     if (payment_mode != null && payment_mode !== 'link') return json({ error: 'Invalid payment mode.' }, 400);
     if (!Array.isArray(groups) || groups.length === 0) {
       return json({ error: "At least one restaurant group is required" }, 400);
@@ -181,6 +197,11 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Checkout pricing must be configured in whole naira amounts." }, 503);
     }
 
+    const expectedTotal = body.expected_total;
+    if (expectedTotal != null && (!Number.isSafeInteger(expectedTotal) || expectedTotal < 0)) {
+      return json({ error: "The checkout estimate is invalid. Refresh checkout and try again." }, 400);
+    }
+
     // Validate all cart data at the payment boundary, then calculate prices from
     // database-owned menu prices rather than browser-supplied totals or prices.
     const groupComputations: { restaurant_id: string; subtotal: number; items: any[] }[] = [];
@@ -189,43 +210,133 @@ Deno.serve(async (req: Request) => {
       if (!g || typeof g.restaurant_id !== "string" || !Array.isArray(g.items) || g.items.length === 0) {
         return json({ error: "Each restaurant group must include at least one cart item" }, 400);
       }
-      const seenItemIds = new Set<string>();
+      const seenLineKeys = new Set<string>();
       for (const item of g.items) {
         if (
           !item || typeof item.menu_item_id !== "string" ||
           !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 99 ||
-          seenItemIds.has(item.menu_item_id)
+          (item.selected_options != null && !Array.isArray(item.selected_options))
         ) {
-          return json({ error: "Cart items must have unique item IDs and quantities between 1 and 99" }, 400);
+          return json({ error: "Cart items must have valid IDs, quantities between 1 and 99, and valid option selections" }, 400);
         }
-        seenItemIds.add(item.menu_item_id);
+        const selections = Array.isArray(item.selected_options) ? item.selected_options : [];
+        if (selections.some((selection: any) => !selection || typeof selection.group_id !== "string" || typeof selection.option_id !== "string" || (selection.quantity != null && (!Number.isInteger(selection.quantity) || selection.quantity < 1 || selection.quantity > 99)))) {
+          return json({ error: "One or more selected options are invalid. Please review your cart." }, 400);
+        }
+        const optionSignature = selections.map((selection: any) => `${selection.group_id}:${selection.option_id}`).sort().join(",");
+        const lineKey = `${item.menu_item_id}|${optionSignature}`;
+        if (seenLineKeys.has(lineKey)) {
+          return json({ error: "Duplicate cart lines found. Please refresh your cart and try again." }, 400);
+        }
+        seenLineKeys.add(lineKey);
       }
       itemCount += g.items.length;
       if (itemCount > 100) return json({ error: "Your cart contains too many items" }, 400);
 
+      const uniqueMenuItemIds = [...new Set(g.items.map((i: any) => i.menu_item_id))];
       const { data: menuItems, error: itemsError } = await admin
         .from("menu_items")
-        .select("id, price, restaurant_id, is_available")
-        .in("id", g.items.map((i: any) => i.menu_item_id));
+        .select("id, price, promotional_price, promotion_starts_at, promotion_ends_at, restaurant_id, is_available, admin_disabled, option_groups, availability_schedule_enabled, availability_schedule")
+        .in("id", uniqueMenuItemIds);
       if (itemsError) return json({ error: "Unable to validate cart items. Please try again later." }, 503);
       const invalid = menuItems?.find((m: any) => m.restaurant_id !== g.restaurant_id);
-      if (invalid || menuItems?.length !== g.items.length) {
+      if (invalid || menuItems?.length !== uniqueMenuItemIds.length) {
         return json({ error: "One or more items don't belong to their restaurant" }, 400);
       }
-      const unavailableItem = menuItems?.find((m: any) => m.is_available === false);
-      if (unavailableItem) {
-        return json({ error: "One or more items in your cart are currently unavailable. Remove them and try again." }, 409);
+      const nigeriaParts = new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date());
+      const dayNumbers: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+      const currentDay = dayNumbers[nigeriaParts.find((part) => part.type === "weekday")?.value ?? ""];
+      const currentMinutes = Number(nigeriaParts.find((part) => part.type === "hour")?.value ?? 0) * 60 + Number(nigeriaParts.find((part) => part.type === "minute")?.value ?? 0);
+      const outsideSchedule = (menuItems ?? []).some((m: any) => {
+        if (!m.availability_schedule_enabled) return false;
+        const windows = Array.isArray(m.availability_schedule) ? m.availability_schedule : [];
+        return !windows.some((window: any) => {
+          if (Number(window?.day) !== currentDay || typeof window?.start !== "string" || typeof window?.end !== "string") return false;
+          const startMatch = /^(\d{2}):(\d{2})$/.exec(window.start);
+          const endMatch = /^(\d{2}):(\d{2})$/.exec(window.end);
+          if (!startMatch || !endMatch) return false;
+          const start = Number(startMatch[1]) * 60 + Number(startMatch[2]);
+          const end = Number(endMatch[1]) * 60 + Number(endMatch[2]);
+          return start < end && currentMinutes >= start && currentMinutes < end;
+        });
+      });
+      const unavailableItem = menuItems?.find((m: any) => m.is_available === false || m.admin_disabled === true);
+      if (unavailableItem || outsideSchedule) {
+        return json({ error: "One or more items in your cart are currently unavailable or outside their scheduled ordering hours. Remove them or try again during their availability window." }, 409);
       }
       const menuItemById = new Map((menuItems ?? []).map((m: any) => [m.id, m]));
-      const pricedItems = g.items.map((i: any) => {
+      const pricedItems: any[] = [];
+      for (const i of g.items) {
         const menuItem = menuItemById.get(i.menu_item_id) as any;
         const rawPrice = Number(menuItem?.price);
-        if (!Number.isFinite(rawPrice) || rawPrice < 0) throw new Error("Invalid menu item price");
-        // Checkout/payment amounts use whole naira; apply the same rounded unit
-        // price to line items and the subtotal so receipts reconcile exactly.
-        const unitPrice = Math.round(rawPrice);
-        return { menu_item_id: i.menu_item_id, quantity: i.quantity, unit_price: unitPrice };
-      });
+        if (!Number.isSafeInteger(rawPrice) || rawPrice <= 0) {
+          return json({ error: "A menu item's price is invalid. Please contact the restaurant." }, 409);
+        }
+        const now = Date.now();
+        const promotionStart = menuItem?.promotion_starts_at ? new Date(menuItem.promotion_starts_at).getTime() : null;
+        const promotionEnd = menuItem?.promotion_ends_at ? new Date(menuItem.promotion_ends_at).getTime() : null;
+        const promotionActive = menuItem?.promotional_price != null && Number.isSafeInteger(Number(menuItem.promotional_price)) && Number(menuItem.promotional_price) > 0 && Number(menuItem.promotional_price) < rawPrice && (promotionStart === null || (Number.isFinite(promotionStart) && promotionStart <= now)) && (promotionEnd === null || (Number.isFinite(promotionEnd) && promotionEnd > now));
+        const basePrice = promotionActive ? Number(menuItem.promotional_price) : rawPrice;
+        const optionGroups = Array.isArray(menuItem?.option_groups) ? menuItem.option_groups : [];
+        if (optionGroups.some((group: any) =>
+          !group || typeof group.id !== "string" || typeof group.name !== "string" ||
+          !Array.isArray(group.options) || !["single", "multiple"].includes(group.selection_type) ||
+          group.options.some((option: any) => !option || typeof option.id !== "string" || typeof option.name !== "string" ||
+            !Number.isSafeInteger(Number(option.price)) || Number(option.price) < 0)
+        )) {
+          return json({ error: "A menu item's option setup is invalid. Please contact the restaurant." }, 409);
+        }
+        const selections = Array.isArray(i.selected_options) ? i.selected_options : [];
+        const selectionKeys = new Set<string>();
+        const selectedSnapshots: any[] = [];
+        const countsByGroup = new Map<string, number>();
+
+        for (const selection of selections) {
+          const key = `${selection.group_id}:${selection.option_id}`;
+          if (selectionKeys.has(key)) return json({ error: "Duplicate options selected. Please review your cart." }, 400);
+          selectionKeys.add(key);
+          const optionGroup = optionGroups.find((group: any) => group?.id === selection.group_id);
+          const option = optionGroup?.options?.find((candidate: any) => candidate?.id === selection.option_id);
+          if (!optionGroup || !option || option.is_available === false) {
+            return json({ error: "One of your selected options is no longer available. Please update your cart." }, 409);
+          }
+          const optionPrice = Number(option.price);
+          if (!Number.isSafeInteger(optionPrice) || optionPrice < 0 || typeof option.name !== "string" || typeof optionGroup.name !== "string") {
+            return json({ error: "A menu option has invalid pricing. Please contact the restaurant." }, 409);
+          }
+          countsByGroup.set(optionGroup.id, (countsByGroup.get(optionGroup.id) ?? 0) + 1);
+          const optionQuantity = Number(selection.quantity ?? 1);
+          selectedSnapshots.push({
+            groupId: optionGroup.id,
+            groupName: optionGroup.name,
+            optionId: option.id,
+            optionName: option.name,
+            price: optionPrice,
+            quantity: optionQuantity,
+          });
+        }
+
+        for (const optionGroup of optionGroups) {
+          if (!optionGroup || typeof optionGroup.id !== "string" || !Array.isArray(optionGroup.options)) {
+            return json({ error: "A menu item's option setup is invalid. Please contact the restaurant." }, 409);
+          }
+          const count = countsByGroup.get(optionGroup.id) ?? 0;
+          const minimum = optionGroup.required ? Math.max(1, Number(optionGroup.min_select ?? 1)) : Number(optionGroup.min_select ?? 0);
+          const maximum = optionGroup.selection_type === "single" ? 1 : Number(optionGroup.max_select ?? optionGroup.options.length);
+          if (!Number.isInteger(minimum) || !Number.isInteger(maximum) || minimum < 0 || maximum < minimum || maximum > optionGroup.options.length || minimum > optionGroup.options.length || count < minimum || count > maximum) {
+            return json({ error: `Please review your selection for "${optionGroup.name || "menu options"}".` }, 400);
+          }
+        }
+
+        const unitPrice = basePrice + selectedSnapshots.reduce((sum, option) => sum + option.price * option.quantity, 0);
+        if (!Number.isSafeInteger(unitPrice) || unitPrice <= 0) return json({ error: "Cart item price is invalid." }, 400);
+        pricedItems.push({
+          menu_item_id: i.menu_item_id,
+          quantity: i.quantity,
+          unit_price: unitPrice,
+          selected_options: selectedSnapshots,
+        });
+      }
       const subtotal = pricedItems.reduce((sum: number, i: any) => sum + i.unit_price * i.quantity, 0);
       if (!Number.isSafeInteger(subtotal) || subtotal < 0) {
         return json({ error: "Cart subtotal is invalid. Please refresh your cart." }, 400);
@@ -275,11 +386,12 @@ Deno.serve(async (req: Request) => {
       if (orderError) return json({ error: orderError.message }, 500);
 
       const orderItemsPayload = groupComputations[0].items.map((i: any) => ({
-        order_id: order.id, menu_item_id: i.menu_item_id, quantity: i.quantity ?? 1, unit_price: i.unit_price,
+        order_id: order.id, menu_item_id: i.menu_item_id, quantity: i.quantity ?? 1, unit_price: i.unit_price, selected_options: i.selected_options ?? [],
       }));
       const { error: itemsInsertError } = await admin.from("order_items").insert(orderItemsPayload);
       if (itemsInsertError) {
-        await admin.from("orders").delete().eq("id", order.id);
+        console.error("[initialize-order-payment] order item insert failed", itemsInsertError);
+        await admin.from("orders").update({ status: "cancelled", payment_status: "failed" }).eq("id", order.id);
         return json({ error: itemsInsertError.message }, 500);
       }
 
@@ -289,17 +401,51 @@ Deno.serve(async (req: Request) => {
         restaurant_id: restaurant.id, customer_id: customerId,
       });
       if (txnError) {
-        await admin.from("orders").delete().eq("id", order.id);
+        console.error("[initialize-order-payment] transaction insert failed", txnError);
+        await admin.from("orders").update({ status: "cancelled", payment_status: "failed" }).eq("id", order.id);
         return json({ error: txnError.message }, 500);
       }
 
-      if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_id: order.id, reference });
+      const singleStockItems = groupComputations[0].items.map((i: any) => ({
+        menu_item_id: i.menu_item_id,
+        quantity: i.quantity ?? 1,
+        selected_options: i.selected_options ?? [],
+      }));
+      const { data: singleReservation, error: singleReservationError } = await admin.rpc(
+        "reserve_menu_item_stock",
+        { p_reference: reference, p_items: singleStockItems },
+      );
+      if (singleReservationError || singleReservation?.success !== true) {
+        console.error("[initialize-order-payment] stock reservation failure", {
+          reference,
+          code: singleReservationError?.code ?? null,
+          message: singleReservationError?.message ?? null,
+          details: singleReservationError?.details ?? null,
+          hint: singleReservationError?.hint ?? null,
+          response: singleReservation ?? null,
+        });
+        await admin.rpc("release_menu_stock_reservation", { p_reference: reference });
+        await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
+        await admin.from("orders").update({ status: "cancelled", payment_status: "failed" }).eq("id", order.id);
+        const outOfStock = singleReservationError?.message?.includes("OUT_OF_STOCK");
+        return json({ error: outOfStock ? "One or more items are out of stock. Update your cart and try again." : "Could not reserve menu stock. Please refresh your cart and try again.", code: singleReservationError?.code ?? "STOCK_RESERVATION_FAILED" }, 409);
+      }
+
+      if (expectedTotal != null && Number(expectedTotal) !== totalAmount) {
+        await admin.rpc("release_menu_stock_reservation", { p_reference: reference });
+        await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
+        await admin.from("orders").update({ status: "cancelled", payment_status: "failed" }).eq("id", order.id);
+        return json({ error: "The checkout estimate changed before payment started. Refresh checkout and try again.", total_amount: totalAmount }, 409);
+      }
+
+      if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_id: order.id, reference, total_amount: totalAmount });
       const authUrl = await startPaystack(customerEmail, totalAmount, reference, callbackOrigin, { order_id: order.id, type: "order_payment" });
       if ("error" in authUrl) {
         await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
+        await admin.rpc("release_menu_stock_reservation", { p_reference: reference });
         return json({ error: authUrl.error }, 502);
       }
-      return json({ success: true, authorization_url: authUrl.url, order_id: order.id, reference });
+      return json({ success: true, authorization_url: authUrl.url, order_id: order.id, reference, total_amount: totalAmount });
     }
 
     // ---- Multi-restaurant: order_group + up-to-3-restaurant delivery_batches ----
@@ -396,7 +542,7 @@ Deno.serve(async (req: Request) => {
           return json({ error: orderError.message }, 500);
         }
         const itemsPayload = groupComp.items.map((i: any) => ({
-          order_id: order.id, menu_item_id: i.menu_item_id, quantity: i.quantity ?? 1, unit_price: i.unit_price,
+          order_id: order.id, menu_item_id: i.menu_item_id, quantity: i.quantity ?? 1, unit_price: i.unit_price, selected_options: i.selected_options ?? [],
         }));
         const { error: itemsErr } = await admin.from("order_items").insert(itemsPayload);
         if (itemsErr) {
@@ -411,18 +557,55 @@ Deno.serve(async (req: Request) => {
       order_group_id: group.id, type: "order_payment", amount: totalAmount, status: "pending", reference, customer_id: customerId,
     });
     if (txnError) {
-      await admin.from("order_groups").delete().eq("id", group.id);
+      console.error("[initialize-order-payment] group transaction insert failed", txnError);
+      await admin.from("order_groups").update({ payment_status: "failed" }).eq("id", group.id);
+      await admin.from("orders").update({ status: "cancelled", payment_status: "failed" }).eq("order_group_id", group.id);
       return json({ error: txnError.message }, 500);
     }
 
-    if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_group_id: group.id, reference });
+    const allStockItems = groupComputations.flatMap((group: any) => group.items.map((i: any) => ({
+      menu_item_id: i.menu_item_id,
+      quantity: i.quantity ?? 1,
+      selected_options: i.selected_options ?? [],
+    })));
+    const { data: groupReservation, error: groupReservationError } = await admin.rpc(
+      "reserve_menu_item_stock",
+      { p_reference: reference, p_items: allStockItems },
+    );
+    if (groupReservationError || groupReservation?.success !== true) {
+      console.error("[initialize-order-payment] group stock reservation failure", {
+        reference,
+        code: groupReservationError?.code ?? null,
+        message: groupReservationError?.message ?? null,
+        details: groupReservationError?.details ?? null,
+        hint: groupReservationError?.hint ?? null,
+        response: groupReservation ?? null,
+      });
+      await admin.rpc("release_menu_stock_reservation", { p_reference: reference });
+      await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
+      await admin.from("order_groups").update({ payment_status: "failed" }).eq("id", group.id);
+      await admin.from("orders").update({ status: "cancelled", payment_status: "failed" }).eq("order_group_id", group.id);
+      const outOfStock = groupReservationError?.message?.includes("OUT_OF_STOCK");
+      return json({ error: outOfStock ? "One or more items are out of stock. Update your cart and try again." : "Could not reserve menu stock. Please refresh your cart and try again.", code: groupReservationError?.code ?? "STOCK_RESERVATION_FAILED" }, 409);
+    }
+
+    if (expectedTotal != null && Number(expectedTotal) !== totalAmount) {
+      await admin.rpc("release_menu_stock_reservation", { p_reference: reference });
+      await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
+      await admin.from("order_groups").update({ payment_status: "failed" }).eq("id", group.id);
+      await admin.from("orders").update({ status: "cancelled", payment_status: "failed" }).eq("order_group_id", group.id);
+      return json({ error: "The checkout estimate changed before payment started. Refresh checkout and try again.", total_amount: totalAmount }, 409);
+    }
+
+    if (payment_mode === "link") return json({ success: true, payment_link_ready: true, order_group_id: group.id, reference, total_amount: totalAmount });
     const authUrl = await startPaystack(customerEmail, totalAmount, reference, callbackOrigin, { order_group_id: group.id, type: "order_payment" });
     if ("error" in authUrl) {
       await admin.from("transactions").update({ status: "failed" }).eq("reference", reference);
+      await admin.rpc("release_menu_stock_reservation", { p_reference: reference });
       return json({ error: authUrl.error }, 502);
     }
 
-    return json({ success: true, authorization_url: authUrl.url, order_group_id: group.id, reference, batch_count: batchPlans.length });
+    return json({ success: true, authorization_url: authUrl.url, order_group_id: group.id, reference, batch_count: batchPlans.length, total_amount: totalAmount });
   } catch (err) {
     return json({ error: String(err) }, 500);
   }

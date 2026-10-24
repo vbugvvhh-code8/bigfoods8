@@ -43,6 +43,32 @@
 // the delivery — commission then splits between both riders per
 // reward_pct). Neither existed anywhere before this pass.
 
+export interface MenuItemOption {
+  id: string;
+  name: string;
+  price: number;
+  is_available?: boolean;
+  stock_quantity?: number | null;
+  stock_reserved?: number;
+}
+export interface MenuItemOptionGroup {
+  id: string;
+  name: string;
+  required: boolean;
+  selection_type: 'single' | 'multiple';
+  min_select?: number;
+  max_select?: number;
+  options: MenuItemOption[];
+}
+export interface SelectedMenuOption {
+  groupId: string;
+  groupName: string;
+  optionId: string;
+  optionName: string;
+  price: number;
+  quantity?: number;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -166,6 +192,7 @@ export interface Database {
           id: string;
           restaurant_id: string | null;
           name: string;
+          sku: string;
           price: number;
           category: string | null;
           image_url: string | null;
@@ -174,6 +201,23 @@ export interface Database {
           image_urls: string[] | null;
           subcategory: string | null;
           is_available: boolean;
+          admin_disabled: boolean;
+          description: string | null;
+          ingredients: string | null;
+          serving_size: string | null;
+          preparation_time_minutes: number | null;
+          allergens: string[];
+          dietary_tags: string[];
+          option_groups: MenuItemOptionGroup[];
+          stock_quantity: number | null;
+          stock_reserved: number;
+          availability_schedule_enabled: boolean;
+          availability_schedule: { day: number; start: string; end: string }[];
+          promotional_price: number | null;
+          promotion_starts_at: string | null;
+          promotion_ends_at: string | null;
+          complementary_item_ids: string[];
+          display_order: number;
         };
         Insert: Partial<Database['public']['Tables']['menu_items']['Row']> & { name: string; price: number };
         Update: Partial<Database['public']['Tables']['menu_items']['Row']>;
@@ -403,6 +447,7 @@ export interface Database {
           quantity: number;
           unit_price: number;
           created_at: string | null;
+          selected_options: SelectedMenuOption[];
         };
         Insert: Partial<Database['public']['Tables']['order_items']['Row']> & { unit_price: number };
         Update: Partial<Database['public']['Tables']['order_items']['Row']>;
