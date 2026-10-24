@@ -3,13 +3,18 @@
 import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import NavItem from './NavItem';
-import { LayoutGrid, MapPin, Utensils, Bike, Settings, Menu, X, Inbox, AlertTriangle, Wallet, Banknote, Megaphone, Users, LogOut, Route, ShieldCheck, Tags, ClipboardList, CalendarDays } from 'lucide-react';
+import { LayoutGrid, MapPin, Utensils, Bike, Settings, Menu, X, Inbox, AlertTriangle, Wallet, Banknote, Megaphone, Users, LogOut, Route, ShieldCheck, Tags, ClipboardList, CalendarDays, Clock3, CalendarCheck, ArrowLeftRight, WalletCards, HeartPulse } from 'lucide-react';
 import useSession from '@/hooks/useSession';
 import getBrowserSupabase from '@/lib/supabase/client';
 
 const NAV_ITEMS = [
   { id: '/admin/dashboard', label: 'Dashboard', icon: <LayoutGrid className="w-4 h-4" /> },
-  { id: '/admin/staff', label: 'Staff Management', icon: <Users className="w-4 h-4" /> },
+  { id: '/admin/staff', label: 'Staff Directory', icon: <Users className="w-4 h-4" /> },
+  { id: '/admin/staff/operations?tab=assign', label: 'Staff Shift Schedule', icon: <CalendarDays className="w-4 h-4" /> },
+  { id: '/admin/staff/operations?tab=attendance', label: 'Staff Attendance', icon: <Clock3 className="w-4 h-4" /> },
+  { id: '/admin/staff/operations?tab=leave', label: 'Staff Leave Requests', icon: <CalendarCheck className="w-4 h-4" /> },
+  { id: '/admin/staff/operations?tab=swaps', label: 'Staff Shift Swaps', icon: <ArrowLeftRight className="w-4 h-4" /> },
+  { id: '/admin/staff/operations?tab=payroll', label: 'Staff Payroll & Health', icon: <WalletCards className="w-4 h-4" /> },
   { id: '/admin/zone-map', label: 'Zone Map', icon: <MapPin className="w-4 h-4" /> },
   { id: '/admin/areas', label: 'Service Areas', icon: <MapPin className="w-4 h-4" /> },
   { id: '/admin/seller-places', label: 'Seller Places', icon: <Users className="w-4 h-4" /> },
