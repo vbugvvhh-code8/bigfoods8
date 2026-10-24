@@ -68,7 +68,7 @@ Deno.serve(async (req: Request) => {
     }
     if (actor.role !== "owner" && actor.role !== "admin" && !(Array.isArray(actor.permissions) && actor.permissions.includes("staff.manage"))) return json({ error:"Forbidden" },403);
     if (action === "list") {
-      const { data, error } = await db.from("bigfoods_staff").select("id,email,display_name,role,permissions,is_active,must_change_password,last_login_at,created_at").order("created_at",{ascending:false});
+      const { data, error } = await db.from("bigfoods_staff").select("id,email,display_name,role,permissions,is_active,must_change_password,phone,job_title,start_date,monthly_salary,last_login_at,created_at").order("created_at",{ascending:false});
       if (error) return json({ error:"Unable to load staff" },503);
       return json({ staff:data ?? [] });
     }
