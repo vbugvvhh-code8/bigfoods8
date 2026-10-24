@@ -53,7 +53,7 @@ export default function StaffManagementPage() {
   }
   async function toggle(row:StaffRow) {
     setBusy(true); setError(""); setNotice("");
-    try { await call({action:"set_active",staff_id:row.id,is_active:!row.is_active}); setNotice(row.is_active?"Account deactivated and active sessions revoked.":"Account activated."); await load(); }
+    try { if (row.is_active) await call({action:"deactivate",staff_id:row.id}); else await call({action:"update",staff_id:row.id,is_active:true}); setNotice(row.is_active?"Account deactivated and active sessions revoked.":"Account activated."); await load(); }
     catch(e) { setError(e instanceof Error ? e.message : "Unable to update account"); }
     finally { setBusy(false); }
   }
