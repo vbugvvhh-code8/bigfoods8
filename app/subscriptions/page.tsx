@@ -85,12 +85,12 @@ export default function SubscriptionsPage(){
   const selectedAddress=addresses.find(item=>item.id===addressId);
   const deliveryDistance=useMemo(()=>{if(!selectedRestaurant||selectedRestaurant.latitude==null||selectedRestaurant.longitude==null||selectedAddress?.lat==null||selectedAddress?.lng==null)return null;const rad=(v:number)=>v*Math.PI/180;const dLat=rad(Number(selectedAddress.lat)-Number(selectedRestaurant.latitude));const dLng=rad(Number(selectedAddress.lng)-Number(selectedRestaurant.longitude));const a=Math.sin(dLat/2)**2+Math.cos(rad(Number(selectedRestaurant.latitude)))*Math.cos(rad(Number(selectedAddress.lat)))*Math.sin(dLng/2)**2;return 6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));},[selectedRestaurant,selectedAddress]);
   const deliveryFee=deliveryDistance==null?minimumDeliveryFee:Math.max(Math.round(deliveryDistance*deliveryRate),minimumDeliveryFee);
-  const perDeliveryWithFees=perDelivery+platformFee+deliveryFee;
   const perDelivery=useMemo(()=>selected.reduce((sum,item)=>{
     const now=Date.now();const start=item.promotion_starts_at?new Date(item.promotion_starts_at).getTime():-Infinity;const end=item.promotion_ends_at?new Date(item.promotion_ends_at).getTime():Infinity;
     const price=item.promotional_price!=null&&now>=start&&now<=end?Number(item.promotional_price):Number(item.price);
     return sum+price*(quantities[item.id]??0);
   },0),[selected,quantities]);
+  const perDeliveryWithFees=perDelivery+platformFee+deliveryFee;
   const estimatedDeliveries=weeks*days.length;
   const estimate=perDeliveryWithFees*estimatedDeliveries;
 
