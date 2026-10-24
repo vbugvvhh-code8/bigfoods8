@@ -1,11 +1,16 @@
 'use client';
 
 import {createContext, useContext, useState, useCallback, useEffect, type ReactNode} from 'react';
+import type { SelectedMenuOption } from '@/types/database';
 
 export interface CartItem {
+  /** Unique cart-line key; includes chosen options when applicable. */
   id: string;
+  /** Database menu item ID used by checkout validation. Optional for legacy saved carts. */
+  menuItemId?: string;
   name: string;
   price: number;
+  selectedOptions?: SelectedMenuOption[];
   quantity: number;
   restaurantId: string;
   restaurantName: string;
@@ -100,9 +105,9 @@ export function CartProvider({children}: {children: ReactNode}) {
     setItems((prev) => {
       const existing = prev.find((i) => i.id === item.id);
       if (existing) {
-        return prev.map((i) => (i.id === item.id ? {...i, quantity: i.quantity + 1} : i));
+        return prev.map((i) => (i.id === item.id ? {...i, menuItemId: i.menuItemId ?? i.id, selectedOptions: i.selectedOptions ?? [], quantity: i.quantity + 1} : i));
       }
-      return [...prev, {...item, quantity: 1}];
+      return [...prev, {...item, menuItemId: item.menuItemId ?? item.id, selectedOptions: item.selectedOptions ?? [], quantity: 1}];
     });
   }, []);
 
