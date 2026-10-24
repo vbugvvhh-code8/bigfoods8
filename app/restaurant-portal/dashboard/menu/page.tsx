@@ -2,10 +2,13 @@
 
 import SafeImage from '@/components/ui/SafeImage';
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { ArrowUp, ArrowDown } from 'lucide-react';
 import { Plus, Pencil, Trash2, Search, X, CheckSquare, Square, Eye, EyeOff } from 'lucide-react';
 import useRestaurant from '@/hooks/useRestaurant';
 import { useMenuItems } from '@/hooks/useMenuItems';
-import MenuItemForm, { ChipPicker } from '@/components/restaurant/dashboard/MenuItemForm';
+import { ChipPicker } from '@/components/restaurant/dashboard/MenuItemForm';
+import MenuCatalogTransfer from '@/components/restaurant/dashboard/MenuCatalogTransfer';
 import { MENU_CATEGORY_PRESETS, MENU_CATEGORY_NAMES } from '@/lib/menuCategoryPresets';
 import type { MenuItem } from '@/types/database';
 
@@ -13,6 +16,7 @@ const UNCATEGORIZED = 'uncategorized';
 const NO_SUBCATEGORY = 'other';
 
 export default function MenuBuilderPage() {
+  const router = useRouter();
   const { restaurant, loading: restaurantLoading } = useRestaurant();
   const { menuItems, isLoading, addMenuItem, updateMenuItem, deleteMenuItem } = useMenuItems(restaurant?.id);
 
@@ -180,14 +184,11 @@ export default function MenuBuilderPage() {
 
       {showAddForm && (
         <div className="mb-5">
-          <MenuItemForm
-            restaurantId={restaurant.id}
-            onSubmit={addMenuItem}
-            onDone={() => setShowAddForm(false)}
-            onCancel={() => setShowAddForm(false)}
-          />
+          <button type="button" onClick={() => router.push('/restaurant-portal/dashboard/menu/item')} className="rounded-xl px-3 py-2 text-sm font-bold text-white" style={{background:'var(--orange)'}}>Open menu editor</button>
         </div>
       )}
+
+      <MenuCatalogTransfer />
 
       {isLoading && (
         <p className="text-[12.5px] py-4 text-center" style={{ color: 'var(--gray)' }}>
