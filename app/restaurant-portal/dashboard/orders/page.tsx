@@ -9,7 +9,7 @@ import useRestaurantOrders from '@/hooks/useRestaurantOrders';
 
 export default function OrdersPage() {
   const { restaurant, loading: restaurantLoading } = useRestaurant();
-  const { active, history, loading, updateStatus, ordersToday, statusBreakdown } = useRestaurantOrders(restaurant?.id);
+  const { active, awaitingPayment, history, loading, updateStatus, ordersToday, statusBreakdown } = useRestaurantOrders(restaurant?.id);
 
   if (restaurantLoading || !restaurant) {
     return (
@@ -27,7 +27,8 @@ export default function OrdersPage() {
       <PageHeader title="Orders" subtitle="Live incoming and in-progress orders" />
 
       <div className="grid grid-cols-2 gap-3">
-        <KpiTile label="New orders" value={String(pendingCount)} />
+        <KpiTile label="New paid orders" value={String(pendingCount)} />
+        <KpiTile label="Awaiting payment" value={String(awaitingPayment.length)} />
         <KpiTile label="Preparing" value={String(preparingCount)} />
         <KpiTile label="Orders today" value={String(ordersToday)} />
         <KpiTile label="Active total" value={String(active.length)} />
