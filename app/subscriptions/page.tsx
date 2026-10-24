@@ -7,7 +7,9 @@ import getBrowserSupabase from '@/lib/supabase/client';
 
 type Restaurant = { id:string; name:string; approval_status:string; is_accepting_orders:boolean; latitude:number|null; longitude:number|null };
 type SavedAddress = { id:string; label:string|null; address:string; lat:number|null; lng:number|null };
-type MenuItem = { id:string; restaurant_id:string; name:string; price:number; promotional_price:number|null; promotion_starts_at:string|null; promotion_ends_at:string|null; is_available:boolean; admin_disabled:boolean; category:string|null; image_url:string|null };
+type MenuOption = { id:string; name:string; price:number; is_available?:boolean; stock_quantity?:number|null; stock_reserved?:number };
+type MenuOptionGroup = { id:string; name:string; required:boolean; selection_type:'single'|'multiple'; min_select?:number; max_select?:number; options:MenuOption[] };
+type MenuItem = { id:string; restaurant_id:string; name:string; price:number; promotional_price:number|null; promotion_starts_at:string|null; promotion_ends_at:string|null; is_available:boolean; admin_disabled:boolean; category:string|null; image_url:string|null; description:string|null; ingredients:string|null; serving_size:string|null; preparation_time_minutes:number|null; allergens:string[]; dietary_tags:string[]; option_groups:MenuOptionGroup[] };
 type Subscription = { id:string; restaurant_id:string; package_weeks:number; delivery_days:number[]; delivery_time:string; selected_items:{menu_item_id:string;name:string;quantity:number;unit_price:number}[]; total_deliveries:number; total_amount:number; status:string; starts_on:string|null; ends_on:string|null; paid_at:string|null; created_at:string; restaurant?:{name:string}|null };
 const DAY_OPTIONS=[{value:1,label:'Mon'},{value:2,label:'Tue'},{value:3,label:'Wed'},{value:4,label:'Thu'},{value:5,label:'Fri'},{value:6,label:'Sat'},{value:7,label:'Sun'}];
 const money=(n:number)=>new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN',maximumFractionDigits:0}).format(n);
@@ -24,6 +26,8 @@ export default function SubscriptionsPage(){
   const [deliveryRate,setDeliveryRate]=useState(150);
   const [minimumDeliveryFee,setMinimumDeliveryFee]=useState(1000);
   const [quantities,setQuantities]=useState<Record<string,number>>({});
+  const [optionQuantities,setOptionQuantities]=useState<Record<string,Record<string,number>>>({});
+  const [expandedItem,setExpandedItem]=useState<string|null>(null);
   const [weeks,setWeeks]=useState(4);
   const [days,setDays]=useState<number[]>([1,2,3,4,5]);
   const [mealTime,setMealTime]=useState('lunch');
@@ -60,8 +64,8 @@ export default function SubscriptionsPage(){
   useEffect(()=>{
     if(!restaurantId){setMenu([]);setQuantities({});return;}
     let active=true;setMenuLoading(true);
-    void supabase.from('menu_items').select('id,restaurant_id,name,price,promotional_price,promotion_starts_at,promotion_ends_at,is_available,admin_disabled,category,image_url').eq('restaurant_id',restaurantId).eq('is_available',true).order('category').order('name')
-      .then(({data,error})=>{if(!active)return;if(error)setError('Could not load this kitchen menu.');else setMenu(((data??[]) as MenuItem[]).filter(item=>!item.admin_disabled));setQuantities({});setMenuLoading(false);});
+    void supabase.from('menu_items').select('id,restaurant_id,name,price,promotional_price,promotion_starts_at,promotion_ends_at,is_available,admin_disabled,category,image_url,description,ingredients,serving_size,preparation_time_minutes,allergens,dietary_tags,option_groups').eq('restaurant_id',restaurantId).eq('is_available',true).order('category').order('name')
+      .then(({data,error})=>{if(!active)return;if(error)setError('Could not load this kitchen menu.');else setMenu(((data??[]) as MenuItem[]).filter(item=>!item.admin_disabled));setQuantities({});setOptionQuantities({});setExpandedItem(null);setMenuLoading(false);});
     return()=>{active=false;};
   },[restaurantId,supabase]);
 
@@ -81,15 +85,15 @@ export default function SubscriptionsPage(){
   },[userId,supabase,loadSubscriptions]);
 
   const selected=useMemo(()=>menu.filter(item=>(quantities[item.id]??0)>0),[menu,quantities]);
+  const itemBasePrice=(item:MenuItem)=>{const now=Date.now();const start=item.promotion_starts_at?new Date(item.promotion_starts_at).getTime():-Infinity;const end=item.promotion_ends_at?new Date(item.promotion_ends_at).getTime():Infinity;return item.promotional_price!=null&&now>=start&&now<=end?Number(item.promotional_price):Number(item.price);};
+  const selectedOptionsFor=(item:MenuItem)=>item.option_groups.flatMap(group=>group.options.filter(option=>(optionQuantities[item.id]?.[option.id]??0)>0).map(option=>({groupId:group.id,groupName:group.name,optionId:option.id,optionName:option.name,price:Number(option.price),quantity:optionQuantities[item.id]?.[option.id]??0})));
+  const itemOptionsValid=(item:MenuItem)=>item.option_groups.every(group=>{const chosen=group.options.filter(option=>(optionQuantities[item.id]?.[option.id]??0)>0);const min=group.required?Math.max(1,group.min_select??1):(group.min_select??0);const max=group.selection_type==='single'?1:(group.max_select??group.options.length);return chosen.length>=min&&chosen.length<=max&&chosen.every(option=>option.is_available!==false&&(option.stock_quantity==null||Number(option.stock_quantity)-Number(option.stock_reserved??0)>=(optionQuantities[item.id]?.[option.id]??0)));};
+  const updateOption=(item:MenuItem,group:MenuOptionGroup,option:MenuOption,next:number)=>setOptionQuantities(prev=>{const itemOptions={...(prev[item.id]??{})};if(next>0&&group.selection_type==='single')group.options.forEach(candidate=>{itemOptions[candidate.id]=0;});itemOptions[option.id]=Math.max(0,Math.min(99,next));return {...prev,[item.id]:itemOptions};});
   const selectedRestaurant=restaurants.find(item=>item.id===restaurantId);
   const selectedAddress=addresses.find(item=>item.id===addressId);
   const deliveryDistance=useMemo(()=>{if(!selectedRestaurant||selectedRestaurant.latitude==null||selectedRestaurant.longitude==null||selectedAddress?.lat==null||selectedAddress?.lng==null)return null;const rad=(v:number)=>v*Math.PI/180;const dLat=rad(Number(selectedAddress.lat)-Number(selectedRestaurant.latitude));const dLng=rad(Number(selectedAddress.lng)-Number(selectedRestaurant.longitude));const a=Math.sin(dLat/2)**2+Math.cos(rad(Number(selectedRestaurant.latitude)))*Math.cos(rad(Number(selectedAddress.lat)))*Math.sin(dLng/2)**2;return 6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));},[selectedRestaurant,selectedAddress]);
   const deliveryFee=deliveryDistance==null?minimumDeliveryFee:Math.max(Math.round(deliveryDistance*deliveryRate),minimumDeliveryFee);
-  const perDelivery=useMemo(()=>selected.reduce((sum,item)=>{
-    const now=Date.now();const start=item.promotion_starts_at?new Date(item.promotion_starts_at).getTime():-Infinity;const end=item.promotion_ends_at?new Date(item.promotion_ends_at).getTime():Infinity;
-    const price=item.promotional_price!=null&&now>=start&&now<=end?Number(item.promotional_price):Number(item.price);
-    return sum+price*(quantities[item.id]??0);
-  },0),[selected,quantities]);
+  const perDelivery=useMemo(()=>selected.reduce((sum,item)=>{const optionCost=selectedOptionsFor(item).reduce((total,option)=>total+option.price*option.quantity,0);return sum+(itemBasePrice(item)+optionCost)*(quantities[item.id]??0);},0),[selected,quantities,optionQuantities]);
   const perDeliveryWithFees=perDelivery+platformFee+deliveryFee;
   const estimatedDeliveries=weeks*days.length;
   const estimate=perDeliveryWithFees*estimatedDeliveries;
@@ -97,10 +101,11 @@ export default function SubscriptionsPage(){
   async function buyPackage(){
     if(!userId){setError('Please sign in before subscribing to a meal package.');return;}
     if(!restaurantId||!selected.length||!days.length||!addressId){setError('Choose a kitchen, delivery address, at least one meal item and one delivery day.');return;}
+    if(selected.some(item=>!itemOptionsValid(item))){setError('Please complete the required variants or options for every selected meal.');return;}
     setBusy(true);setError(null);setNotice(null);
     const {data,error}=await supabase.functions.invoke('meal-subscription-payment',{body:{
       action:'initialize',restaurant_id:restaurantId,saved_address_id:addressId,package_weeks:weeks,delivery_days:days,delivery_time:mealTime,
-      items:selected.map(item=>({menu_item_id:item.id,quantity:quantities[item.id]})),callback_origin:window.location.origin
+      items:selected.map(item=>({menu_item_id:item.id,quantity:quantities[item.id],selected_options:selectedOptionsFor(item)})),callback_origin:window.location.origin
     }});
     if(error||!data?.authorization_url){setError(data?.error??error?.message??'Could not start payment.');setBusy(false);return;}
     window.location.href=data.authorization_url;
