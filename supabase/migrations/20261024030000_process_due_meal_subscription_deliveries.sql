@@ -19,6 +19,7 @@ declare
   v_order_id uuid;
   v_created integer := 0;
   v_skipped integer := 0;
+  v_skipped_today integer := 0;
   v_now_local timestamp := now() at time zone 'Africa/Lagos';
   v_meal_cutoff time;
   v_item jsonb;
