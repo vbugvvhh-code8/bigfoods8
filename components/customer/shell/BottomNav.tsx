@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
-import {Home, ClipboardList, User, CalendarPlus, CalendarDays} from 'lucide-react';
+import {Home, ClipboardList, User, CalendarDays} from 'lucide-react';
 
 const ITEMS = [
   {href: '/order', label: 'Home', icon: Home},
@@ -13,18 +13,15 @@ const ITEMS = [
 
 export function BottomNav() {
   const pathname = usePathname();
-  const items = pathname.startsWith('/subscriptions')
-    ? [...ITEMS, {href: '/subscriptions/new', label: 'Add subscription', icon: CalendarPlus}]
-    : ITEMS;
 
   return (
     <nav
       className="lg:hidden fixed bottom-0 left-0 right-0 z-[10000] flex bg-white"
       style={{borderTop: '1px solid var(--line)', paddingBottom: 'env(safe-area-inset-bottom)'}}
     >
-      {items.map(({href, label, icon: Icon}) => {
+      {ITEMS.map(({href, label, icon: Icon}) => {
         const activeHref = href.split('#')[0];
-            const active = href === '/subscriptions/new' ? pathname === '/subscriptions/new' : activeHref === '/order' ? pathname === '/order' : pathname?.startsWith(activeHref);
+            const active = activeHref === '/order' ? pathname === '/order' : pathname?.startsWith(activeHref);
         const color = active ? 'var(--orange)' : 'var(--gray)';
         return (
           <Link
