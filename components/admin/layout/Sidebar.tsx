@@ -50,14 +50,13 @@ function NavList({ items = NAV_ITEMS }: { items?: typeof NAV_ITEMS }) {
   );
 }
 
-function LogoutButton() {
+function LogoutButton({ staffMode = false }: { staffMode?: boolean }) {
   const router = useRouter();
   const supabase = getBrowserSupabase();
 
   async function handleLogout() {
-    if (window.location.pathname.startsWith('/admin/staff')) {
+    if (staffMode) {
       await fetch('/api/bigfoods-staff/session', { method: 'DELETE' });
-      await supabase.auth.signOut();
       router.push('/staff/login');
       router.refresh();
       return;
@@ -86,7 +85,7 @@ export default function Sidebar() {
 
   const footer = (
     <div className="mt-auto pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-      <LogoutButton />
+      <LogoutButton staffMode={pathname.startsWith('/admin/staff')} />
       <div className="text-[10.5px] px-2.5 mt-1" style={{ color: '#7A736A' }}>
         {profile ? `Logged in as ${profile.full_name ?? profile.id}` : 'Logged in as Admin'}
       </div>
@@ -126,7 +125,7 @@ export default function Sidebar() {
               </button>
             </div>
             <div onClick={() => setOpen(false)}>
-              <NavList />
+              <NavList items={visibleNavItems} />
             </div>
             {footer}
           </div>
