@@ -3,18 +3,13 @@
 import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import NavItem from './NavItem';
-import { LayoutGrid, MapPin, Utensils, Bike, Settings, Menu, X, Inbox, AlertTriangle, Wallet, Banknote, Megaphone, Users, LogOut, Route, ShieldCheck, Tags, ClipboardList, CalendarDays, Clock3, CalendarCheck, ArrowLeftRight, WalletCards, HeartPulse } from 'lucide-react';
+import { LayoutGrid, MapPin, Utensils, Bike, Settings, Menu, X, Inbox, AlertTriangle, Wallet, Banknote, Megaphone, Users, LogOut, Route, ShieldCheck, Tags, ClipboardList, CalendarDays, Clock3, CalendarCheck, ArrowLeftRight, WalletCards, HeartPulse, ChevronDown } from 'lucide-react';
 import useSession from '@/hooks/useSession';
 import getBrowserSupabase from '@/lib/supabase/client';
 
 const NAV_ITEMS = [
   { id: '/admin/dashboard', label: 'Dashboard', icon: <LayoutGrid className="w-4 h-4" /> },
-  { id: '/admin/staff', label: 'Staff Directory', icon: <Users className="w-4 h-4" /> },
-  { id: '/admin/staff/operations?tab=assign', label: 'Staff Shift Schedule', icon: <CalendarDays className="w-4 h-4" /> },
-  { id: '/admin/staff/operations?tab=attendance', label: 'Staff Attendance', icon: <Clock3 className="w-4 h-4" /> },
-  { id: '/admin/staff/operations?tab=leave', label: 'Staff Leave Requests', icon: <CalendarCheck className="w-4 h-4" /> },
-  { id: '/admin/staff/operations?tab=swaps', label: 'Staff Shift Swaps', icon: <ArrowLeftRight className="w-4 h-4" /> },
-  { id: '/admin/staff/operations?tab=payroll', label: 'Staff Payroll & Health', icon: <WalletCards className="w-4 h-4" /> },
+  { id: '/admin/staff', label: 'Staff Management', icon: <Users className="w-4 h-4" /> },
   { id: '/admin/zone-map', label: 'Zone Map', icon: <MapPin className="w-4 h-4" /> },
   { id: '/admin/areas', label: 'Service Areas', icon: <MapPin className="w-4 h-4" /> },
   { id: '/admin/seller-places', label: 'Seller Places', icon: <Users className="w-4 h-4" /> },
@@ -46,11 +41,36 @@ function BrandBlock() {
 }
 
 function NavList({ items = NAV_ITEMS }: { items?: typeof NAV_ITEMS }) {
+  const pathname = usePathname();
+  const staffOpen = pathname.startsWith('/admin/staff');
+  const [staffExpanded, setStaffExpanded] = useState(staffOpen);
+  const staffLinks = [
+    { href: '/admin/staff', label: 'Staff Directory' },
+    { href: '/admin/staff/operations?tab=locations', label: 'Work Locations' },
+    { href: '/admin/staff/operations?tab=shifts', label: 'Shift Templates' },
+    { href: '/admin/staff/operations?tab=assign', label: 'Shift Schedule' },
+    { href: '/admin/staff/operations?tab=qr', label: 'Premises QR / Token' },
+    { href: '/admin/staff/operations?tab=attendance', label: 'Attendance' },
+    { href: '/admin/staff/operations?tab=leave', label: 'Leave Requests' },
+    { href: '/admin/staff/operations?tab=swaps', label: 'Shift Swaps' },
+    { href: '/admin/staff/operations?tab=payroll', label: 'Payroll & Staff Health' },
+  ];
   return (
     <nav className="flex flex-col gap-0.5">
-      {items.map((n) => (
-        <NavItem key={n.id} href={n.id} icon={n.icon} label={n.label} />
-      ))}
+      {items.map((n) => n.id === '/admin/staff' ? (
+        <div key={n.id}>
+          <button type="button" onClick={() => setStaffExpanded((v) => !v)} className="flex w-full items-center gap-2.5 px-2.5 py-2.5 rounded-lg text-[12.5px] font-medium text-left" style={{ background: staffOpen ? 'rgba(255,106,0,0.12)' : 'transparent', color: staffOpen ? 'white' : '#B8B0A8', borderLeft: staffOpen ? '2px solid var(--orange)' : '2px solid transparent' }}>
+            {n.icon}<span className="flex-1">{n.label}</span><ChevronDown className={"h-4 w-4 transition-transform " + (staffExpanded ? 'rotate-180' : '')} />
+          </button>
+          {staffExpanded && <div className="ml-4 mt-1 mb-2 flex flex-col gap-0.5 border-l border-white/10 pl-2">
+            {staffLinks.map((item) => {
+              const path = item.href.split('?')[0];
+              const active = pathname === path && (item.href.indexOf('?') < 0 || (typeof window !== 'undefined' && window.location.search === '?' + item.href.split('?')[1]));
+              return <Link key={item.href} href={item.href} className="rounded-md px-2.5 py-2 text-[11.5px] leading-5" style={{ background: active ? 'rgba(255,106,0,0.12)' : 'transparent', color: active ? 'white' : '#B8B0A8' }}>{item.label}</Link>;
+            })}
+          </div>}
+        </div>
+      ) : <NavItem key={n.id} href={n.id} icon={n.icon} label={n.label} />)}
     </nav>
   );
 }
