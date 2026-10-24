@@ -182,6 +182,12 @@ Deno.serve(async (req: Request) => {
     const paystackReference = paystackTransaction?.reference;
 
     if (!verifyRes.ok || verifyData?.status !== true || paystackStatus !== "success") {
+      // Only release immediately for terminal provider failures. Pending or
+      // temporarily unavailable verification keeps the short-lived hold in place.
+      if (verifyRes.ok && verifyData?.status === true && ["failed", "abandoned"].includes(String(paystackStatus))) {
+        await admin.from("transactions").update({ status: "failed" }).eq("id", txn.id).eq("status", "pending");
+        await admin.rpc("release_menu_stock_reservation", { p_reference: reference });
+      }
       return json({ success: false, error: "Payment was not successful" });
     }
 
@@ -201,10 +207,25 @@ Deno.serve(async (req: Request) => {
         referenceMatches: paystackReference === reference,
       });
       await admin.from("transactions").update({ status: "failed" }).eq("id", txn.id);
+      await admin.rpc("release_menu_stock_reservation", { p_reference: reference });
       return json({ success: false, error: "Payment details could not be verified. Please contact support before retrying." }, 400);
     }
 
-    // Claim success only after amount, currency, reference, and provider status match.
+    // Consume the reservation only after Paystack's amount, currency,
+    // reference and success status have all been verified. The RPC is idempotent.
+    const { data: stockResult, error: stockError } = await admin.rpc(
+      "consume_menu_stock_reservation",
+      { p_reference: reference },
+    );
+    if (stockError || stockResult?.success !== true) {
+      console.error("ORDER_STOCK_CONSUMPTION_FAILED", { reference, message: stockError?.message, stockResult });
+      return json({
+        success: false,
+        error: "Payment may have been received, but stock could not be confirmed. Please contact BigFoods support before trying to pay again.",
+      }, 409);
+    }
+
+    // Claim success only after amount, currency, reference, provider status, and stock are verified.
     const { data: claimed, error: claimError } = await admin.from("transactions")
       .update({ status: "success" })
       .eq("id", txn.id)
