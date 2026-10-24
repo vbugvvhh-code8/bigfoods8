@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Clock3, CreditCard, Loader2, Pause, Play, RefreshCw, XCircle } from 'lucide-react';
+import { CheckCircle2, CreditCard, Loader2 } from 'lucide-react';
 import PageHeader from '@/components/admin/layout/PageHeader';
 import getBrowserSupabase from '@/lib/supabase/client';
 
@@ -10,7 +10,6 @@ type SavedAddress = { id:string; label:string|null; address:string; lat:number|n
 type MenuOption = { id:string; name:string; price:number; is_available?:boolean; stock_quantity?:number|null; stock_reserved?:number };
 type MenuOptionGroup = { id:string; name:string; required:boolean; selection_type:'single'|'multiple'; min_select?:number; max_select?:number; options:MenuOption[] };
 type MenuItem = { id:string; restaurant_id:string; name:string; price:number; promotional_price:number|null; promotion_starts_at:string|null; promotion_ends_at:string|null; is_available:boolean; admin_disabled:boolean; category:string|null; image_url:string|null; description:string|null; ingredients:string|null; serving_size:string|null; preparation_time_minutes:number|null; allergens:string[]; dietary_tags:string[]; option_groups:MenuOptionGroup[] };
-type Subscription = { id:string; restaurant_id:string; package_weeks:number; delivery_days:number[]; delivery_time:string; selected_items:{menu_item_id:string;name:string;quantity:number;unit_price:number;selected_options?:{groupName:string;optionName:string;quantity:number;price:number}[]}[]; total_deliveries:number; total_amount:number; status:string; starts_on:string|null; ends_on:string|null; paid_at:string|null; created_at:string; restaurant?:{name:string}|null };
 const DAY_OPTIONS=[{value:1,label:'Mon'},{value:2,label:'Tue'},{value:3,label:'Wed'},{value:4,label:'Thu'},{value:5,label:'Fri'},{value:6,label:'Sat'},{value:7,label:'Sun'}];
 const money=(n:number)=>new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN',maximumFractionDigits:0}).format(n);
 
@@ -31,17 +30,11 @@ export default function SubscriptionsPage(){
   const [weeks,setWeeks]=useState(4);
   const [days,setDays]=useState<number[]>([1,2,3,4,5]);
   const [mealTime,setMealTime]=useState('lunch');
-  const [subscriptions,setSubscriptions]=useState<Subscription[]>([]);
   const [loading,setLoading]=useState(true);
   const [menuLoading,setMenuLoading]=useState(false);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
   const [notice,setNotice]=useState<string|null>(null);
-
-  const loadSubscriptions=useCallback(async()=>{
-    const {data,error}=await supabase.from('meal_subscriptions').select('id,restaurant_id,package_weeks,delivery_days,delivery_time,selected_items,total_deliveries,total_amount,status,starts_on,ends_on,paid_at,created_at,restaurants(name)').order('created_at',{ascending:false}).limit(100);
-    if(!error)setSubscriptions((data??[]).map((row:any)=>({...row,restaurant:row.restaurants})) as Subscription[]);
-  },[supabase]);
 
   useEffect(()=>{
     let active=true;
@@ -55,11 +48,10 @@ export default function SubscriptionsPage(){
       if(!active)return;
       if(error)setError('Could not load kitchens. Please refresh and try again.');
       else setRestaurants((data??[]) as Restaurant[]);
-      await loadSubscriptions();
       if(active)setLoading(false);
     })();
     return()=>{active=false;};
-  },[supabase,loadSubscriptions]);
+  },[supabase]);
 
   useEffect(()=>{
     if(!restaurantId){setMenu([]);setQuantities({});return;}
@@ -78,11 +70,11 @@ export default function SubscriptionsPage(){
       const {data,error}=await supabase.functions.invoke('meal-subscription-payment',{body:{action:'verify',reference}});
       if(!active)return;
       if(error||!data?.success)setError(data?.error??error?.message??'We could not confirm payment yet. Refresh to try again.');
-      else {setNotice('Payment confirmed. Your prepaid meal package is active.');await loadSubscriptions();window.history.replaceState({},'',window.location.pathname);}
+      else {setNotice('Payment confirmed. Your prepaid meal package is active.');window.history.replaceState({},'',window.location.pathname);}
       setBusy(false);
     })();
     return()=>{active=false;};
-  },[userId,supabase,loadSubscriptions]);
+  },[userId,supabase]);
 
   const selected = useMemo(
     () => menu.filter((item) => (quantities[item.id] ?? 0) > 0),
@@ -167,14 +159,6 @@ export default function SubscriptionsPage(){
     if(error||!data?.authorization_url){setError(data?.error??error?.message??'Could not start payment.');setBusy(false);return;}
     window.location.href=data.authorization_url;
   }
-  async function manage(subscriptionId:string,status:'active'|'paused'|'cancelled'){
-    setBusy(true);setError(null);setNotice(null);
-    const {data,error}=await supabase.functions.invoke('meal-subscription-payment',{body:{action:'manage',subscription_id:subscriptionId,status}});
-    if(error||!data?.success)setError(data?.error??error?.message??'Could not update this subscription.');
-    else {setNotice('Subscription updated: '+status+'.');await loadSubscriptions();}
-    setBusy(false);
-  }
-
   if(loading)return <div className="mx-auto max-w-5xl p-6"><p className="py-16 text-center text-sm text-gray-500"><Loader2 className="mr-2 inline h-4 w-4 animate-spin"/>Loading subscriptions…</p></div>;
   if(!userId)return <div className="mx-auto max-w-3xl p-6"><PageHeader title="Add meal subscription" subtitle="Build a scheduled meal package from one kitchen and pay once upfront for all deliveries."/><div className="rounded-2xl border bg-white p-6"><p className="text-sm text-gray-600">Please sign in to create or manage meal subscriptions.</p><a href="/login?next=%2Fsubscriptions" className="mt-4 inline-flex rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-white">Sign in</a></div></div>;
 
@@ -200,10 +184,5 @@ export default function SubscriptionsPage(){
         <button type="button" onClick={()=>void buyPackage()} disabled={busy||!restaurantId||!addressId||!selected.length||!days.length||estimate<=0} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold text-white disabled:opacity-50" style={{background:'var(--orange)'}}>{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<CreditCard className="h-4 w-4"/>}{busy?'Processing…':'Pay and activate package'}</button>
       </aside>
     </div>
-    <section id="your-packages" className="mt-8 scroll-mt-24 rounded-2xl border bg-white p-4 sm:p-6" style={{borderColor:'var(--line)'}}>
-      <div className="mb-4 flex items-center justify-between gap-3"><div><h2 className="text-lg font-bold">Your meal packages</h2><p className="mt-1 text-sm text-gray-500">Review prepaid subscriptions and manage upcoming schedules.</p></div><button type="button" onClick={()=>void loadSubscriptions()} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold" style={{borderColor:'var(--line)'}}><RefreshCw className="h-3.5 w-3.5"/>Refresh</button></div>
-      {subscriptions.length===0?<p className="rounded-xl p-5 text-sm text-gray-500" style={{background:'#F8F6F3'}}>You have no meal packages yet.</p>:<div className="grid gap-4 md:grid-cols-2">{subscriptions.map(sub=><article key={sub.id} className="rounded-xl border p-4" style={{borderColor:'var(--line)'}}><div className="flex items-start justify-between gap-3"><div><h3 className="font-bold">{sub.restaurant?.name??'Kitchen'}</h3><p className="mt-1 text-xs text-gray-500">{sub.package_weeks} week(s) · {sub.total_deliveries} deliveries · {sub.delivery_time}</p></div><span className="rounded-full px-2.5 py-1 text-xs font-bold capitalize" style={{background:sub.status==='active'?'#E7F6EC':sub.status==='paused'?'#FFF0E5':'#F1F1F1',color:sub.status==='active'?'#207245':sub.status==='paused'?'#B45309':'#555'}}>{sub.status.replaceAll('_',' ')}</span></div><p className="mt-3 text-sm font-semibold">{money(Number(sub.total_amount))} paid package</p><p className="mt-1 text-xs text-gray-500">Schedule: {sub.delivery_days.map(d=>DAY_OPTIONS.find(x=>x.value===d)?.label).filter(Boolean).join(', ')} · {sub.starts_on??'Start pending'} to {sub.ends_on??'End pending'}</p><div className="mt-3 space-y-1">{(sub.selected_items??[]).map(item=><div key={item.menu_item_id} className="text-xs text-gray-600"><p>{item.quantity} × {item.name}</p>{(item.selected_options??[]).map(option=><p key={option.optionName} className="ml-3 text-[11px]">↳ {option.groupName}: {option.quantity} × {option.optionName}{option.price>0?' (+'+money(option.price)+')':''}</p>)}</div>)}</div>{sub.status==='active'&&<div className="mt-4 flex gap-2"><button type="button" disabled={busy} onClick={()=>void manage(sub.id,'paused')} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-semibold" style={{borderColor:'var(--line)'}}><Pause className="h-3 w-3"/>Pause</button><button type="button" disabled={busy} onClick={()=>{if(window.confirm('Cancel this package and cancel its remaining scheduled deliveries?'))void manage(sub.id,'cancelled')}} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-semibold" style={{borderColor:'var(--line)',color:'#B42318'}}><XCircle className="h-3 w-3"/>Cancel</button></div>}{sub.status==='paused'&&<div className="mt-4 flex gap-2"><button type="button" disabled={busy} onClick={()=>void manage(sub.id,'active')} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-semibold" style={{borderColor:'var(--line)',color:'#207245'}}><Play className="h-3 w-3"/>Resume</button><button type="button" disabled={busy} onClick={()=>{if(window.confirm('Cancel this package and cancel its remaining scheduled deliveries?'))void manage(sub.id,'cancelled')}} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-semibold" style={{borderColor:'var(--line)',color:'#B42318'}}><XCircle className="h-3 w-3"/>Cancel</button></div>}</article>)}</div>}
-    </section>
-    <p className="mt-4 text-xs text-gray-500"><Clock3 className="mr-1 inline h-3.5 w-3.5"/>Scheduled delivery dates are reserved after payment. Order creation and delivery tracking remain subject to the subscription delivery workflow.</p>
   </div>;
 }
