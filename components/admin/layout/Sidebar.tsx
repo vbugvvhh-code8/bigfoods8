@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import NavItem from './NavItem';
 import { LayoutGrid, MapPin, Utensils, Bike, Settings, Menu, X, Inbox, AlertTriangle, Wallet, Banknote, Megaphone, Users, LogOut, Route, ShieldCheck, Tags, ClipboardList, CalendarDays } from 'lucide-react';
 import useSession from '@/hooks/useSession';
@@ -40,10 +40,10 @@ function BrandBlock() {
   );
 }
 
-function NavList() {
+function NavList({ items = NAV_ITEMS }: { items?: typeof NAV_ITEMS }) {
   return (
     <nav className="flex flex-col gap-0.5">
-      {NAV_ITEMS.map((n) => (
+      {items.map((n) => (
         <NavItem key={n.id} href={n.id} icon={n.icon} label={n.label} />
       ))}
     </nav>
@@ -80,6 +80,8 @@ function LogoutButton() {
 
 export default function Sidebar() {
   const { profile } = useSession();
+  const pathname = usePathname();
+  const visibleNavItems = pathname.startsWith('/admin/staff') ? NAV_ITEMS.filter((item) => item.id === '/admin/staff') : NAV_ITEMS;
   const [open, setOpen] = useState(false);
 
   const footer = (
@@ -99,7 +101,7 @@ export default function Sidebar() {
           <BrandBlock />
           <p className="text-[10px] uppercase tracking-widest px-1.5 mt-2" style={{ color: '#9C948A' }}>Admin Console</p>
         </div>
-        <NavList />
+        <NavList items={visibleNavItems} />
         {footer}
       </div>
 
