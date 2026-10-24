@@ -11,13 +11,26 @@ async function passwordHash(password: string, salt: string) {
   const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
   return hex(new Uint8Array(await crypto.subtle.deriveBits({ name:"PBKDF2", salt:unhex(salt), iterations:310000, hash:"SHA-256" }, key, 256)));
 }
-async function actorFor(db: any, token: string) {
-  if (!/^[0-9a-f]{64}$/i.test(token)) return null;
-  const { data: session } = await db.from("bigfoods_staff_sessions").select("id,staff_id,expires_at,revoked_at").eq("token_hash", await digest(token)).maybeSingle();
-  if (!session || session.revoked_at || new Date(session.expires_at).getTime() <= Date.now()) return null;
-  const { data: staff } = await db.from("bigfoods_staff").select("id,email,display_name,role,permissions,is_active,must_change_password").eq("id", session.staff_id).maybeSingle();
-  if (!staff?.is_active) return null;
-  return staff;
+async function actorFor(db: any, token: string, accessToken: string) {
+  if (/^[0-9a-f]{64}$/i.test(token)) {
+    const { data: session } = await db.from("bigfoods_staff_sessions").select("id,staff_id,expires_at,revoked_at").eq("token_hash", await digest(token)).maybeSingle();
+    if (session && !session.revoked_at && new Date(session.expires_at).getTime() > Date.now()) {
+      const { data: staff } = await db.from("bigfoods_staff").select("id,email,display_name,role,permissions,is_active,must_change_password").eq("id", session.staff_id).maybeSingle();
+      if (staff?.is_active) return { ...staff, auth_user_id: null, is_platform_admin: false };
+    }
+  }
+  if (accessToken) {
+    const { data: result, error: authError } = await db.auth.getUser(accessToken);
+    const user = result?.user;
+    if (!authError && user) {
+      const { data: profile } = await db.from("profiles").select("id,role,status,blocked,full_name").eq("id", user.id).maybeSingle();
+      if (profile?.role === "admin" && profile.status === "active" && !profile.blocked) {
+        const { data: matchedStaff } = await db.from("bigfoods_staff").select("id").ilike("email", user.email ?? "").maybeSingle();
+        return { id: matchedStaff?.id ?? null, email: user.email ?? "", display_name: profile.full_name ?? "Admin", role: "admin", permissions: ["staff.manage", "staff.view"], is_active: true, must_change_password: false, auth_user_id: user.id, is_platform_admin: true };
+      }
+    }
+  }
+  return null;
 }
 function randomHex(size:number) { return hex(crypto.getRandomValues(new Uint8Array(size))); }
 function isValidDateOnly(value:string) {
@@ -55,7 +68,8 @@ Deno.serve(async (req: Request) => {
       return json({ ok:true,staff },201);
     }
     const token = typeof body.session_token === "string" ? body.session_token : "";
-    const actor = await actorFor(db,token);
+    const bearer = /^Bearer\s+(.+)$/i.exec(req.headers.get("Authorization") ?? "")?.[1] ?? "";
+    const actor = await actorFor(db,token,bearer);
     if (!actor) return json({ error:"Unauthenticated" },401);
     if (action === "change_password") {
       const currentPassword = typeof body.current_password === "string" ? body.current_password : "";
