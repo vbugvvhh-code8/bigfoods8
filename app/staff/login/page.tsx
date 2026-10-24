@@ -14,7 +14,9 @@ export default function StaffLoginPage() {
       const res = await fetch("/api/bigfoods-staff/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Unable to sign in");
-      router.replace("/staff"); router.refresh();
+      const permissions = data.staff?.permissions;
+      const canManageStaff = ["owner", "admin"].includes(data.staff?.role) || (Array.isArray(permissions) && permissions.includes("staff.manage"));
+      router.replace(canManageStaff ? "/admin/staff" : "/staff"); router.refresh();
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to sign in"); }
     finally { setLoading(false); }
   }
