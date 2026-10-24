@@ -22,7 +22,7 @@ create index if not exists bigfoods_staff_payroll_entries_period_idx
 alter table public.bigfoods_staff_payroll_entries enable row level security;
 
 create or replace function public.bigfoods_staff_calculate_payroll(p_payroll_month date, p_actor_id uuid)
-returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+returns jsonb language plpgsql security invoker set search_path = public, pg_temp as $
 declare
   v_month date := date_trunc('month', p_payroll_month)::date;
   v_next date := (date_trunc('month', p_payroll_month) + interval '1 month')::date;
