@@ -94,8 +94,12 @@ export default function StaffAttendancePage() {
     void start();
     return () => {
       active = false;
-      if (scanner?.isScanning) void scanner.stop().catch(() => {});
-      else if (scanner) void scanner.clear().catch(() => {});
+      const currentScanner = scanner;
+      if (currentScanner) {
+        void currentScanner.stop()
+          .then(() => currentScanner.clear())
+          .catch(() => { void currentScanner.clear().catch(() => {}); });
+      }
     };
   }, [scannerOpen]);
 
