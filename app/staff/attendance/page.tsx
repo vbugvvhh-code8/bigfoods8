@@ -94,12 +94,8 @@ export default function StaffAttendancePage() {
     void start();
     return () => {
       active = false;
-      const currentScanner = scanner;
-      if (currentScanner) {
-        void currentScanner.stop()
-          .then(() => currentScanner.clear())
-          .catch(() => { void currentScanner.clear().catch(() => {}); });
-      }
+      // stop() is asynchronous; no clear() call is needed for this unmounted scanner.
+      if (scanner) void scanner.stop().catch(() => {});
     };
   }, [scannerOpen]);
 
