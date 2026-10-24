@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
-import {Home, ClipboardList, User} from 'lucide-react';
+import {Home, ClipboardList, User, CalendarDays} from 'lucide-react';
 
 const ITEMS = [
   {href: '/order', label: 'Home', icon: Home},
   {href: '/order/orders', label: 'Orders', icon: ClipboardList},
+  {href: '/subscriptions', label: 'Subscription', icon: CalendarDays},
   {href: '/order/profile', label: 'Profile', icon: User},
 ];
 
@@ -19,7 +20,8 @@ export function BottomNav() {
       style={{borderTop: '1px solid var(--line)', paddingBottom: 'env(safe-area-inset-bottom)'}}
     >
       {ITEMS.map(({href, label, icon: Icon}) => {
-        const active = href === '/order' ? pathname === '/order' : pathname?.startsWith(href);
+        const activeHref = href.split('#')[0];
+            const active = activeHref === '/order' ? pathname === '/order' : pathname?.startsWith(activeHref);
         const color = active ? 'var(--orange)' : 'var(--gray)';
         return (
           <Link
