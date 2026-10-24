@@ -72,6 +72,65 @@ Deno.serve(async (req: Request) => {
       if (error) return json({ error:"Unable to load staff" },503);
       return json({ staff:data ?? [] });
     }
+    if (action === "deactivate") {
+      const id = typeof body.staff_id === "string" ? body.staff_id : "";
+      if (!id) return json({ error: "Staff account ID is required" }, 400);
+      if (id === actor.id) return json({ error: "You cannot deactivate your own account" }, 400);
+      const { data: target } = await db.from("bigfoods_staff").select("id,role").eq("id",id).maybeSingle();
+      if (!target) return json({ error: "Staff account not found" },404);
+      if (target.role === "owner" && actor.role !== "owner") return json({ error: "Only the owner can change owner accounts" },403);
+      const { error } = await db.from("bigfoods_staff").update({ is_active:false, updated_at:new Date().toISOString() }).eq("id",id);
+      if (error) return json({ error:"Unable to deactivate staff account" },503);
+      await db.from("bigfoods_staff_sessions").update({ revoked_at:new Date().toISOString() }).eq("staff_id",id).is("revoked_at",null);
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id:actor.id,subject_staff_id:id,action:"staff.deactivate",details:{} });
+      return json({ ok:true });
+    }
+    if (action === "update") {
+      const id = typeof body.staff_id === "string" ? body.staff_id : "";
+      if (!id) return json({ error:"Staff account ID is required" },400);
+      const { data: target } = await db.from("bigfoods_staff").select("id,role").eq("id",id).maybeSingle();
+      if (!target) return json({ error:"Staff account not found" },404);
+      if (target.role === "owner" && actor.role !== "owner") return json({ error:"Only the owner can update owner accounts" },403);
+      const updates:Record<string,unknown> = { updated_at:new Date().toISOString() };
+      if (typeof body.email === "string") {
+        const email = body.email.trim().toLowerCase();
+        if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) return json({ error:"Enter a valid email address" },400);
+        updates.email = email;
+      }
+      if (typeof body.display_name === "string") {
+        const name = body.display_name.trim();
+        if (!name || name.length > 120) return json({ error:"Enter a valid display name" },400);
+        updates.display_name = name;
+      }
+      if (typeof body.role === "string") {
+        const roles = ["admin","manager","inventory","pos","support","auditor"];
+        if (!roles.includes(body.role)) return json({ error:"Invalid staff role" },400);
+        if (body.role === "admin" && actor.role !== "owner") return json({ error:"Only the owner can grant administrator access" },403);
+        updates.role = body.role;
+        const permissionsByRole:Record<string,string[]> = {admin:["staff.manage","staff.view","inventory.manage","inventory.view","pos.manage","pos.view","audit.view"],manager:["staff.view","inventory.view","inventory.manage","pos.view","pos.manage","audit.view"],inventory:["inventory.view","inventory.manage"],pos:["pos.view","pos.manage"],support:["staff.view"],auditor:["staff.view","inventory.view","pos.view","audit.view"]};
+        updates.permissions = permissionsByRole[body.role];
+      }
+      if (typeof body.phone === "string") updates.phone = body.phone.trim() || null;
+      if (typeof body.job_title === "string") updates.job_title = body.job_title.trim() || null;
+      if (typeof body.start_date === "string") {
+        if (body.start_date && !/^\\d{4}-\\d{2}-\\d{2}$/.test(body.start_date)) return json({ error:"Start date must use YYYY-MM-DD" },400);
+        updates.start_date = body.start_date || null;
+      }
+      if (body.monthly_salary !== undefined) {
+        const salary = Number(body.monthly_salary);
+        if (!Number.isFinite(salary) || salary < 0 || salary > 1000000000) return json({ error:"Enter a valid monthly salary" },400);
+        updates.monthly_salary = salary;
+      }
+      if (typeof body.is_active === "boolean") {
+        if (id === actor.id && body.is_active === false) return json({ error:"You cannot deactivate your own account" },400);
+        updates.is_active = body.is_active;
+      }
+      const { data: updated, error } = await db.from("bigfoods_staff").update(updates).eq("id",id).select("id,email,display_name,role,permissions,is_active,must_change_password,phone,job_title,start_date,monthly_salary,last_login_at,created_at").single();
+      if (error || !updated) return json({ error:"Unable to update staff account; email may already exist" },409);
+      if (body.is_active === false) await db.from("bigfoods_staff_sessions").update({revoked_at:new Date().toISOString()}).eq("staff_id",id).is("revoked_at",null);
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id:actor.id,subject_staff_id:id,action:"staff.update",details:{ fields:Object.keys(updates).filter(k=>k!=="updated_at") } });
+      return json({ staff:updated });
+    }
     if (action === "create") {
       const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
       const name = typeof body.display_name === "string" ? body.display_name.trim() : "";
@@ -82,7 +141,7 @@ Deno.serve(async (req: Request) => {
       if (actor.role !== "owner" && role === "admin") return json({ error:"Only the owner can create administrators" },403);
       const permissionsByRole:Record<string,string[]> = {admin:["staff.manage","staff.view","inventory.manage","inventory.view","pos.manage","pos.view","audit.view"],manager:["staff.view","inventory.view","inventory.manage","pos.view","pos.manage","audit.view"],inventory:["inventory.view","inventory.manage"],pos:["pos.view","pos.manage"],support:["staff.view"],auditor:["staff.view","inventory.view","pos.view","audit.view"]};
       const salt=randomHex(16), hashed=await passwordHash(password,salt);
-      const {data:created,error}=await db.from("bigfoods_staff").insert({email,display_name:name,role,permissions:permissionsByRole[role],password_hash:hashed,password_salt:salt,is_active:true,must_change_password:true,created_by:actor.id}).select("id,email,display_name,role,permissions,is_active,must_change_password,created_at").single();
+      const {data:created,error}=await db.from("bigfoods_staff").insert({email,display_name:name,role,permissions:permissionsByRole[role],password_hash:hashed,password_salt:salt,is_active:true,must_change_password:true,phone:typeof body.phone==="string"?body.phone.trim()||null:null,job_title:typeof body.job_title==="string"?body.job_title.trim()||null:null,start_date:typeof body.start_date==="string"&&body.start_date?body.start_date:null,monthly_salary:body.monthly_salary===undefined||body.monthly_salary===""?null:Number(body.monthly_salary),created_by:actor.id}).select("id,email,display_name,role,permissions,is_active,must_change_password,created_at").single();
       if(error || !created) return json({error:"Unable to create staff account; email may already exist"},409);
       await db.from("bigfoods_staff_audit_events").insert({actor_staff_id:actor.id,subject_staff_id:created.id,action:"staff.create",details:{role}});
       return json({staff:created},201);
