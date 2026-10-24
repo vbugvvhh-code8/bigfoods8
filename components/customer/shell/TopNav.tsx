@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
-import {Home, ClipboardList, User, MapPin} from 'lucide-react';
+import {Home, ClipboardList, User, MapPin, CalendarDays} from 'lucide-react';
 import SafeImage from '@/components/ui/SafeImage';
 import {useGeolocation} from '@/hooks/useGeolocation';
 import {useEffect} from 'react';
@@ -13,6 +13,7 @@ const LOGO_URL =
 const ITEMS = [
   {href: '/order', label: 'Home', icon: Home},
   {href: '/order/orders', label: 'Orders', icon: ClipboardList},
+  {href: '/subscriptions', label: 'Subscription', icon: CalendarDays},
   {href: '/order/profile', label: 'Profile', icon: User},
 ];
 
@@ -72,7 +73,8 @@ export function TopNav() {
 
         <nav className="flex items-center gap-6">
           {ITEMS.map(({href, label, icon: Icon}) => {
-            const active = href === '/order' ? pathname === '/order' : pathname?.startsWith(href);
+            const activeHref = href.split('#')[0];
+            const active = activeHref === '/order' ? pathname === '/order' : pathname?.startsWith(activeHref);
             const color = active ? 'var(--orange)' : 'var(--gray)';
             return (
               <Link key={href} href={href} className="flex items-center gap-1.5 text-[13px] font-medium" style={{color}}>
