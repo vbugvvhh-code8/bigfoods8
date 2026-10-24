@@ -84,11 +84,68 @@ export default function SubscriptionsPage(){
     return()=>{active=false;};
   },[userId,supabase,loadSubscriptions]);
 
-  const selected=useMemo(()=>menu.filter(item=>(quantities[item.id]??0)>0),[menu,quantities]);
-  const itemBasePrice=(item:MenuItem)=>{const now=Date.now();const start=item.promotion_starts_at?new Date(item.promotion_starts_at).getTime():-Infinity;const end=item.promotion_ends_at?new Date(item.promotion_ends_at).getTime():Infinity;return item.promotional_price!=null&&now>=start&&now<=end?Number(item.promotional_price):Number(item.price);};
-  const selectedOptionsFor=(item:MenuItem)=>item.option_groups.flatMap(group=>group.options.filter(option=>(optionQuantities[item.id]?.[option.id]??0)>0).map(option=>({groupId:group.id,groupName:group.name,optionId:option.id,optionName:option.name,price:Number(option.price),quantity:optionQuantities[item.id]?.[option.id]??0})));
-  const itemOptionsValid=(item:MenuItem)=>item.option_groups.every(group=>{const chosen=group.options.filter(option=>(optionQuantities[item.id]?.[option.id]??0)>0);const min=group.required?Math.max(1,group.min_select??1):(group.min_select??0);const max=group.selection_type==='single'?1:(group.max_select??group.options.length);return chosen.length>=min&&chosen.length<=max&&chosen.every(option=>option.is_available!==false&&(option.stock_quantity==null||Number(option.stock_quantity)-Number(option.stock_reserved??0)>=(optionQuantities[item.id]?.[option.id]??0)));};
-  const updateOption=(item:MenuItem,group:MenuOptionGroup,option:MenuOption,next:number)=>setOptionQuantities(prev=>{const itemOptions={...(prev[item.id]??{})};if(next>0&&group.selection_type==='single')group.options.forEach(candidate=>{itemOptions[candidate.id]=0;});itemOptions[option.id]=Math.max(0,Math.min(99,next));return {...prev,[item.id]:itemOptions};});
+  const selected = useMemo(
+    () => menu.filter((item) => (quantities[item.id] ?? 0) > 0),
+    [menu, quantities],
+  );
+
+  const itemBasePrice = (item: MenuItem) => {
+    const now = Date.now();
+    const startTime = item.promotion_starts_at
+      ? new Date(item.promotion_starts_at).getTime()
+      : -Infinity;
+    const endTime = item.promotion_ends_at
+      ? new Date(item.promotion_ends_at).getTime()
+      : Infinity;
+    return item.promotional_price != null && now >= startTime && now <= endTime
+      ? Number(item.promotional_price)
+      : Number(item.price);
+  };
+
+  const selectedOptionsFor = (item: MenuItem) =>
+    item.option_groups.flatMap((group) =>
+      group.options
+        .filter((option) => (optionQuantities[item.id]?.[option.id] ?? 0) > 0)
+        .map((option) => ({
+          groupId: group.id,
+          groupName: group.name,
+          optionId: option.id,
+          optionName: option.name,
+          price: Number(option.price),
+          quantity: optionQuantities[item.id]?.[option.id] ?? 0,
+        })),
+    );
+
+  const itemOptionsValid = (item: MenuItem) =>
+    item.option_groups.every((group) => {
+      const chosen = group.options.filter(
+        (option) => (optionQuantities[item.id]?.[option.id] ?? 0) > 0,
+      );
+      const min = group.required ? Math.max(1, group.min_select ?? 1) : (group.min_select ?? 0);
+      const max = group.selection_type === 'single' ? 1 : (group.max_select ?? group.options.length);
+      return chosen.length >= min &&
+        chosen.length <= max &&
+        chosen.every((option) =>
+          option.is_available !== false &&
+          (option.stock_quantity == null ||
+            Number(option.stock_quantity) - Number(option.stock_reserved ?? 0) >=
+              (optionQuantities[item.id]?.[option.id] ?? 0)),
+        );
+    });
+
+  const updateOption = (
+    item: MenuItem,
+    group: MenuOptionGroup,
+    option: MenuOption,
+    next: number,
+  ) => setOptionQuantities((prev) => {
+    const itemOptions = { ...(prev[item.id] ?? {}) };
+    if (next > 0 && group.selection_type === 'single') {
+      group.options.forEach((candidate) => { itemOptions[candidate.id] = 0; });
+    }
+    itemOptions[option.id] = Math.max(0, Math.min(99, next));
+    return { ...prev, [item.id]: itemOptions };
+  });
   const selectedRestaurant=restaurants.find(item=>item.id===restaurantId);
   const selectedAddress=addresses.find(item=>item.id===addressId);
   const deliveryDistance=useMemo(()=>{if(!selectedRestaurant||selectedRestaurant.latitude==null||selectedRestaurant.longitude==null||selectedAddress?.lat==null||selectedAddress?.lng==null)return null;const rad=(v:number)=>v*Math.PI/180;const dLat=rad(Number(selectedAddress.lat)-Number(selectedRestaurant.latitude));const dLng=rad(Number(selectedAddress.lng)-Number(selectedRestaurant.longitude));const a=Math.sin(dLat/2)**2+Math.cos(rad(Number(selectedRestaurant.latitude)))*Math.cos(rad(Number(selectedAddress.lat)))*Math.sin(dLng/2)**2;return 6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));},[selectedRestaurant,selectedAddress]);
