@@ -3,7 +3,6 @@
 import SafeImage from '@/components/ui/SafeImage';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUp, ArrowDown } from 'lucide-react';
 import { Plus, Pencil, Trash2, Search, X, CheckSquare, Square, Eye, EyeOff } from 'lucide-react';
 import useRestaurant from '@/hooks/useRestaurant';
 import { useMenuItems } from '@/hooks/useMenuItems';
