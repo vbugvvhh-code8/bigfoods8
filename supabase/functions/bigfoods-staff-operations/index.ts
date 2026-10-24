@@ -63,10 +63,10 @@ return error?json({error:"Unable to load shift-swap requests"},503):json({reques
 }
 if(action==="shift_swap_request"){
 const shiftId=typeof b.shift_assignment_id==="string"?b.shift_assignment_id:"",targetStaffId=typeof b.target_staff_id==="string"&&b.target_staff_id?b.target_staff_id:null,targetShiftId=typeof b.target_shift_assignment_id==="string"&&b.target_shift_assignment_id?b.target_shift_assignment_id:null,reason=typeof b.reason==="string"?b.reason.trim():"";
-if(!shiftId||!reason||reason.length>1000)return json({error:"Select a shift and provide a reason (maximum 1000 characters)"},400);
-if(targetShiftId&&!targetStaffId)return json({error:"Choose the staff member for the target shift"},400);
-const {data:source}=await db.from("bigfoods_staff_shift_assignments").select("id,staff_id,starts_at,ends_at,status").eq("id",shiftId).eq("staff_id",a.id).maybeSingle();
+if(!shiftId||!targetStaffId||!reason||reason.length>1000)return json({error:"Choose a future shift, an approving colleague and provide a reason (maximum 1000 characters)"},400);
+const {data:source}=await db.from("bigfoods_staff_shift_assignments").select("id,staff_id,starts_at,ends_at,status,shift_template_id").eq("id",shiftId).eq("staff_id",a.id).maybeSingle();
 if(!source||source.status!=="scheduled"||new Date(source.starts_at)<=new Date())return json({error:"Only your future scheduled shifts can be requested for a swap"},400);
+const {data:template}=await db.from("bigfoods_staff_shift_templates").select("change_window_hours").eq("id",source.shift_template_id).maybeSingle();const changeWindowHours=Number(template?.change_window_hours??24);if(Date.now()>new Date(source.starts_at).getTime()-changeWindowHours*3600000)return json({error:`Shift changes must be requested at least ${changeWindowHours} hours before the shift starts.`},409);
 const {data:open}=await db.from("bigfoods_staff_attendance").select("id").eq("shift_assignment_id",shiftId).is("checked_out_at",null).maybeSingle();
 if(open)return json({error:"An active attendance session prevents a shift swap"},409);
 if(targetStaffId){const {data:target}=await db.from("bigfoods_staff").select("id,is_active").eq("id",targetStaffId).maybeSingle();if(!target?.is_active||target.id===a.id)return json({error:"Choose another active staff member"},400);}
