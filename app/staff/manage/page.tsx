@@ -44,7 +44,7 @@ export default function StaffManagementPage() {
   async function create(event:FormEvent) {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
     try {
-      await call({action:"create",email,display_name:name,role,temporary_password:temporaryPassword});
+      await call({action:"create",email,display_name:name,role,password:temporaryPassword});
       setEmail(""); setName(""); setTemporaryPassword("");
       setNotice("Staff account created. Share the temporary password securely; the staff member must change it.");
       await load();
