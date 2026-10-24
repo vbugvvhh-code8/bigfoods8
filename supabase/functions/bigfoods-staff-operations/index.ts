@@ -74,8 +74,9 @@ return json({request:data},201);
 }
 if(action==="shift_swap_review"){
 if(!admin(a))return json({error:"Forbidden"},403);
-const id=typeof b.request_id==="string"?b.request_id:"",status=typeof b.status==="string"?b.status:"",note=typeof b.review_note==="string"?b.review_note.trim().slice(0,1000):"";
+const id=typeof b.request_id==="string"?b.request_id:"",status=typeof b.status==="string"?b.status:"",note=typeof b.review_note==="string"?b.review_note.trim().slice(0,1000):"",targetStaffId=typeof b.target_staff_id==="string"&&b.target_staff_id?b.target_staff_id:null;
 if(!id||!["approved","rejected"].includes(status))return json({error:"Shift-swap request and decision are required"},400);
+if(status==="approved"&&targetStaffId){const {error:targetError}=await db.from("bigfoods_staff_shift_swap_requests").update({target_staff_id:targetStaffId}).eq("id",id).eq("status","pending");if(targetError)return json({error:"Unable to assign target staff member"},409);}
 const {data,error}=await db.rpc("bigfoods_staff_review_shift_swap",{p_request_id:id,p_reviewer_id:a.id,p_status:status,p_review_note:note||null});
 if(error||!data)return json({error:error?.message||"Unable to review shift-swap request"},409);
 const {data:request}=await db.from("bigfoods_staff_shift_swap_requests").select("requester_staff_id").eq("id",id).maybeSingle();
