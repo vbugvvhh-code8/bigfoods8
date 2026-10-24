@@ -51,6 +51,21 @@ Deno.serve(async (req: Request) => {
     const token = typeof body.session_token === "string" ? body.session_token : "";
     const actor = await actorFor(db,token);
     if (!actor) return json({ error:"Unauthenticated" },401);
+    if (action === "change_password") {
+      const currentPassword = typeof body.current_password === "string" ? body.current_password : "";
+      const newPassword = typeof body.new_password === "string" ? body.new_password : "";
+      if (newPassword.length < 14 || newPassword.length > 1024) return json({ error:"New password must be at least 14 characters." },400);
+      const { data: account } = await db.from("bigfoods_staff").select("id,password_hash,password_salt").eq("id",actor.id).maybeSingle();
+      if (!account) return json({ error:"Unable to verify account" },401);
+      const currentHash = await passwordHash(currentPassword,account.password_salt);
+      if (currentHash !== account.password_hash) return json({ error:"Current password is incorrect." },401);
+      const salt = randomHex(16), hashed = await passwordHash(newPassword,salt);
+      const { error } = await db.from("bigfoods_staff").update({password_hash:hashed,password_salt:salt,must_change_password:false,failed_login_count:0,locked_until:null,updated_at:new Date().toISOString()}).eq("id",actor.id);
+      if (error) return json({error:"Unable to change password"},503);
+      await db.from("bigfoods_staff_sessions").update({revoked_at:new Date().toISOString()}).eq("staff_id",actor.id).is("revoked_at",null);
+      await db.from("bigfoods_staff_audit_events").insert({actor_staff_id:actor.id,action:"staff.password_changed",details:{}});
+      return json({ok:true,sign_in_again:true});
+    }
     if (actor.role !== "owner" && actor.role !== "admin" && !(Array.isArray(actor.permissions) && actor.permissions.includes("staff.manage"))) return json({ error:"Forbidden" },403);
     if (action === "list") {
       const { data, error } = await db.from("bigfoods_staff").select("id,email,display_name,role,permissions,is_active,must_change_password,last_login_at,created_at").order("created_at",{ascending:false});
