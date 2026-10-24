@@ -6,6 +6,7 @@ import { resolveRestaurantEntryPath } from './lib/resolveRestaurantEntryPath';
 const ADMIN_LOGIN_PATH = '/admin/login';
 const ADMIN_BASE = '/admin';
 const STAFF_LOGIN_PATH = '/staff/login';
+const STAFF_BOOTSTRAP_PATH = '/staff/bootstrap';
 const STAFF_BASE = '/staff';
 const STAFF_COOKIE = 'bf_staff_session';
 const RESTAURANT_LOGIN_PATH = '/restaurant-portal/login';
@@ -31,7 +32,7 @@ const ONBOARDING_PATH_ORDER = [
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (pathname === ADMIN_LOGIN_PATH || pathname === STAFF_LOGIN_PATH || pathname === RESTAURANT_LOGIN_PATH || pathname === RIDER_LOGIN_PATH) {
+  if (pathname === ADMIN_LOGIN_PATH || pathname === STAFF_LOGIN_PATH || pathname === STAFF_BOOTSTRAP_PATH || pathname === RESTAURANT_LOGIN_PATH || pathname === RIDER_LOGIN_PATH) {
     return NextResponse.next();
   }
 
