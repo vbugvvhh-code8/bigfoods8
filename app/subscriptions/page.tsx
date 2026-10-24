@@ -93,7 +93,7 @@ export default function SubscriptionsPage() {
         </div>
         <Link href="/subscriptions/new" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white" style={{ background: 'var(--orange)' }}><Plus className="h-4 w-4" />Add meal subscription</Link>
       </div>
-      <section id="your-packages" className="scroll-mt-24 rounded-2xl border bg-white p-4 sm:p-6" style={{ borderColor: 'var(--line)' }}>
+      <section id="your-packages" className="scroll-mt-24 p-0">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div><h2 className="text-lg font-bold">Your meal packages</h2><p className="mt-1 text-sm text-gray-500">Review package details and manage upcoming schedules.</p></div>
           <button type="button" onClick={() => void loadSubscriptions()} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold" style={{ borderColor: 'var(--line)' }}><RefreshCw className="h-3.5 w-3.5" />Refresh</button>
