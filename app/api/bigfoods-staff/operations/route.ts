@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const response = await fetch(`${base}/functions/v1/bigfoods-staff-operations`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", apikey: key, ...(authorization ? { Authorization: authorization } : {}) },
+      headers: { "Content-Type": "application/json", apikey: key, Authorization: authorization || `Bearer ${key}` },
       body: JSON.stringify({ ...body, ...(token ? { session_token: token } : {}) }),
       cache: "no-store",
     });
