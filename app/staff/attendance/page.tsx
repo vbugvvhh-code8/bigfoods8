@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarDays, Clock3, MapPin, RefreshCw, CheckCircle2, CircleAlert, Navigation, QrCode, ArrowRight, CalendarCheck2 } from 'lucide-react';
+import { CalendarDays, Clock3, MapPin, RefreshCw, CheckCircle2, CircleAlert, Navigation, QrCode, ArrowRight, CalendarCheck2, ScanLine, X } from 'lucide-react';
 import StaffShell from '@/components/staff/StaffShell';
 
 type Shift = {
@@ -26,6 +26,8 @@ export default function StaffAttendancePage() {
   const [history, setHistory] = useState<Attendance[]>([]);
   const [shiftId, setShiftId] = useState('');
   const [qr, setQr] = useState('');
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannerError, setScannerError] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -61,6 +63,39 @@ export default function StaffAttendancePage() {
   }, [call, router]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (!scannerOpen) return;
+    let stream: MediaStream | null = null;
+    let active = true;
+    let timer = 0;
+    const video = document.getElementById('staff-attendance-qr-video') as HTMLVideoElement | null;
+    const start = async () => {
+      try {
+        if (!('BarcodeDetector' in window)) throw new Error('QR scanning is not supported by this browser. Use the manual code field below.');
+        const Detector = (window as unknown as { BarcodeDetector: new (options?: { formats: string[] }) => { detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue?: string }>> } }).BarcodeDetector;
+        const detector = new Detector({ formats: ['qr_code'] });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+        if (!active || !video) { stream.getTracks().forEach(track => track.stop()); return; }
+        video.srcObject = stream;
+        await video.play();
+        const scan = async () => {
+          if (!active || !video || video.readyState < 2) return;
+          try {
+            const codes = await detector.detect(video);
+            const value = codes.find(code => code.rawValue)?.rawValue;
+            if (value) { setQr(value.trim()); setScannerOpen(false); setScannerError(''); return; }
+          } catch { /* camera frame not decoded yet */ }
+          if (active) timer = window.setTimeout(scan, 300);
+        };
+        void scan();
+      } catch (e) {
+        setScannerError(e instanceof Error ? e.message : 'Unable to start camera. Allow camera access and try again.');
+      }
+    };
+    void start();
+    return () => { active = false; window.clearTimeout(timer); stream?.getTracks().forEach(track => track.stop()); if (video) video.srcObject = null; };
+  }, [scannerOpen]);
 
   // Best-effort monitoring while the staff attendance page remains open.
   // The server enforces a 30-minute minimum interval and rejects extra pings.
@@ -130,7 +165,7 @@ export default function StaffAttendancePage() {
         <div className="space-y-4 p-4 sm:p-5">
           {loading ? <div className="space-y-3"><div className="h-10 animate-pulse rounded-lg bg-[#F2EEE9]" /><div className="h-12 animate-pulse rounded-lg bg-[#F2EEE9]" /><div className="h-11 animate-pulse rounded-lg bg-[#F2EEE9]" /></div> : <>
             {open ? <div className="rounded-lg border border-green-100 bg-green-50 p-3"><p className="text-[12px] font-semibold text-green-900">Your shift is in progress</p><p className="mt-1 text-[11px] text-green-800">Checked in {dateTime(open.checked_in_at)}</p><p className="mt-1 text-[10.5px] text-green-800">GPS distance at check-in: {open.check_in_distance_m ?? '—'} m</p></div> : <div><label className="text-[11px] font-semibold text-[#51473F]" htmlFor="scheduled-shift">Select your assigned shift</label><select id="scheduled-shift" className={field} value={shiftId} onChange={(e) => setShiftId(e.target.value)}><option value="">Choose a scheduled shift</option>{shifts.filter((shift) => shift.status === 'scheduled').map((shift) => <option key={shift.id} value={shift.id}>{date(shift.starts_at)} · {shift.bigfoods_staff_shift_templates?.name || 'Shift'} ({time(shift.starts_at)}–{time(shift.ends_at)})</option>)}</select>{selectedShift && <div className="mt-2 flex items-start gap-2 text-[10.5px] text-[#81766D]"><MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span>{selectedShift.bigfoods_staff_work_locations?.name || 'Work location assigned'} · permitted radius {selectedShift.bigfoods_staff_work_locations?.radius_m ?? '—'} m</span></div>}</div>}
-            <div><label className="flex items-center gap-2 text-[11px] font-semibold text-[#51473F]" htmlFor="premises-token"><QrCode className="h-4 w-4 text-orange-600" />Premises QR code token</label><input id="premises-token" className={field} value={qr} onChange={(e) => setQr(e.target.value)} placeholder="Enter the current code displayed at work" autoComplete="off" autoCapitalize="none" spellCheck={false} /><p className="mt-2 text-[10.5px] leading-5 text-[#81766D]">The code expires after 45 seconds and can only be used once. Allow GPS access when prompted.</p></div>
+            <div><label className="flex items-center gap-2 text-[11px] font-semibold text-[#51473F]" htmlFor="premises-token"><QrCode className="h-4 w-4 text-orange-600" />Premises QR code token</label><input id="premises-token" className={field} value={qr} onChange={(e) => setQr(e.target.value)} placeholder="Enter the current code displayed at work" autoComplete="off" autoCapitalize="none" spellCheck={false} /><div className="mt-2 flex flex-wrap items-center gap-2"><button type="button" onClick={() => { setScannerError(""); setScannerOpen(true); }} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-orange-300 bg-orange-50 px-3 py-2 text-xs font-semibold text-orange-800"><ScanLine className="h-4 w-4" />Scan premises QR</button><span className="text-xs text-gray-500">Scan with your phone camera to fill this field.</span></div>{scannerError && <p role="alert" className="mt-2 text-xs text-red-700">{scannerError}</p>}{scannerOpen && <div className="mt-3 rounded-xl border border-orange-200 bg-black p-3"><div className="mb-2 flex items-center justify-between text-sm font-semibold text-white"><span>Scan premises QR</span><button type="button" onClick={() => setScannerOpen(false)} className="rounded-md p-1" aria-label="Close scanner"><X className="h-4 w-4" /></button></div><video id="staff-attendance-qr-video" playsInline muted className="max-h-72 w-full rounded-lg object-cover" /><p className="mt-2 text-xs text-gray-200">Point the rear camera at the live code on the premises display.</p></div>}<p className="mt-2 text-[10.5px] leading-5 text-[#81766D]">The code expires after 45 seconds and can only be used once. Allow GPS access when prompted.</p></div>
             <button disabled={busy || !qr.trim() || (!open && !shiftId)} onClick={() => void punch(open ? 'check_out' : 'check_in')} className={`${button} w-full`}>{busy ? <><RefreshCw className="h-4 w-4 animate-spin" />{open ? 'Checking out…' : 'Checking in…'}</> : <><Navigation className="h-4 w-4" />{open ? 'Check out of shift' : 'Check in to shift'}</>}</button>
           </>}
         </div>
