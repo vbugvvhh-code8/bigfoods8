@@ -53,6 +53,11 @@ export async function middleware(req: NextRequest) {
       const sessionData = await check.json().catch(() => ({}));
       const staff = sessionData?.staff;
       const permissions = staff?.permissions;
+      // Enforce first-login password rotation before allowing the admin staff UI.
+      // The Edge Function independently blocks staff-management API actions too.
+      if (staff?.must_change_password) {
+        return NextResponse.redirect(new URL('/staff/change-password', req.url));
+      }
       const canManageStaff = staff && staff.is_active !== false &&
         (['owner', 'admin'].includes(staff.role) || (Array.isArray(permissions) && permissions.includes('staff.manage')));
       if (!canManageStaff) return NextResponse.redirect(new URL('/staff', req.url));
