@@ -108,8 +108,8 @@ Deno.serve(async (req: Request) => {
             selectedOptions.push({ groupId: group.id, groupName: group.name, optionId: option.id, optionName: option.name, price: optionPrice, quantity: optionQuantity });
           }
         }
-        const allowedOptionIds = new Set(configuredGroups.flatMap((group:any) => (Array.isArray(group.options) ? group.options : []).map((option:any) => String(option.id))));
-        if (submittedOptions.some((option:any) => Number(option?.quantity) > 0 && !allowedOptionIds.has(String(option?.optionId)))) return json({ error: "A selected variant does not belong to " + item.name + "." }, 400);
+        const allowedOptionPairs = new Set(configuredGroups.flatMap((group:any) => (Array.isArray(group.options) ? group.options : []).map((option:any) => String(group.id) + ":" + String(option.id))));
+        if (submittedOptions.some((option:any) => Number(option?.quantity) > 0 && !allowedOptionPairs.has(String(option?.groupId) + ":" + String(option?.optionId)))) return json({ error: "A selected variant does not belong to " + item.name + "." }, 400);
         const optionCost = selectedOptions.reduce((sum, option) => sum + option.price * option.quantity, 0);
         const unitPrice = price + optionCost;
         perDeliveryTotal += unitPrice * quantity;
