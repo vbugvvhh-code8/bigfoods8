@@ -80,7 +80,6 @@ function LogoutButton({ staffMode = false }: { staffMode?: boolean }) {
 export default function Sidebar() {
   const { profile } = useSession();
   const pathname = usePathname();
-  const visibleNavItems = pathname.startsWith('/admin/staff') ? NAV_ITEMS.filter((item) => item.id === '/admin/staff') : NAV_ITEMS;
   const [open, setOpen] = useState(false);
 
   const footer = (
@@ -100,7 +99,7 @@ export default function Sidebar() {
           <BrandBlock />
           <p className="text-[10px] uppercase tracking-widest px-1.5 mt-2" style={{ color: '#9C948A' }}>Admin Console</p>
         </div>
-        <NavList items={visibleNavItems} />
+        <NavList />
         {footer}
       </div>
 
@@ -125,7 +124,7 @@ export default function Sidebar() {
               </button>
             </div>
             <div onClick={() => setOpen(false)}>
-              <NavList items={visibleNavItems} />
+              <NavList />
             </div>
             {footer}
           </div>
