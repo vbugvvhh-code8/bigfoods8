@@ -1,6 +1,7 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import getBrowserSupabase from "@/lib/supabase/client";
 import { Users, UserPlus, Search, Pencil, UserCheck, UserX, RefreshCw, ShieldCheck, Clock3 } from "lucide-react";
 
 type StaffRow = { id:string; email:string; display_name:string; role:string; permissions:string[]; is_active:boolean; must_change_password:boolean; phone?:string|null; job_title?:string|null; start_date?:string|null; monthly_salary?:number|null; last_login_at:string|null; created_at:string };
@@ -29,7 +30,10 @@ export default function StaffManagementPage() {
   const [search,setSearch] = useState("");
   const [statusFilter,setStatusFilter] = useState("all");
   const call = useCallback(async (body:Record<string,unknown>) => {
-    const res = await fetch("/api/bigfoods-staff/admin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),cache:"no-store"});
+    const {data:{session}} = await getBrowserSupabase().auth.getSession();
+    const headers:Record<string,string> = {"Content-Type":"application/json"};
+    if (session?.access_token) headers.Authorization = "Bearer " + session.access_token;
+    const res = await fetch("/api/bigfoods-staff/admin",{method:"POST",headers,body:JSON.stringify(body),cache:"no-store"});
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Request failed");
     return data;
@@ -37,20 +41,30 @@ export default function StaffManagementPage() {
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const sessionRes = await fetch("/api/bigfoods-staff/session",{cache:"no-store"});
-      const session = await sessionRes.json();
-      if (!sessionRes.ok) { router.replace("/staff/login"); return; }
-      const staffRole = session.staff?.role;
-      const permissions = session.staff?.permissions;
-      if (!["owner","admin"].includes(staffRole) && !(Array.isArray(permissions) && permissions.includes("staff.manage"))) {
-        setError("Your account does not have permission to manage staff."); setLoading(false); return;
+      if (inAdmin) {
+        const supabase = getBrowserSupabase();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) { router.replace("/admin/login"); return; }
+        const { data: profile, error: profileError } = await supabase.from("profiles").select("role,status,blocked").eq("id", user.id).maybeSingle();
+        if (profileError || profile?.role !== "admin" || profile.status !== "active" || profile.blocked) {
+          setError("Your account does not have permission to manage staff."); return;
+        }
+      } else {
+        const sessionRes = await fetch("/api/bigfoods-staff/session",{cache:"no-store"});
+        const session = await sessionRes.json();
+        if (!sessionRes.ok) { router.replace("/staff/login"); return; }
+        const staffRole = session.staff?.role;
+        const permissions = session.staff?.permissions;
+        if (!["owner","admin"].includes(staffRole) && !(Array.isArray(permissions) && permissions.includes("staff.manage"))) {
+          setError("Your account does not have permission to manage staff."); return;
+        }
       }
       setCanManage(true);
       const data = await call({action:"list"});
       setRows(data.staff ?? []);
     } catch(e) { setError(e instanceof Error ? e.message : "Unable to load staff"); }
     finally { setLoading(false); }
-  },[call,router]);
+  },[call,router,inAdmin]);
   useEffect(()=>{void load();},[load]);
   function resetForm() {
     setEmail(""); setName(""); setTemporaryPassword(""); setPhone(""); setJobTitle(""); setStartDate(""); setMonthlySalary(""); setRole("inventory"); setEditingId(null); setFormOpen(false);
