@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Plus, Pencil, Trash2, Search, X, CheckSquare, Square, Eye, EyeOff } from 'lucide-react';
 import useRestaurant from '@/hooks/useRestaurant';
 import { useMenuItems } from '@/hooks/useMenuItems';
-import { ChipPicker } from '@/components/restaurant/dashboard/MenuItemForm';
+import MenuItemForm, { ChipPicker } from '@/components/restaurant/dashboard/MenuItemForm';
 import MenuCatalogTransfer from '@/components/restaurant/dashboard/MenuCatalogTransfer';
 import { MENU_CATEGORY_PRESETS, MENU_CATEGORY_NAMES } from '@/lib/menuCategoryPresets';
 import type { MenuItem } from '@/types/database';
@@ -183,7 +183,14 @@ export default function MenuBuilderPage() {
 
       {showAddForm && (
         <div className="mb-5">
-          <button type="button" onClick={() => router.push('/restaurant-portal/dashboard/menu/item')} className="rounded-xl px-3 py-2 text-sm font-bold text-white" style={{background:'var(--orange)'}}>Open menu editor</button>
+          <MenuItemForm
+            restaurantId={restaurant.id}
+            existingItem={editingItem ?? undefined}
+            onSubmit={addMenuItem}
+            onUpdate={updateMenuItem}
+            onDone={() => { setShowAddForm(false); setEditingItem(null); }}
+            onCancel={() => { setShowAddForm(false); setEditingItem(null); }}
+          />
         </div>
       )}
 
