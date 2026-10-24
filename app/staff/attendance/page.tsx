@@ -10,7 +10,8 @@ type Shift = {
   bigfoods_staff_shift_templates?: { name: string; start_time: string; end_time: string };
   bigfoods_staff_work_locations?: { name: string; address: string | null; radius_m: number };
 };
-type LeaveRequest = { id:string; leave_type:string; starts_on:string; ends_on:string; reason:string; status:string; review_note:string|null; created_at:string };\ntype Attendance = {
+type LeaveRequest = { id:string; leave_type:string; starts_on:string; ends_on:string; reason:string; status:string; review_note:string|null; created_at:string };
+type Attendance = {
   id: string; shift_assignment_id: string | null; checked_in_at: string; checked_out_at: string | null; status: string;
   check_in_distance_m: number | null; check_out_distance_m: number | null; check_in_qr_verified: boolean; check_out_qr_verified: boolean;
 };
@@ -23,7 +24,9 @@ export default function StaffAttendancePage() {
   const router = useRouter();
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [open, setOpen] = useState<Attendance | null>(null);
-  const [history, setHistory] = useState<Attendance[]>([]);\n  const [leaveRequests,setLeaveRequests]=useState<LeaveRequest[]>([]);\n  const [leaveType,setLeaveType]=useState('annual');const [leaveStart,setLeaveStart]=useState('');const [leaveEnd,setLeaveEnd]=useState('');const [leaveReason,setLeaveReason]=useState('');
+  const [history, setHistory] = useState<Attendance[]>([]);
+  const [leaveRequests,setLeaveRequests]=useState<LeaveRequest[]>([]);
+  const [leaveType,setLeaveType]=useState('annual');const [leaveStart,setLeaveStart]=useState('');const [leaveEnd,setLeaveEnd]=useState('');const [leaveReason,setLeaveReason]=useState('');
   const [shiftId, setShiftId] = useState('');
   const [qr, setQr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -47,7 +50,8 @@ export default function StaffAttendancePage() {
       const nextShifts: Shift[] = schedule.shifts || [];
       setShifts(nextShifts);
       setOpen(attendance.open_attendance || null);
-      setHistory(attendance.history || []);\n      setLeaveRequests(leave.requests || []);
+      setHistory(attendance.history || []);
+      setLeaveRequests(leave.requests || []);
       setShiftId((current) => {
         if (current && nextShifts.some((shift) => shift.id === current && shift.status === 'scheduled')) return current;
         return nextShifts.find((shift) => shift.status === 'scheduled')?.id || '';
@@ -109,7 +113,9 @@ export default function StaffAttendancePage() {
     } finally { setBusy(false); }
   }
 
-  async function submitLeave(e: React.FormEvent) { e.preventDefault(); setBusy(true); setError(''); setNotice(''); try { await call({ action:'leave_request', leave_type:leaveType, starts_on:leaveStart, ends_on:leaveEnd, reason:leaveReason }); setNotice('Leave request submitted for admin review.'); setLeaveReason(''); await load(); } catch(e) { setError(e instanceof Error ? e.message : 'Unable to submit leave request'); } finally { setBusy(false); } }\n\n  const selectedShift = shifts.find((shift) => shift.id === shiftId);
+  async function submitLeave(e: React.FormEvent) { e.preventDefault(); setBusy(true); setError(''); setNotice(''); try { await call({ action:'leave_request', leave_type:leaveType, starts_on:leaveStart, ends_on:leaveEnd, reason:leaveReason }); setNotice('Leave request submitted for admin review.'); setLeaveReason(''); await load(); } catch(e) { setError(e instanceof Error ? e.message : 'Unable to submit leave request'); } finally { setBusy(false); } }
+
+  const selectedShift = shifts.find((shift) => shift.id === shiftId);
   const upcoming = shifts.filter((shift) => shift.status === 'scheduled' || shift.id === open?.shift_assignment_id);
   const field = 'mt-2 block w-full rounded-lg border border-[#DED6CE] bg-white px-3 py-3 text-sm text-[#28231F] outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100';
   const button = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#FF6A00] px-4 py-2.5 text-[12px] font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50';
