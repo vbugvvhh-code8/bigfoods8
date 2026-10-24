@@ -40,6 +40,21 @@ export default function OrdersPage() {
       </div>
 
       <div>
+        <p className="text-[12.5px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>Awaiting payment</p>
+        {loading ? (
+          <p className="text-[12px] py-4 text-center" style={{ color: 'var(--gray)' }}>Loading…</p>
+        ) : awaitingPayment.length === 0 ? (
+          <p className="text-[12px] py-3" style={{ color: 'var(--gray)' }}>No unpaid orders awaiting payment.</p>
+        ) : (
+          <div className="space-y-2.5">
+            {awaitingPayment.map((o) => (
+              <OrderCard key={o.id} order={o} onUpdateStatus={updateStatus} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
         <p className="text-[12.5px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>Active orders</p>
         {loading ? (
           <p className="text-[12px] py-4 text-center" style={{ color: 'var(--gray)' }}>Loading…</p>
