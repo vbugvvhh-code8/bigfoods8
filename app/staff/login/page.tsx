@@ -16,7 +16,13 @@ export default function StaffLoginPage() {
       if (!res.ok) throw new Error(data.error || "Unable to sign in");
       const permissions = data.staff?.permissions;
       const canManageStaff = ["owner", "admin"].includes(data.staff?.role) || (Array.isArray(permissions) && permissions.includes("staff.manage"));
-      router.replace(canManageStaff ? "/admin/staff" : "/staff"); router.refresh();
+      // Send temporary-password accounts directly to password rotation rather than
+      // relying on middleware to redirect them from their eventual destination.
+      const destination = data.staff?.must_change_password
+        ? "/staff/change-password"
+        : canManageStaff ? "/admin/staff" : "/staff";
+      router.replace(destination);
+      router.refresh();
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to sign in"); }
     finally { setLoading(false); }
   }
