@@ -152,7 +152,7 @@ export default function Sidebar() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div onClick={() => setOpen(false)}>
+            <div onClick={(event) => { if ((event.target as HTMLElement).closest("a")) setOpen(false); }}>
               <NavList />
             </div>
             {footer}
