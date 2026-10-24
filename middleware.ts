@@ -53,6 +53,14 @@ export async function middleware(req: NextRequest) {
         body: JSON.stringify({ token, action: 'validate' }), cache: 'no-store',
       });
       if (!check.ok) return NextResponse.redirect(new URL(STAFF_LOGIN_PATH, req.url));
+      const sessionData = await check.json().catch(() => ({}));
+      const mustChangePassword = Boolean(sessionData?.staff?.must_change_password);
+      if (mustChangePassword && pathname !== '/staff/change-password') {
+        return NextResponse.redirect(new URL('/staff/change-password', req.url));
+      }
+      if (!mustChangePassword && pathname === '/staff/change-password') {
+        return NextResponse.redirect(new URL('/staff', req.url));
+      }
       return NextResponse.next();
     } catch {
       return NextResponse.redirect(new URL(STAFF_LOGIN_PATH, req.url));
