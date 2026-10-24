@@ -94,7 +94,7 @@ Deno.serve(async (req: Request) => {
       const updates:Record<string,unknown> = { updated_at:new Date().toISOString() };
       if (typeof body.email === "string") {
         const email = body.email.trim().toLowerCase();
-        if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) return json({ error:"Enter a valid email address" },400);
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error:"Enter a valid email address" },400);
         updates.email = email;
       }
       if (typeof body.display_name === "string") {
@@ -113,7 +113,7 @@ Deno.serve(async (req: Request) => {
       if (typeof body.phone === "string") updates.phone = body.phone.trim() || null;
       if (typeof body.job_title === "string") updates.job_title = body.job_title.trim() || null;
       if (typeof body.start_date === "string") {
-        if (body.start_date && !/^\\d{4}-\\d{2}-\\d{2}$/.test(body.start_date)) return json({ error:"Start date must use YYYY-MM-DD" },400);
+        if (body.start_date && !/^\d{4}-\d{2}-\d{2}$/.test(body.start_date)) return json({ error:"Start date must use YYYY-MM-DD" },400);
         updates.start_date = body.start_date || null;
       }
       if (body.monthly_salary !== undefined) {
