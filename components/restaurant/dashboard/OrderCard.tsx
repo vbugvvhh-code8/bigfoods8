@@ -77,7 +77,7 @@ export default function OrderCard({
         </p>
         <div className="flex items-center justify-end gap-1.5 flex-wrap">
           <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full capitalize" style={{ background: 'var(--peach)', color: status.color }}>
-            {status.label}
+            {status.label}{order.payment_status !== 'paid' ? ' · unpaid' : ''}
           </span>
           {['placed', 'preparing'].includes(order.status) && (
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap" style={{
