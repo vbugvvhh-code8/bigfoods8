@@ -2,13 +2,11 @@
 
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
-import {Home, ClipboardList, User, CalendarDays} from 'lucide-react';
+import {Home, ClipboardList, User} from 'lucide-react';
 
 const ITEMS = [
   {href: '/order', label: 'Home', icon: Home},
   {href: '/order/orders', label: 'Orders', icon: ClipboardList},
-  {href: '/subscriptions', label: 'Meal plans', icon: CalendarDays},
-  {href: '/subscriptions#your-packages', label: 'My packages', icon: ClipboardList},
   {href: '/order/profile', label: 'Profile', icon: User},
 ];
 
