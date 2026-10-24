@@ -62,6 +62,27 @@ export default function StaffAttendancePage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  // Best-effort monitoring while the staff attendance page remains open.
+  // The server enforces a 30-minute minimum interval and rejects extra pings.
+  useEffect(() => {
+    if (!open || !navigator.geolocation) return;
+    let active = true;
+    const sendPing = () => {
+      if (document.visibilityState !== 'visible') return;
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        if (!active) return;
+        try {
+          await call({ action: 'location_ping', latitude: position.coords.latitude, longitude: position.coords.longitude });
+        } catch {
+          // Monitoring failures should not prevent a staff member from using attendance.
+        }
+      }, () => {}, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+    };
+    const interval = window.setInterval(sendPing, 30 * 60 * 1000);
+    return () => { active = false; window.clearInterval(interval); };
+  }, [open?.id, call]);
+
+
   async function punch(action: 'check_in' | 'check_out') {
     setBusy(true); setError(''); setNotice('');
     try {
