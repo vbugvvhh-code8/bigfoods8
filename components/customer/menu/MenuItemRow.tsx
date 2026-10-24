@@ -1,7 +1,7 @@
 'use client';
 
 import {useRouter} from 'next/navigation';
-import {Plus, Minus, Image as ImageIcon} from 'lucide-react';
+import {Plus, Minus, Image as ImageIcon, ChevronLeft, ChevronRight, X} from 'lucide-react';
 import {useCart} from '@/hooks/useCart';
 import type {MenuItem, Restaurant} from '@/types/database';
 
@@ -17,6 +17,8 @@ export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowPr
   const imageUrls = Array.isArray((item as any).image_urls) && (item as any).image_urls.length > 0
     ? (item as any).image_urls as string[]
     : item.image_url ? [item.image_url] : [];
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const cartItem = items.find((i) => i.id === item.id);
   const quantity = cartItem?.quantity ?? 0;
   const nowParts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Lagos', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
@@ -82,15 +84,19 @@ export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowPr
       style={{border: `1px solid ${canOrder ? '#F4D7BC' : '#F2C6A5'}`, background: canOrder ? 'linear-gradient(160deg, #FFFFFF 0%, #FFFAF4 100%)' : 'linear-gradient(160deg, #FFF7ED 0%, #FFF0E0 100%)', boxShadow: canOrder ? '0 2px 10px rgba(124, 65, 22, 0.045)' : '0 2px 8px rgba(180, 83, 9, 0.06)'}}
       aria-label={canOrder ? `View ${item.name} details` : `${item.name} unavailable`}
     >
-      <div
-        className="relative block aspect-square w-full overflow-hidden"
+      <button
+        type="button"
+        onClick={(event) => { event.stopPropagation(); if (imageUrls.length > 0) { setActiveImageIndex(0); setGalleryOpen(true); } }}
+        onKeyDown={(event) => event.stopPropagation()}
+        className="relative block aspect-square w-full overflow-hidden text-left"
         style={imageUrls[0] ? {backgroundImage: `url(${imageUrls[0]})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: '#FFE8D2'} : {background: 'linear-gradient(135deg, #FFE8D2, #FFF2E5)'}}
-        aria-hidden="true"
+        aria-label={imageUrls.length > 1 ? `View ${imageUrls.length} photos of ${item.name}` : `View photo of ${item.name}`}
+        disabled={!imageUrls.length}
       >
         {!imageUrls.length && <span className="absolute inset-0 flex items-center justify-center" style={{color:'#D97732'}}><ImageIcon className="h-8 w-8 opacity-50" /></span>}
-        {imageUrls.length > 1 && <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-1 text-[10px] font-semibold text-white">{imageUrls.length} photos</span>}
+        {imageUrls.length > 1 && <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-1 text-[10px] font-semibold text-white">{imageUrls.length} photos · View gallery</span>}
         {!canOrder && <span className={`absolute left-2 top-2 rounded-full border px-2.5 py-1 text-[10px] font-bold shadow-sm ${item.is_available === false ? 'border-rose-200 bg-rose-100 text-rose-800' : !withinSchedule ? 'border-amber-200 bg-amber-100 text-amber-900' : 'border-violet-200 bg-violet-100 text-violet-800'}`}>{item.is_available === false ? 'Unavailable' : !withinSchedule ? 'Opens soon' : 'Orders paused'}</span>}
-      </div>
+      </button>
       <div className="p-2.5 sm:p-3">
         <h2 className="line-clamp-2 text-sm font-semibold" style={{color:'var(--ink)'}}>{item.name}</h2>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold" style={{color:'var(--orange)'}}>{promotionInWindow ? <><span>₦{displayPrice.toLocaleString()}</span><span className="text-[10px] font-medium line-through" style={{color:'var(--gray)'}}>₦{Number(item.price).toLocaleString()}</span><span className="rounded-full px-2 py-0.5 text-[9px] font-bold" style={{background:'#FCE8E6',color:'#B42318'}}>SALE</span></> : <span>₦{Number(item.price).toLocaleString()}</span>}</div>
@@ -111,6 +117,27 @@ export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowPr
         </div>}
         {related.length > 0 && <div className="mt-3 border-t pt-2" style={{borderColor:'var(--line)'}}><p className="mb-1.5 text-[10px] font-bold" style={{color:'var(--gray)'}}>Goes well with</p><div className="flex flex-wrap gap-1">{related.map(candidate=><button key={candidate.id} type="button" onClick={event=>{event.stopPropagation();router.push(`/order/restaurant/${restaurant.id}/item/${candidate.id}`);}} className="rounded-full border px-2 py-1 text-[10px] font-semibold" style={{borderColor:'var(--line)',color:'var(--orange)'}}>{candidate.name}</button>)}</div></div>}
       </div>
+      {galleryOpen && imageUrls.length > 0 && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 p-4"
+          role="presentation"
+          onClick={(event) => { event.stopPropagation(); if (event.target === event.currentTarget) setGalleryOpen(false); }}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          <section role="dialog" aria-modal="true" aria-label={`${item.name} photo gallery`} className="relative w-full max-w-lg rounded-2xl bg-white p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div><h2 className="text-sm font-bold text-gray-900">{item.name}</h2><p className="text-xs text-gray-500">Photo {activeImageIndex + 1} of {imageUrls.length}</p></div>
+              <button type="button" onClick={() => setGalleryOpen(false)} className="flex h-10 w-10 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100" aria-label="Close photo gallery"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="aspect-square w-full rounded-xl bg-cover bg-center bg-no-repeat" style={{backgroundImage: `url(${imageUrls[activeImageIndex]}), linear-gradient(135deg, #FFE3C7, #FFD9B3)`}} role="img" aria-label={`${item.name}, photo ${activeImageIndex + 1}`} />
+            {imageUrls.length > 1 && <div className="mt-3 flex items-center justify-between gap-3">
+              <button type="button" onClick={() => setActiveImageIndex((index) => (index - 1 + imageUrls.length) % imageUrls.length)} className="flex min-h-11 items-center gap-1 rounded-lg border px-3 text-sm font-semibold text-gray-800" aria-label="Previous photo"><ChevronLeft className="h-4 w-4" /> Previous</button>
+              <div className="flex gap-1.5">{imageUrls.map((url, index) => <button key={url + index} type="button" onClick={() => setActiveImageIndex(index)} className="h-2.5 w-2.5 rounded-full" style={{background: index === activeImageIndex ? 'var(--orange)' : '#D1D5DB'}} aria-label={`Show photo ${index + 1}`} aria-current={index === activeImageIndex ? 'true' : undefined} />)}</div>
+              <button type="button" onClick={() => setActiveImageIndex((index) => (index + 1) % imageUrls.length)} className="flex min-h-11 items-center gap-1 rounded-lg border px-3 text-sm font-semibold text-gray-800" aria-label="Next photo">Next <ChevronRight className="h-4 w-4" /></button>
+            </div>}
+          </section>
+        </div>
+      )}
     </article>
   );
 }
