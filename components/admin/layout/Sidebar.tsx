@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import NavItem from './NavItem';
@@ -45,6 +45,9 @@ function NavList({ items = NAV_ITEMS }: { items?: typeof NAV_ITEMS }) {
   const pathname = usePathname();
   const staffOpen = pathname.startsWith('/admin/staff');
   const [staffExpanded, setStaffExpanded] = useState(staffOpen);
+  useEffect(() => {
+    if (staffOpen) setStaffExpanded(true);
+  }, [staffOpen]);
   const staffLinks = [
     { href: '/admin/staff', label: 'Staff Directory' },
     { href: '/admin/staff/operations?tab=locations', label: 'Work Locations' },
@@ -60,10 +63,10 @@ function NavList({ items = NAV_ITEMS }: { items?: typeof NAV_ITEMS }) {
     <nav className="flex flex-col gap-0.5">
       {items.map((n) => n.id === '/admin/staff' ? (
         <div key={n.id}>
-          <button type="button" onClick={() => setStaffExpanded((v) => !v)} className="flex w-full items-center gap-2.5 px-2.5 py-2.5 rounded-lg text-[12.5px] font-medium text-left" style={{ background: staffOpen ? 'rgba(255,106,0,0.12)' : 'transparent', color: staffOpen ? 'white' : '#B8B0A8', borderLeft: staffOpen ? '2px solid var(--orange)' : '2px solid transparent' }}>
+          <button type="button" aria-expanded={staffExpanded} aria-controls="admin-staff-submenu" onClick={() => setStaffExpanded((v) => !v)} className="flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-2.5 rounded-lg text-[12.5px] font-medium text-left" style={{ background: staffOpen ? 'rgba(255,106,0,0.12)' : 'transparent', color: staffOpen ? 'white' : '#B8B0A8', borderLeft: staffOpen ? '2px solid var(--orange)' : '2px solid transparent' }}>
             {n.icon}<span className="flex-1">{n.label}</span><ChevronDown className={"h-4 w-4 transition-transform " + (staffExpanded ? 'rotate-180' : '')} />
           </button>
-          {staffExpanded && <div className="ml-4 mt-1 mb-2 flex flex-col gap-0.5 border-l border-white/10 pl-2">
+          {staffExpanded && <div id="admin-staff-submenu" className="ml-4 mt-1 mb-2 flex flex-col gap-0.5 border-l border-white/10 pl-2">
             {staffLinks.map((item) => {
               const path = item.href.split('?')[0];
               const active = pathname === path && (item.href.indexOf('?') < 0 || (typeof window !== 'undefined' && window.location.search === '?' + item.href.split('?')[1]));
