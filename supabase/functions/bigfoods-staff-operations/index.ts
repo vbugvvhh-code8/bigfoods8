@@ -1,8 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-const configuredOrigin=Deno.env.get("STAFF_LOGIN_ALLOWED_ORIGIN")??"https://bigfoods.com";
-const corsHeaders=(requestOrigin:string|null)=>{const allowed=!!requestOrigin&&(requestOrigin===configuredOrigin||requestOrigin==="https://bigfoods.com"||/^https:\/\/[a-z0-9-]+\.netlify\.app$/.test(requestOrigin));return {"Access-Control-Allow-Origin":allowed?requestOrigin:configuredOrigin,"Access-Control-Allow-Methods":"POST, OPTIONS","Access-Control-Allow-Headers":"authorization, apikey, content-type, x-client-info","Vary":"Origin"};};
-const headers=corsHeaders(null);
+const headers={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"POST, OPTIONS","Access-Control-Allow-Headers":"authorization, apikey, content-type, x-client-info","Vary":"Origin"};
 const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{...headers,"Content-Type":"application/json","Cache-Control":"no-store"}});
 const enc=new TextEncoder();const hex=(b:Uint8Array)=>Array.from(b,x=>x.toString(16).padStart(2,"0")).join("");
 const digest=async(v:string)=>hex(new Uint8Array(await crypto.subtle.digest("SHA-256",enc.encode(v))));
@@ -12,7 +10,7 @@ const admin=(a:any)=>a&&(["owner","admin"].includes(a.role)||(Array.isArray(a.pe
 const coord=(v:any,min:number,max:number)=>typeof v==="number"&&Number.isFinite(v)&&v>=min&&v<=max;
 const distance=(a:number,b:number,c:number,d:number)=>{const r=6371000,p=(v:number)=>v*Math.PI/180,x=p(c-a),y=p(d-b),h=Math.sin(x/2)**2+Math.cos(p(a))*Math.cos(p(c))*Math.sin(y/2)**2;return Math.round(2*r*Math.asin(Math.min(1,Math.sqrt(h))));};
 Deno.serve(async(req:Request)=>{
-const o=req.headers.get("Origin");const requestHeaders=corsHeaders(o);if(req.method==="OPTIONS")return new Response("ok",{headers:requestHeaders});if(req.method!=="POST")return json({error:"Method not allowed"},405);if(o&&!requestHeaders["Access-Control-Allow-Origin"].includes(o))return json({error:"Not allowed"},403);
+if(req.method==="OPTIONS")return new Response("ok",{headers});if(req.method!=="POST")return json({error:"Method not allowed"},405);
 let b:any;try{b=await req.json()}catch{return json({error:"Invalid request"},400)}const url=Deno.env.get("SUPABASE_URL"),key=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");if(!url||!key)return json({error:"Staff service unavailable"},503);const db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
 try{const a=await actorFor(db,typeof b.session_token==="string"?b.session_token:"");if(!a)return json({error:"Unauthenticated"},401);if(a.must_change_password)return json({error:"Change your temporary password first"},403);const action=b.action;
 if(action==="locations_list"){if(!admin(a))return json({error:"Forbidden"},403);const {data,error}=await db.from("bigfoods_staff_work_locations").select("id,name,address,latitude,longitude,radius_m,is_active").order("created_at",{ascending:false});return error?json({error:"Unable to load locations"},503):json({locations:data??[]});}
