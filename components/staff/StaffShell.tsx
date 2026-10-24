@@ -2,7 +2,7 @@
 
 import { ReactNode, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound } from 'lucide-react';
+import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound, CalendarPlus } from 'lucide-react';
 
 export default function StaffShell({ children, title, subtitle, staffName }: { children: ReactNode; title: string; subtitle?: string; staffName?: string }) {
   const pathname = usePathname();
@@ -18,6 +18,7 @@ export default function StaffShell({ children, title, subtitle, staffName }: { c
   const items = [
     { href: '/staff', label: 'Dashboard', icon: <LayoutGrid className="h-4 w-4" /> },
     { href: '/staff/attendance', label: 'Attendance & schedule', icon: <CalendarDays className="h-4 w-4" /> },
+    { href: '/staff/leave', label: 'Request leave', icon: <CalendarPlus className="h-4 w-4" /> },
   ];
 
   const nav = (closeOnClick = false) => (
