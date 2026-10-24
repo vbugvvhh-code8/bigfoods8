@@ -24,7 +24,7 @@ revoke all on table public.bigfoods_staff_payroll_entries from public, anon, aut
 grant select, insert, update, delete on table public.bigfoods_staff_payroll_entries to service_role;
 
 create or replace function public.bigfoods_staff_calculate_payroll(p_payroll_month date, p_actor_id uuid)
-returns jsonb language plpgsql security invoker set search_path = public, pg_temp as $
+returns jsonb language plpgsql security invoker set search_path = public, pg_temp as $$
 declare
   v_month date := date_trunc('month', p_payroll_month)::date;
   v_next date := (date_trunc('month', p_payroll_month) + interval '1 month')::date;
