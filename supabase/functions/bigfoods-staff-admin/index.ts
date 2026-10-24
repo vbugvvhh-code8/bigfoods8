@@ -15,7 +15,7 @@ async function actorFor(db: any, token: string) {
   if (!/^[0-9a-f]{64}$/i.test(token)) return null;
   const { data: session } = await db.from("bigfoods_staff_sessions").select("id,staff_id,expires_at,revoked_at").eq("token_hash", await digest(token)).maybeSingle();
   if (!session || session.revoked_at || new Date(session.expires_at).getTime() <= Date.now()) return null;
-  const { data: staff } = await db.from("bigfoods_staff").select("id,email,display_name,role,permissions,is_active").eq("id", session.staff_id).maybeSingle();
+  const { data: staff } = await db.from("bigfoods_staff").select("id,email,display_name,role,permissions,is_active,must_change_password").eq("id", session.staff_id).maybeSingle();
   if (!staff?.is_active) return null;
   return staff;
 }
@@ -66,6 +66,7 @@ Deno.serve(async (req: Request) => {
       await db.from("bigfoods_staff_audit_events").insert({actor_staff_id:actor.id,action:"staff.password_changed",details:{}});
       return json({ok:true,sign_in_again:true});
     }
+    if (actor.must_change_password) return json({ error:"You must change your temporary password before using staff management." },403);
     if (actor.role !== "owner" && actor.role !== "admin" && !(Array.isArray(actor.permissions) && actor.permissions.includes("staff.manage"))) return json({ error:"Forbidden" },403);
     if (action === "list") {
       const { data, error } = await db.from("bigfoods_staff").select("id,email,display_name,role,permissions,is_active,must_change_password,phone,job_title,start_date,monthly_salary,last_login_at,created_at").order("created_at",{ascending:false});
@@ -143,8 +144,11 @@ Deno.serve(async (req: Request) => {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !name || name.length > 120 || !roles.includes(role) || password.length < 14 || password.length > 1024) return json({ error:"Enter a valid email, name, role, and temporary password of at least 14 characters" },400);
       if (actor.role !== "owner" && role === "admin") return json({ error:"Only the owner can create administrators" },403);
       const permissionsByRole:Record<string,string[]> = {admin:["staff.manage","staff.view","inventory.manage","inventory.view","pos.manage","pos.view","audit.view"],manager:["staff.view","inventory.view","inventory.manage","pos.view","pos.manage","audit.view"],inventory:["inventory.view","inventory.manage"],pos:["pos.view","pos.manage"],support:["staff.view"],auditor:["staff.view","inventory.view","pos.view","audit.view"]};
+      if (typeof body.start_date === "string" && body.start_date && !/^\\d{4}-\\d{2}-\\d{2}$/.test(body.start_date)) return json({error:"Start date must use YYYY-MM-DD"},400);
+      const salary = body.monthly_salary===undefined || body.monthly_salary===null || body.monthly_salary==="" ? null : Number(body.monthly_salary);
+      if (salary !== null && (!Number.isFinite(salary) || salary < 0 || salary > 1000000000)) return json({error:"Enter a valid monthly salary"},400);
       const salt=randomHex(16), hashed=await passwordHash(password,salt);
-      const {data:created,error}=await db.from("bigfoods_staff").insert({email,display_name:name,role,permissions:permissionsByRole[role],password_hash:hashed,password_salt:salt,is_active:true,must_change_password:true,phone:typeof body.phone==="string"?body.phone.trim()||null:null,job_title:typeof body.job_title==="string"?body.job_title.trim()||null:null,start_date:typeof body.start_date==="string"&&body.start_date?body.start_date:null,monthly_salary:body.monthly_salary===undefined||body.monthly_salary===null||body.monthly_salary===""?null:Number(body.monthly_salary),created_by:actor.id}).select("id,email,display_name,role,permissions,is_active,must_change_password,created_at").single();
+      const {data:created,error}=await db.from("bigfoods_staff").insert({email,display_name:name,role,permissions:permissionsByRole[role],password_hash:hashed,password_salt:salt,is_active:true,must_change_password:true,phone:typeof body.phone==="string"?body.phone.trim()||null:null,job_title:typeof body.job_title==="string"?body.job_title.trim()||null:null,start_date:typeof body.start_date==="string"&&body.start_date?body.start_date:null,monthly_salary:salary,created_by:actor.id}).select("id,email,display_name,role,permissions,is_active,must_change_password,created_at").single();
       if(error || !created) return json({error:"Unable to create staff account; email may already exist"},409);
       await db.from("bigfoods_staff_audit_events").insert({actor_staff_id:actor.id,subject_staff_id:created.id,action:"staff.create",details:{role}});
       return json({staff:created},201);
