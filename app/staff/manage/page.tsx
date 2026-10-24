@@ -121,3 +121,4 @@ export default function StaffManagementPage() {
       <div className="flex items-center justify-between border-t px-5 py-3 text-[10px]" style={{borderColor:"var(--line)",color:"var(--gray)"}}><span>Showing {filteredRows.length} of {rows.length} staff accounts</span><span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3"/> Account changes are audited</span></div>
     </section>
   </div>;
+}
