@@ -17,14 +17,17 @@ function haversineKm(lat1:number,lng1:number,lat2:number,lng2:number) {
 
 function getDeliveryDates(days: number[], weeks: number) {
   const dates: string[] = [];
-  const cursor = new Date();
-  cursor.setUTCHours(0,0,0,0);
-  cursor.setUTCDate(cursor.getUTCDate()+1);
+  // The schedule is a Lagos-local calendar schedule, not a UTC schedule.
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Lagos', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const part = (type: string) => parts.find((value) => value.type === type)?.value ?? '';
+  const cursor = new Date(Date.UTC(Number(part('year')), Number(part('month')) - 1, Number(part('day')) + 1));
   const limit = new Date(cursor);
-  limit.setUTCDate(limit.getUTCDate()+weeks*7+7);
-  for (let d = new Date(cursor); d <= limit && dates.length < days.length*weeks; d.setUTCDate(d.getUTCDate()+1)) {
+  limit.setUTCDate(limit.getUTCDate() + weeks * 7 + 7);
+  for (let d = new Date(cursor); d <= limit && dates.length < days.length * weeks; d.setUTCDate(d.getUTCDate() + 1)) {
     const isoDay = d.getUTCDay() === 0 ? 7 : d.getUTCDay();
-    if (days.includes(isoDay)) dates.push(d.toISOString().slice(0,10));
+    if (days.includes(isoDay)) dates.push(d.toISOString().slice(0, 10));
   }
   return dates;
 }
@@ -127,7 +130,10 @@ Deno.serve(async (req: Request) => {
         status: "pending_payment", payment_reference: reference, starts_on: dates[0], ends_on: dates[dates.length-1]
       }).select("id,total_amount,total_deliveries,starts_on,ends_on").single();
       if (insertError || !subscription) throw insertError ?? new Error("Could not create subscription.");
-      if (!paystackKey) return json({ error: "Payments are not configured yet." }, 502);
+      if (!paystackKey) {
+        await admin.from("meal_subscriptions").update({ status: "payment_failed" }).eq("id", subscription.id).eq("status", "pending_payment");
+        return json({ error: "Payments are not configured yet." }, 502);
+      }
       const paystack = await fetch("https://api.paystack.co/transaction/initialize", {
         method: "POST", headers: { Authorization: "Bearer " + paystackKey, "Content-Type": "application/json" },
         body: JSON.stringify({ email: user.email, amount: Math.round(totalAmount * 100), reference, callback_url: (body.callback_origin || new URL(req.url).origin) + "/subscriptions?reference=" + encodeURIComponent(reference), metadata: { type: "meal_subscription", subscription_id: subscription.id, customer_id: user.id } })
@@ -145,7 +151,21 @@ Deno.serve(async (req: Request) => {
       if (!reference) return json({ error: "Missing payment reference." }, 400);
       const { data: subscription, error: findError } = await admin.from("meal_subscriptions").select("*").eq("payment_reference", reference).eq("customer_id", user.id).maybeSingle();
       if (findError || !subscription) return json({ error: "Subscription payment not found." }, 404);
-      if (subscription.status === "active" || subscription.status === "paused" || subscription.status === "completed") return json({ success: true, subscription_id: subscription.id, status: subscription.status });
+      if (subscription.status === "active" || subscription.status === "paused" || subscription.status === "completed") {
+        // Repair a previous partial activation where the payment was confirmed
+        // but schedule rows could not be inserted. This is safe to retry.
+        const existingDates: string[] = Array.isArray(subscription.scheduled_dates)
+          ? subscription.scheduled_dates.map((value: string) => String(value).slice(0, 10))
+          : [];
+        if (subscription.status !== "completed" && existingDates.length === subscription.total_deliveries) {
+          const { error: repairError } = await admin.from("meal_subscription_deliveries").upsert(
+            existingDates.map((date: string) => ({ subscription_id: subscription.id, scheduled_for: date, delivery_time: subscription.delivery_time })),
+            { onConflict: "subscription_id,scheduled_for,delivery_time", ignoreDuplicates: true },
+          );
+          if (repairError) return json({ error: "Payment is confirmed but the delivery schedule needs support. Please contact BigFoods." }, 500);
+        }
+        return json({ success: true, subscription_id: subscription.id, status: subscription.status });
+      }
       if (!paystackKey) return json({ error: "Payments are not configured." }, 502);
       const verify = await fetch("https://api.paystack.co/transaction/verify/" + encodeURIComponent(reference), { headers: { Authorization: "Bearer " + paystackKey } });
       const verified = await verify.json();
