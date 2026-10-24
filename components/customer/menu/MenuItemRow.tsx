@@ -78,16 +78,16 @@ export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowPr
       tabIndex={canOrder ? 0 : undefined}
       onClick={openDetails}
       onKeyDown={(event) => { if (canOrder && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); openDetails(); } }}
-      className={`min-w-0 overflow-hidden rounded-2xl transition-shadow ${canOrder ? 'cursor-pointer hover:shadow-md' : 'cursor-not-allowed'}`}
-      style={{border: `1px solid ${canOrder ? 'var(--line)' : '#F2C6A5'}`, background: canOrder ? '#FFFFFF' : '#FFF7ED'}}
+      className={`min-w-0 overflow-hidden rounded-2xl transition-all duration-200 ${canOrder ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-lg' : 'cursor-not-allowed'}`}
+      style={{border: `1px solid ${canOrder ? '#F4D7BC' : '#F2C6A5'}`, background: canOrder ? 'linear-gradient(160deg, #FFFFFF 0%, #FFFAF4 100%)' : 'linear-gradient(160deg, #FFF7ED 0%, #FFF0E0 100%)', boxShadow: canOrder ? '0 2px 10px rgba(124, 65, 22, 0.045)' : '0 2px 8px rgba(180, 83, 9, 0.06)'}}
       aria-label={canOrder ? `View ${item.name} details` : `${item.name} unavailable`}
     >
       <div
         className="relative block aspect-square w-full overflow-hidden"
-        style={imageUrls[0] ? {backgroundImage: `url(${imageUrls[0]})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: 'var(--peach)'} : {background: 'var(--peach)'}}
+        style={imageUrls[0] ? {backgroundImage: `url(${imageUrls[0]})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: '#FFE8D2'} : {background: 'linear-gradient(135deg, #FFE8D2, #FFF2E5)'}}
         aria-hidden="true"
       >
-        {!imageUrls.length && <span className="absolute inset-0 flex items-center justify-center" style={{color:'var(--gray)'}}><ImageIcon className="h-8 w-8 opacity-50" /></span>}
+        {!imageUrls.length && <span className="absolute inset-0 flex items-center justify-center" style={{color:'#D97732'}}><ImageIcon className="h-8 w-8 opacity-50" /></span>}
         {imageUrls.length > 1 && <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-1 text-[10px] font-semibold text-white">{imageUrls.length} photos</span>}
         {!canOrder && <span className={`absolute left-2 top-2 rounded-full border px-2.5 py-1 text-[10px] font-bold shadow-sm ${item.is_available === false ? 'border-rose-200 bg-rose-100 text-rose-800' : !withinSchedule ? 'border-amber-200 bg-amber-100 text-amber-900' : 'border-violet-200 bg-violet-100 text-violet-800'}`}>{item.is_available === false ? 'Unavailable' : !withinSchedule ? 'Opens soon' : 'Orders paused'}</span>}
       </div>
