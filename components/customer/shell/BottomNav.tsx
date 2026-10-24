@@ -21,7 +21,8 @@ export function BottomNav() {
       style={{borderTop: '1px solid var(--line)', paddingBottom: 'env(safe-area-inset-bottom)'}}
     >
       {ITEMS.map(({href, label, icon: Icon}) => {
-        const active = href === '/order' ? pathname === '/order' : pathname?.startsWith(href);
+        const activeHref = href.split('#')[0];
+            const active = activeHref === '/order' ? pathname === '/order' : pathname?.startsWith(activeHref);
         const color = active ? 'var(--orange)' : 'var(--gray)';
         return (
           <Link
