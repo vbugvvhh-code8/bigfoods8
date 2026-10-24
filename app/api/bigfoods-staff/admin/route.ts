@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const response = await fetch(`${base}/functions/v1/bigfoods-staff-admin`, {
       method: "POST", headers: { "Content-Type": "application/json", apikey: key },
-      body: JSON.stringify({ ...body, session_token: token }), cache: "no-store",
+      body: JSON.stringify({ ...body, ...(body.action === "create" && typeof body.password === "string" ? { temporary_password: body.password } : {}), session_token: token }), cache: "no-store",
     });
     const result = await response.json().catch(() => ({}));
     return NextResponse.json(result, { status: response.status, headers: { "Cache-Control": "no-store" } });
