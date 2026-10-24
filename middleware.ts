@@ -5,6 +5,9 @@ import { resolveRestaurantEntryPath } from './lib/resolveRestaurantEntryPath';
 
 const ADMIN_LOGIN_PATH = '/admin/login';
 const ADMIN_BASE = '/admin';
+const STAFF_LOGIN_PATH = '/staff/login';
+const STAFF_BASE = '/staff';
+const STAFF_COOKIE = 'bf_staff_session';
 const RESTAURANT_LOGIN_PATH = '/restaurant-portal/login';
 const RESTAURANT_DASHBOARD_BASE = '/restaurant-portal/dashboard';
 const RESTAURANT_ONBOARDING_BASE = '/restaurant-portal/onboarding';
@@ -28,15 +31,33 @@ const ONBOARDING_PATH_ORDER = [
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (pathname === ADMIN_LOGIN_PATH || pathname === RESTAURANT_LOGIN_PATH || pathname === RIDER_LOGIN_PATH) {
+  if (pathname === ADMIN_LOGIN_PATH || pathname === STAFF_LOGIN_PATH || pathname === RESTAURANT_LOGIN_PATH || pathname === RIDER_LOGIN_PATH) {
     return NextResponse.next();
   }
 
   const isAdminRoute = pathname.startsWith(ADMIN_BASE);
+  const isStaffRoute = pathname.startsWith(STAFF_BASE) && pathname !== STAFF_LOGIN_PATH;
   const isRestaurantDashboardRoute = pathname.startsWith(RESTAURANT_DASHBOARD_BASE);
   const isRestaurantOnboardingRoute = pathname.startsWith(RESTAURANT_ONBOARDING_BASE);
   const isRiderDashboardRoute = pathname.startsWith(RIDER_DASHBOARD_BASE);
   const isCustomerOrderRoute = pathname.startsWith('/order');
+
+  if (isStaffRoute) {
+    const token = req.cookies.get(STAFF_COOKIE)?.value;
+    const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!token || !base || !key) return NextResponse.redirect(new URL(STAFF_LOGIN_PATH, req.url));
+    try {
+      const check = await fetch(`${base}/functions/v1/bigfoods-staff-session`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', apikey: key },
+        body: JSON.stringify({ token, action: 'validate' }), cache: 'no-store',
+      });
+      if (!check.ok) return NextResponse.redirect(new URL(STAFF_LOGIN_PATH, req.url));
+      return NextResponse.next();
+    } catch {
+      return NextResponse.redirect(new URL(STAFF_LOGIN_PATH, req.url));
+    }
+  }
 
   if (!isAdminRoute && !isRestaurantDashboardRoute && !isRestaurantOnboardingRoute && !isRiderDashboardRoute && !isCustomerOrderRoute) {
     return NextResponse.next();
@@ -132,6 +153,7 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     '/admin/:path*',
+    '/staff/:path*',
     '/restaurant-portal/dashboard/:path*',
     '/restaurant-portal/onboarding/:path*',
     '/rider-portal/dashboard/:path*',
