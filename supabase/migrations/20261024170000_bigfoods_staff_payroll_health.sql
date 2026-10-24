@@ -20,6 +20,8 @@ create table if not exists public.bigfoods_staff_payroll_entries (
 create index if not exists bigfoods_staff_payroll_entries_period_idx
   on public.bigfoods_staff_payroll_entries(payroll_period_id, staff_id);
 alter table public.bigfoods_staff_payroll_entries enable row level security;
+revoke all on table public.bigfoods_staff_payroll_entries from public, anon, authenticated;
+grant select, insert, update, delete on table public.bigfoods_staff_payroll_entries to service_role;
 
 create or replace function public.bigfoods_staff_calculate_payroll(p_payroll_month date, p_actor_id uuid)
 returns jsonb language plpgsql security invoker set search_path = public, pg_temp as $
