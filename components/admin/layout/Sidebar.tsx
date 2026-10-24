@@ -9,6 +9,7 @@ import getBrowserSupabase from '@/lib/supabase/client';
 
 const NAV_ITEMS = [
   { id: '/admin/dashboard', label: 'Dashboard', icon: <LayoutGrid className="w-4 h-4" /> },
+  { id: '/admin/staff', label: 'Staff Management', icon: <Users className="w-4 h-4" /> },
   { id: '/admin/zone-map', label: 'Zone Map', icon: <MapPin className="w-4 h-4" /> },
   { id: '/admin/areas', label: 'Service Areas', icon: <MapPin className="w-4 h-4" /> },
   { id: '/admin/seller-places', label: 'Seller Places', icon: <Users className="w-4 h-4" /> },
@@ -54,6 +55,13 @@ function LogoutButton() {
   const supabase = getBrowserSupabase();
 
   async function handleLogout() {
+    if (window.location.pathname.startsWith('/admin/staff')) {
+      await fetch('/api/bigfoods-staff/session', { method: 'DELETE' });
+      await supabase.auth.signOut();
+      router.push('/staff/login');
+      router.refresh();
+      return;
+    }
     await supabase.auth.signOut();
     router.push('/admin/login');
   }
