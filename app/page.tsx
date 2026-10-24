@@ -71,7 +71,7 @@ export default function PortalHome() {
                 </Link>
               </div>
 
-              <Link href="/order" className="subscribe-float">
+              <Link href="/subscriptions" className="subscribe-float">
                 <span className="sf-pill">Subscribe</span>
                 <span className="sf-text">Subscribe to your favourite restaurant for constant meals</span>
                 <span className="sf-arrow">

@@ -2,13 +2,14 @@
 
 import {useEffect, useState} from 'react';
 import getBrowserSupabase from '@/lib/supabase/client';
-import type {Restaurant, Rider, Order} from '@/types/database';
+import type {Restaurant, Rider, Order, SelectedMenuOption} from '@/types/database';
 
 export interface OrderItemDisplay {
   id: string;
   name: string;
   quantity: number;
   unit_price: number;
+  selected_options: SelectedMenuOption[];
 }
 
 export interface BatchStop {
@@ -57,7 +58,7 @@ export function useOrderTracking(orderId: string) {
 
       const {data: orderItems} = await supabase
         .from('order_items')
-        .select('id, menu_item_id, quantity, unit_price')
+        .select('id, menu_item_id, quantity, unit_price, selected_options')
         .eq('order_id', orderId);
 
       if (orderItems && orderItems.length > 0) {
@@ -68,6 +69,7 @@ export function useOrderTracking(orderId: string) {
           name: menuItems?.find((m) => m.id === i.menu_item_id)?.name ?? 'Item',
           quantity: i.quantity,
           unit_price: i.unit_price,
+          selected_options: (i.selected_options ?? []) as SelectedMenuOption[],
         }));
         if (!cancelled) setItems(withNames);
       }

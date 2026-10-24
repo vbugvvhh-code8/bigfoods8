@@ -13,7 +13,17 @@ export function useSavedAddresses() {
     setIsLoading(true);
     // RLS ("Customers manage own saved addresses") scopes this automatically.
     const {data} = await supabase.from('saved_addresses').select('*').order('created_at', {ascending: false});
-    setAddresses(data ?? []);
+    const unique = new Map<string, SavedAddress>();
+    for (const address of data ?? []) {
+      const key = [
+        address.label.trim().toLocaleLowerCase(),
+        Number(address.lat).toFixed(5),
+        Number(address.lng).toFixed(5),
+        (address.address ?? '').trim().toLocaleLowerCase(),
+      ].join('|');
+      if (!unique.has(key)) unique.set(key, address);
+    }
+    setAddresses(Array.from(unique.values()));
     setIsLoading(false);
   }, [supabase]);
 

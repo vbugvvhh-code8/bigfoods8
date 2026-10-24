@@ -2,22 +2,22 @@
 
 import SafeImage from '@/components/ui/SafeImage';
 import { useMemo, useState } from 'react';
-import { Plus, Pencil, Trash2, Search, X, CheckSquare, Square, Eye, EyeOff } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Plus, Pencil, Trash2, Search, X, CheckSquare, Square, Eye, EyeOff, ArrowUp, ArrowDown } from 'lucide-react';
 import useRestaurant from '@/hooks/useRestaurant';
 import { useMenuItems } from '@/hooks/useMenuItems';
-import MenuItemForm, { ChipPicker } from '@/components/restaurant/dashboard/MenuItemForm';
+import { ChipPicker } from '@/components/restaurant/dashboard/MenuItemForm';
 import { MENU_CATEGORY_PRESETS, MENU_CATEGORY_NAMES } from '@/lib/menuCategoryPresets';
 import type { MenuItem } from '@/types/database';
+import MenuCatalogTransfer from '@/components/restaurant/dashboard/MenuCatalogTransfer';
 
 const UNCATEGORIZED = 'uncategorized';
 const NO_SUBCATEGORY = 'other';
 
 export default function MenuBuilderPage() {
+  const router = useRouter();
   const { restaurant, loading: restaurantLoading } = useRestaurant();
   const { menuItems, isLoading, addMenuItem, updateMenuItem, deleteMenuItem } = useMenuItems(restaurant?.id);
-
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [availabilityBusyId, setAvailabilityBusyId] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [pageMessage, setPageMessage] = useState<string | null>(null);
@@ -130,6 +130,26 @@ export default function MenuBuilderPage() {
     }
   }
 
+  async function moveItem(item: MenuItem, direction: -1 | 1) {
+    const ordered = [...menuItems].sort((a, b) => Number((a as any).display_order ?? 0) - Number((b as any).display_order ?? 0) || (a.category ?? '').localeCompare(b.category ?? '') || a.name.localeCompare(b.name));
+    const index = ordered.findIndex((entry) => entry.id === item.id);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= ordered.length) return;
+    [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
+    setPageError(null);
+    setPageMessage(null);
+    try {
+      for (let position = 0; position < ordered.length; position++) {
+        if (Number((ordered[position] as any).display_order ?? 0) !== position) {
+          await updateMenuItem(ordered[position].id, { display_order: position });
+        }
+      }
+      setPageMessage('Menu display order saved.');
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : 'Could not save menu order. Please refresh and try again.');
+    }
+  }
+
   async function handleDelete(item: MenuItem) {
     if (!confirm(`Remove "${item.name}" from your menu?`)) return;
     await deleteMenuItem(item.id);
@@ -162,11 +182,11 @@ export default function MenuBuilderPage() {
         <h1 className="text-[18px] font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
           Menu
         </h1>
-        {!showAddForm && (
+        {(
           <button
             type="button"
-            onClick={() => setShowAddForm(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-[9px] text-[12.5px] font-semibold text-white"
+            onClick={() => router.push('/restaurant-portal/dashboard/menu/item')}
+            className="flex min-h-12 items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 active:scale-[0.98] sm:px-5"
             style={{ background: 'var(--orange)' }}
           >
             <Plus className="w-3.5 h-3.5" />
@@ -178,16 +198,7 @@ export default function MenuBuilderPage() {
       {pageError && <p role="alert" className="mb-3 rounded-lg p-3 text-[12px]" style={{ background: '#FCE8E6', color: 'var(--red)' }}>{pageError}</p>}
       {pageMessage && <p role="status" className="mb-3 rounded-lg p-3 text-[12px]" style={{ background: 'var(--peach)', color: 'var(--ink)' }}>{pageMessage}</p>}
 
-      {showAddForm && (
-        <div className="mb-5">
-          <MenuItemForm
-            restaurantId={restaurant.id}
-            onSubmit={addMenuItem}
-            onDone={() => setShowAddForm(false)}
-            onCancel={() => setShowAddForm(false)}
-          />
-        </div>
-      )}
+      <div className="mb-5"><MenuCatalogTransfer menuItems={menuItems} onImport={addMenuItem} /></div>
 
       {isLoading && (
         <p className="text-[12.5px] py-4 text-center" style={{ color: 'var(--gray)' }}>
@@ -196,7 +207,7 @@ export default function MenuBuilderPage() {
       )}
 
       {!isLoading && menuItems.length > 0 && (
-        <div className="mb-4 space-y-3">
+        <div className="mb-5 space-y-3 rounded-2xl border p-4 sm:p-5" style={{ borderColor: "var(--line)", background: "var(--white)" }}>
           <label htmlFor="menu-item-search" className="mb-1.5 block text-xs font-semibold" style={{color:'var(--ink)'}}>
             Search your menu
           </label>
@@ -321,14 +332,65 @@ export default function MenuBuilderPage() {
         </section>
       )}
 
-      {!isLoading && menuItems.length === 0 && !showAddForm && (
+      {!isLoading && menuItems.length === 0 && (
         <p className="text-[12.5px] py-6 text-center" style={{ color: 'var(--gray)' }}>
           No menu items yet. Add your first dish to get started.
         </p>
       )}
 
               {!isLoading && filteredItems.length > 0 && (
-        <div className="max-w-full overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--line)' }}>
+        <div className="grid grid-cols-1 gap-3 md:hidden">
+          {filteredItems.map((item) => (
+            <article key={item.id} className="overflow-hidden rounded-2xl border p-3 shadow-sm" style={{ borderColor: 'var(--line)', background: 'var(--white)' }}>
+              <div className="flex items-start gap-3">
+                <input type="checkbox" checked={selectedItemIds.has(item.id)} onChange={() => toggleItemSelection(item.id)} aria-label={`Select ${item.name} for bulk editing`} className="mt-1 h-5 w-5 shrink-0 accent-orange-500" />
+                {(Array.isArray((item as any).image_urls) && (item as any).image_urls[0]) || item.image_url ? (
+                  <SafeImage src={(Array.isArray((item as any).image_urls) && (item as any).image_urls[0]) || item.image_url!} alt={item.name} className="h-16 w-16 shrink-0 rounded-xl object-cover" />
+                ) : (
+                  <div className="h-16 w-16 shrink-0 rounded-xl" style={{ background: 'var(--peach)' }} aria-hidden="true" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <h2 className="break-words text-sm font-bold leading-5" style={{ color: 'var(--ink)' }}>{item.name}</h2>
+                  {Boolean((item as any).admin_disabled) && (
+                    <div role="status" className="mt-2 rounded-lg border p-2.5 text-[11px]" style={{borderColor:'#F0B5B0',background:'#FFF1F0',color:'#8F211B'}}>
+                      <p className="font-bold">Disabled by BigFoods admin</p>
+                      <p className="mt-1">{(item as any).admin_disabled_note || 'No reason was provided. Please contact BigFoods support for clarification.'}</p>
+                      <p className="mt-1 font-semibold">You cannot reactivate this item. Contact support if you believe this was a mistake.</p>
+                    </div>
+                  )}
+                  <p className="mt-1 break-all text-[11px]" style={{ color: 'var(--gray)' }}>SKU: {item.sku}</p>
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-base font-bold tabular-nums" style={{ color: 'var(--ink)' }}>₦{Number(item.price).toLocaleString()}</p>
+                    <span className="inline-flex rounded-full px-3 py-1.5 text-[11px] font-semibold" style={item.is_available ? { background: '#E7F6EC', color: '#207245' } : { background: '#FCE8E6', color: '#B42318' }}>
+                      {item.is_available ? 'Available' : 'Unavailable'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="mb-3 flex items-center gap-2">
+                <span className="text-[11px] font-semibold" style={{color:'var(--gray)'}}>Display order</span>
+                <button type="button" onClick={() => void moveItem(item, -1)} className="flex h-9 w-9 items-center justify-center rounded-lg border" style={{borderColor:'var(--line)',color:'var(--ink)'}} aria-label={`Move ${item.name} earlier`} title="Move earlier"><ArrowUp className="h-4 w-4"/></button>
+                <button type="button" onClick={() => void moveItem(item, 1)} className="flex h-9 w-9 items-center justify-center rounded-lg border" style={{borderColor:'var(--line)',color:'var(--ink)'}} aria-label={`Move ${item.name} later`} title="Move later"><ArrowDown className="h-4 w-4"/></button>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-3 border-t pt-4" style={{ borderColor: 'var(--line)' }}>
+                <button type="button" disabled={availabilityBusyId === item.id} onClick={() => toggleAvailability(item)} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 py-3 text-xs font-semibold leading-tight transition hover:brightness-95 active:scale-[0.98] disabled:opacity-50" style={{ borderColor: 'var(--line)', color: item.is_available ? 'var(--gray)' : '#207245' }}>
+                  {item.is_available ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {item.is_available ? 'Hide' : 'Show'}
+                </button>
+                <button type="button" onClick={() => router.push('/restaurant-portal/dashboard/menu/item?edit=' + encodeURIComponent(item.id))} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 py-3 text-xs font-semibold leading-tight transition hover:brightness-95 active:scale-[0.98]" style={{ borderColor: 'var(--line)', color: 'var(--ink)', background: 'var(--peach)' }}>
+                  <Pencil className="h-4 w-4" /> Edit
+                </button>
+                <button type="button" onClick={() => handleDelete(item)} className="flex min-h-11 items-center justify-center gap-1 rounded-lg border px-2 text-xs font-semibold" style={{ borderColor: 'var(--line)', color: 'var(--red)' }}>
+                  <Trash2 className="h-4 w-4" /> Delete
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {!isLoading && filteredItems.length > 0 && (
+        <div className="hidden max-w-full overflow-x-auto rounded-xl border md:block" style={{ borderColor: 'var(--line)' }}>
           <table className="w-full min-w-[560px] table-fixed border-collapse text-left">
             <colgroup>
               <col style={{ width: '40px' }} />
@@ -363,7 +425,15 @@ export default function MenuBuilderPage() {
                       ) : (
                         <div className="h-9 w-9 shrink-0 rounded-md" style={{ background: 'var(--peach)' }} aria-hidden="true" />
                       )}
-                      <span className="min-w-0 break-words text-[12px] font-semibold" style={{ color: 'var(--ink)', overflowWrap: 'anywhere' }}>{item.name}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate whitespace-nowrap text-[12px] font-semibold" style={{ color: 'var(--ink)' }} title={item.name}>{item.name}</p>
+                        {Boolean((item as any).admin_disabled) && (
+                          <p className="mt-1 whitespace-normal rounded-md px-2 py-1 text-[10px]" style={{background:'#FFF1F0',color:'#8F211B'}} title={(item as any).admin_disabled_note || 'Disabled by BigFoods admin'}>
+                            <strong>Disabled by admin:</strong> {(item as any).admin_disabled_note || 'Contact BigFoods support for details.'}
+                          </p>
+                        )}
+                        <p className="mt-0.5 truncate text-[10px]" style={{ color: 'var(--gray)' }} title={`SKU: ${item.sku}`}>SKU: {item.sku}</p>
+                      </div>
                     </div>
                   </td>
                   <td className="px-2 py-3 text-right text-[12px] tabular-nums" style={{ color: 'var(--ink)' }}>₦{Number(item.price).toLocaleString()}</td>
@@ -374,10 +444,12 @@ export default function MenuBuilderPage() {
                   </td>
                   <td className="px-2 py-3">
                     <div className="flex items-center justify-center gap-1">
+                      <button type="button" onClick={() => void moveItem(item, -1)} className="flex h-9 w-8 shrink-0 items-center justify-center rounded-md border" style={{borderColor:'var(--line)',color:'var(--ink)'}} aria-label={`Move ${item.name} earlier`} title="Move earlier"><ArrowUp className="h-4 w-4"/></button>
+                      <button type="button" onClick={() => void moveItem(item, 1)} className="flex h-9 w-8 shrink-0 items-center justify-center rounded-md border" style={{borderColor:'var(--line)',color:'var(--ink)'}} aria-label={`Move ${item.name} later`} title="Move later"><ArrowDown className="h-4 w-4"/></button>
                       <button type="button" disabled={availabilityBusyId === item.id} onClick={() => toggleAvailability(item)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md disabled:opacity-50" style={{ color: item.is_available ? 'var(--gray)' : '#207245' }} aria-label={item.is_available ? 'Mark ' + item.name + ' unavailable' : 'Mark ' + item.name + ' available'} title={item.is_available ? 'Mark unavailable' : 'Mark available'}>
                         {item.is_available ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
-                      <button type="button" onClick={() => { setShowAddForm(false); setEditingItem(item); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border" style={{ color: 'var(--ink)', borderColor: 'var(--line)', background: 'var(--peach)' }} aria-label={`Edit ${item.name}`} title="Edit item">
+                      <button type="button" onClick={() => router.push('/restaurant-portal/dashboard/menu/item?edit=' + encodeURIComponent(item.id))} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border" style={{ color: 'var(--ink)', borderColor: 'var(--line)', background: 'var(--peach)' }} aria-label={`Edit ${item.name}`} title="Edit item">
                         <Pencil className="h-4 w-4" />
                       </button>
                       <button type="button" onClick={() => handleDelete(item)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border" style={{ color: 'var(--red)', borderColor: 'var(--line)', background: 'var(--white)' }} aria-label={`Delete ${item.name}`} title="Delete item">
@@ -389,47 +461,6 @@ export default function MenuBuilderPage() {
               ))}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {editingItem && (
-        <div
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setEditingItem(null);
-          }}
-        >
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="edit-menu-item-title"
-            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border p-4 shadow-2xl sm:p-6"
-            style={{ background: 'var(--white)', borderColor: 'var(--line)' }}
-          >
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 id="edit-menu-item-title" className="text-lg font-bold" style={{ color: 'var(--ink)' }}>
-                Edit menu item
-              </h2>
-              <button
-                type="button"
-                onClick={() => setEditingItem(null)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
-                style={{ borderColor: 'var(--line)', color: 'var(--gray)' }}
-                aria-label="Close edit menu item"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <MenuItemForm
-              restaurantId={restaurant.id}
-              existingItem={editingItem}
-              onSubmit={addMenuItem}
-              onUpdate={updateMenuItem}
-              onDone={() => setEditingItem(null)}
-              onCancel={() => setEditingItem(null)}
-            />
-          </section>
         </div>
       )}
 
