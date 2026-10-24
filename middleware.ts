@@ -36,6 +36,32 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  const isAdminStaffRoute = pathname === '/admin/staff' || pathname.startsWith('/admin/staff/');
+  if (isAdminStaffRoute) {
+    const token = req.cookies.get(STAFF_COOKIE)?.value;
+    const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!token || !base || !key) return NextResponse.redirect(new URL(STAFF_LOGIN_PATH, req.url));
+    try {
+      const check = await fetch(`${base}/functions/v1/bigfoods-staff-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: key },
+        body: JSON.stringify({ token, action: 'validate' }),
+        cache: 'no-store',
+      });
+      if (!check.ok) return NextResponse.redirect(new URL(STAFF_LOGIN_PATH, req.url));
+      const sessionData = await check.json().catch(() => ({}));
+      const staff = sessionData?.staff;
+      const permissions = staff?.permissions;
+      const canManageStaff = staff && staff.is_active !== false &&
+        (['owner', 'admin'].includes(staff.role) || (Array.isArray(permissions) && permissions.includes('staff.manage')));
+      if (!canManageStaff) return NextResponse.redirect(new URL('/staff', req.url));
+      return NextResponse.next();
+    } catch {
+      return NextResponse.redirect(new URL(STAFF_LOGIN_PATH, req.url));
+    }
+  }
+
   const isAdminRoute = pathname.startsWith(ADMIN_BASE);
   const isStaffRoute = pathname.startsWith(STAFF_BASE) && pathname !== STAFF_LOGIN_PATH;
   const isRestaurantDashboardRoute = pathname.startsWith(RESTAURANT_DASHBOARD_BASE);
