@@ -144,7 +144,7 @@ Deno.serve(async (req: Request) => {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !name || name.length > 120 || !roles.includes(role) || password.length < 14 || password.length > 1024) return json({ error:"Enter a valid email, name, role, and temporary password of at least 14 characters" },400);
       if (actor.role !== "owner" && role === "admin") return json({ error:"Only the owner can create administrators" },403);
       const permissionsByRole:Record<string,string[]> = {admin:["staff.manage","staff.view","inventory.manage","inventory.view","pos.manage","pos.view","audit.view"],manager:["staff.view","inventory.view","inventory.manage","pos.view","pos.manage","audit.view"],inventory:["inventory.view","inventory.manage"],pos:["pos.view","pos.manage"],support:["staff.view"],auditor:["staff.view","inventory.view","pos.view","audit.view"]};
-      if (typeof body.start_date === "string" && body.start_date && !/^\\d{4}-\\d{2}-\\d{2}$/.test(body.start_date)) return json({error:"Start date must use YYYY-MM-DD"},400);
+      if (typeof body.start_date === "string" && body.start_date && !/^\d{4}-\d{2}-\d{2}$/.test(body.start_date)) return json({error:"Start date must use YYYY-MM-DD"},400);
       const salary = body.monthly_salary===undefined || body.monthly_salary===null || body.monthly_salary==="" ? null : Number(body.monthly_salary);
       if (salary !== null && (!Number.isFinite(salary) || salary < 0 || salary > 1000000000)) return json({error:"Enter a valid monthly salary"},400);
       const salt=randomHex(16), hashed=await passwordHash(password,salt);
