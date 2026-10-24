@@ -34,8 +34,8 @@ export default function RestaurantMenuPage() {
   const isLoading = restaurantLoading || menuLoading;
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-4 py-6">
-      <button type="button" onClick={() => router.push('/order')} className="flex items-center gap-2.5 mb-4" style={{color: 'var(--gray)'}}>
+    <div className="relative mx-auto min-h-screen w-full max-w-5xl overflow-hidden px-4 py-6" style={{background: "radial-gradient(ellipse at top left, rgba(255, 220, 185, 0.32), transparent 42%), linear-gradient(180deg, #FFFCF8 0%, #FFF8F0 100%)"}}>
+      <button type="button" onClick={() => router.push('/order')} className="mb-4 inline-flex items-center gap-2.5 rounded-full border px-3 py-2 transition-colors hover:bg-orange-50" style={{color: '#A65A28', borderColor: '#F4D7BC', background: 'rgba(255,255,255,0.8)'}}>
         <ArrowLeft className="w-4 h-4" />
         <span className="text-[12.5px]">Back to restaurants</span>
       </button>
@@ -65,7 +65,7 @@ export default function RestaurantMenuPage() {
             <h1 className="font-display text-[19px] font-semibold" style={{color: 'var(--ink)'}}>
               {restaurant.name}
             </h1>
-            <div className="text-[11.5px]" style={{color: 'var(--gray)'}}>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11.5px]" style={{color: '#865F47'}}>
               {restaurant.rating != null && `${restaurant.rating} ★ · `}
               {restaurant.category}
               {restaurant.etaMinutes != null && ` · ~${restaurant.etaMinutes} min`}
