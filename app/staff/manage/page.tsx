@@ -1,12 +1,14 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 type StaffRow = { id:string; email:string; display_name:string; role:string; permissions:string[]; is_active:boolean; must_change_password:boolean; last_login_at:string|null; created_at:string };
 const roles = ["admin","manager","inventory","pos","support","auditor"];
 export const dynamic = "force-dynamic";
 export default function StaffManagementPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const inAdmin = pathname.startsWith("/admin/staff");
   const [rows,setRows] = useState<StaffRow[]>([]);
   const [loading,setLoading] = useState(true);
   const [busy,setBusy] = useState(false);
@@ -58,7 +60,7 @@ export default function StaffManagementPage() {
     finally { setBusy(false); }
   }
   return <main className="min-h-screen bg-[#F7F4F0]">
-    <header className="flex items-center justify-between border-b bg-white px-5 py-4 md:px-8"><div><p className="text-xs font-semibold uppercase tracking-widest text-orange-700">BigFoods central operations</p><h1 className="mt-1 text-xl font-semibold">Staff management</h1></div><button onClick={()=>router.push("/staff")} className="rounded-lg border px-4 py-2 text-sm">Back to workspace</button></header>
+    <header className="flex items-center justify-between border-b bg-white px-5 py-4 md:px-8"><div><p className="text-xs font-semibold uppercase tracking-widest text-orange-700">BigFoods central operations</p><h1 className="mt-1 text-xl font-semibold">Staff management</h1></div><button onClick={()=>router.push(inAdmin ? "/admin/dashboard" : "/staff")} className="rounded-lg border px-4 py-2 text-sm">Back to workspace</button></header>
     <section className="mx-auto max-w-6xl space-y-6 p-5 md:p-8">
       {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       {notice && <p role="status" className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
