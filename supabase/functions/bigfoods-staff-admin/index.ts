@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 const origin = Deno.env.get("STAFF_LOGIN_ALLOWED_ORIGIN") ?? "https://bigfoods.com";
-const headers = { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info", "Vary": "Origin" };
+const headers = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info", "Vary": "Origin" };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...headers, "Content-Type": "application/json", "Cache-Control": "no-store" } });
 const encoder = new TextEncoder();
 function hex(bytes: Uint8Array) { return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join(""); }
@@ -30,7 +30,7 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers });
   if (req.method !== "POST") return json({ error:"Method not allowed" },405);
   const reqOrigin = req.headers.get("Origin");
-  if (reqOrigin && reqOrigin !== origin) return json({ error:"Not allowed" },403);
+  if (reqOrigin && reqOrigin !== origin && !(/^https:\/\/[a-z0-9-]+\.netlify\.app$/.test(reqOrigin))) return json({ error:"Not allowed" },403);
   let body:any;
   try { body = await req.json(); } catch { return json({ error:"Invalid request" },400); }
   const url = Deno.env.get("SUPABASE_URL"), key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
