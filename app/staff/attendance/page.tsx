@@ -78,6 +78,7 @@ export default function StaffAttendancePage() {
         }
       }, () => {}, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
     };
+    sendPing();
     const interval = window.setInterval(sendPing, 30 * 60 * 1000);
     return () => { active = false; window.clearInterval(interval); };
   }, [open?.id, call]);
