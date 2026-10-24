@@ -76,7 +76,7 @@ Deno.serve(async (req: Request) => {
         if (!id || !Number.isInteger(quantity) || quantity < 1 || quantity > 20) return json({ error: "Menu item quantities must be between 1 and 20." }, 400);
         quantities.set(id, (quantities.get(id) ?? 0) + quantity);
       }
-      const { data: menu, error: menuError } = await admin.from("menu_items").select("id,name,price,promotional_price,promotion_starts_at,promotion_ends_at,is_available,admin_disabled,restaurant_id").in("id", Array.from(quantities.keys())).eq("restaurant_id", restaurantId);
+      const { data: menu, error: menuError } = await admin.from("menu_items").select("id,name,price,promotional_price,promotion_starts_at,promotion_ends_at,is_available,admin_disabled,restaurant_id,option_groups").in("id", Array.from(quantities.keys())).eq("restaurant_id", restaurantId);
       if (menuError || !menu || menu.length !== quantities.size) return json({ error: "Some selected menu items are no longer available." }, 400);
       const now = Date.now();
       const selectedItems = [];
@@ -88,8 +88,32 @@ Deno.serve(async (req: Request) => {
         const price = item.promotional_price != null && now >= promoStart && now <= promoEnd ? Number(item.promotional_price) : Number(item.price);
         if (!Number.isFinite(price) || price <= 0) return json({ error: "A selected item has an invalid price." }, 400);
         const quantity = quantities.get(item.id)!;
-        perDeliveryTotal += price * quantity;
-        selectedItems.push({ menu_item_id: item.id, name: item.name, quantity, unit_price: price });
+        const rawItem = rawItems.find((candidate:any) => String(candidate?.menu_item_id ?? "") === item.id);
+        const submittedOptions = Array.isArray(rawItem?.selected_options) ? rawItem.selected_options : [];
+        const configuredGroups = Array.isArray(item.option_groups) ? item.option_groups : [];
+        const selectedOptions:any[] = [];
+        for (const group of configuredGroups) {
+          const submittedForGroup = submittedOptions.filter((option:any) => String(option?.groupId ?? "") === String(group.id));
+          const chosen = submittedForGroup.filter((option:any) => Number(option?.quantity) > 0);
+          const min = group.required ? Math.max(1, Number(group.min_select ?? 1)) : Number(group.min_select ?? 0);
+          const max = group.selection_type === "single" ? 1 : Number(group.max_select ?? (Array.isArray(group.options) ? group.options.length : 0));
+          if (chosen.length < min || chosen.length > max) return json({ error: "Please complete the required options for " + item.name + "." }, 400);
+          for (const submitted of chosen) {
+            const option = (Array.isArray(group.options) ? group.options : []).find((candidate:any) => String(candidate.id) === String(submitted.optionId));
+            const optionQuantity = Number(submitted.quantity);
+            if (!option || !Number.isInteger(optionQuantity) || optionQuantity < 1 || optionQuantity > 99 || option.is_available === false) return json({ error: "A selected variant for " + item.name + " is no longer available." }, 409);
+            if (option.stock_quantity != null && Number(option.stock_quantity) - Number(option.stock_reserved ?? 0) < optionQuantity) return json({ error: "A selected variant for " + item.name + " is out of stock." }, 409);
+            const optionPrice = Number(option.price ?? 0);
+            if (!Number.isFinite(optionPrice) || optionPrice < 0) return json({ error: "A selected variant has an invalid price." }, 400);
+            selectedOptions.push({ groupId: group.id, groupName: group.name, optionId: option.id, optionName: option.name, price: optionPrice, quantity: optionQuantity });
+          }
+        }
+        const allowedOptionIds = new Set(configuredGroups.flatMap((group:any) => (Array.isArray(group.options) ? group.options : []).map((option:any) => String(option.id))));
+        if (submittedOptions.some((option:any) => Number(option?.quantity) > 0 && !allowedOptionIds.has(String(option?.optionId)))) return json({ error: "A selected variant does not belong to " + item.name + "." }, 400);
+        const optionCost = selectedOptions.reduce((sum, option) => sum + option.price * option.quantity, 0);
+        const unitPrice = price + optionCost;
+        perDeliveryTotal += unitPrice * quantity;
+        selectedItems.push({ menu_item_id: item.id, name: item.name, quantity, unit_price: unitPrice, base_unit_price: price, selected_options: selectedOptions });
       }
       const dates = getDeliveryDates(days, packageWeeks);
       if (!dates.length) return json({ error: "Could not generate your delivery schedule. Try again." }, 400);
