@@ -1,5 +1,6 @@
 'use client';
 
+import {useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {Plus, Minus, Image as ImageIcon, ChevronLeft, ChevronRight, X} from 'lucide-react';
 import {useCart} from '@/hooks/useCart';
