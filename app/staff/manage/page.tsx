@@ -101,8 +101,12 @@ export default function StaffManagementPage() {
       <div className="rounded-xl border bg-white p-4" style={{borderColor:"var(--line)"}}><div className="flex items-center justify-between"><span className="text-[11px]" style={{color:"var(--gray)"}}>Active accounts</span><UserCheck className="h-4 w-4 text-green-700"/></div><p className="mt-2 text-[25px] font-semibold" style={{fontFamily:"'Space Grotesk', sans-serif"}}>{activeCount}</p><p className="mt-1 text-[10.5px]" style={{color:"var(--gray)"}}>Can access assigned modules</p></div>
       <div className="rounded-xl border bg-white p-4" style={{borderColor:"var(--line)"}}><div className="flex items-center justify-between"><span className="text-[11px]" style={{color:"var(--gray)"}}>Inactive accounts</span><UserX className="h-4 w-4" style={{color:"var(--gray)"}}/></div><p className="mt-2 text-[25px] font-semibold" style={{fontFamily:"'Space Grotesk', sans-serif"}}>{inactiveCount}</p><p className="mt-1 text-[10.5px]" style={{color:"var(--gray)"}}>Access disabled</p></div>
     </div>
-    {canManage && <div className="flex justify-end">
-      <button onClick={()=>{resetForm();setFormOpen(true);}} className="inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-[11.5px] font-semibold text-white shadow-sm" style={{background:"var(--orange)"}}><UserPlus className="h-4 w-4"/> Add staff member</button>
+    {canManage && <div className="flex flex-wrap items-center justify-between gap-3">
+      <p className="text-[11.5px]" style={{color:"var(--gray)"}}>{filteredRows.length} {filteredRows.length === 1 ? "staff member" : "staff members"} shown</p>
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={()=>void load()} disabled={loading || busy} className="inline-flex items-center justify-center gap-2 rounded-md border bg-white px-4 py-2.5 text-[11.5px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50" style={{borderColor:"var(--line)",color:"var(--ink)"}}><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}/>{loading ? "Refreshing…" : "Refresh"}</button>
+        <button type="button" onClick={()=>{resetForm();setFormOpen(true);}} className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5 text-[11.5px] font-semibold text-white shadow-sm transition-opacity hover:opacity-90" style={{background:"var(--orange)"}}><UserPlus className="h-4 w-4"/> Add staff member</button>
+      </div>
     </div>}
     {formOpen && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-3 sm:p-6" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)resetForm();}}>
       <section role="dialog" aria-modal="true" aria-labelledby="staff-form-title" className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border bg-white shadow-2xl" style={{borderColor:"var(--line)"}}>
