@@ -10,7 +10,6 @@ type Shift = {
   bigfoods_staff_shift_templates?: { name: string; start_time: string; end_time: string };
   bigfoods_staff_work_locations?: { name: string; address: string | null; radius_m: number };
 };
-type LeaveRequest = { id:string; leave_type:string; starts_on:string; ends_on:string; reason:string; status:string; review_note:string|null; created_at:string };
 type Attendance = {
   id: string; shift_assignment_id: string | null; checked_in_at: string; checked_out_at: string | null; status: string;
   check_in_distance_m: number | null; check_out_distance_m: number | null; check_in_qr_verified: boolean; check_out_qr_verified: boolean;
@@ -25,8 +24,6 @@ export default function StaffAttendancePage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [open, setOpen] = useState<Attendance | null>(null);
   const [history, setHistory] = useState<Attendance[]>([]);
-  const [leaveRequests,setLeaveRequests]=useState<LeaveRequest[]>([]);
-  const [leaveType,setLeaveType]=useState('annual');const [leaveStart,setLeaveStart]=useState('');const [leaveEnd,setLeaveEnd]=useState('');const [leaveReason,setLeaveReason]=useState('');
   const [shiftId, setShiftId] = useState('');
   const [qr, setQr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -46,12 +43,11 @@ export default function StaffAttendancePage() {
   const load = useCallback(async () => {
     setError('');
     try {
-      const [schedule, attendance, leave] = await Promise.all([call({ action: 'my_schedule' }), call({ action: 'attendance_status' }), call({ action: 'leave_list' })]);
+      const [schedule, attendance] = await Promise.all([call({ action: 'my_schedule' }), call({ action: 'attendance_status' })]);
       const nextShifts: Shift[] = schedule.shifts || [];
       setShifts(nextShifts);
       setOpen(attendance.open_attendance || null);
       setHistory(attendance.history || []);
-      setLeaveRequests(leave.requests || []);
       setShiftId((current) => {
         if (current && nextShifts.some((shift) => shift.id === current && shift.status === 'scheduled')) return current;
         return nextShifts.find((shift) => shift.status === 'scheduled')?.id || '';
@@ -113,8 +109,6 @@ export default function StaffAttendancePage() {
     } finally { setBusy(false); }
   }
 
-  async function submitLeave(e: React.FormEvent) { e.preventDefault(); setBusy(true); setError(''); setNotice(''); try { await call({ action:'leave_request', leave_type:leaveType, starts_on:leaveStart, ends_on:leaveEnd, reason:leaveReason }); setNotice('Leave request submitted for admin review.'); setLeaveReason(''); await load(); } catch(e) { setError(e instanceof Error ? e.message : 'Unable to submit leave request'); } finally { setBusy(false); } }
-
   const selectedShift = shifts.find((shift) => shift.id === shiftId);
   const upcoming = shifts.filter((shift) => shift.status === 'scheduled' || shift.id === open?.shift_assignment_id);
   const field = 'mt-2 block w-full rounded-lg border border-[#DED6CE] bg-white px-3 py-3 text-sm text-[#28231F] outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100';
@@ -130,7 +124,6 @@ export default function StaffAttendancePage() {
       <div className="rounded-xl border bg-white p-4" style={{ borderColor: 'var(--line, #E8E0D8)' }}><div className="flex items-center gap-2 text-[#81766D]"><CheckCircle2 className="h-4 w-4" /><span className="text-[11px]">Recent records</span></div><p className="mt-2 text-2xl font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{loading ? '—' : history.length}</p><p className="mt-1 text-[10.5px] text-[#81766D]">Attendance history loaded</p></div>
     </section>
 
-    <section className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-[.9fr_1.1fr]"><div className="rounded-xl border bg-white p-4 sm:p-5" style={{borderColor:'var(--line, #E8E0D8)'}}><h2 className="text-[13px] font-semibold">Request leave</h2><p className="mt-1 text-[11px] text-[#81766D]">Submit a date range for admin review.</p><form onSubmit={submitLeave} className="mt-4 space-y-3"><label className="block text-[11px] font-semibold text-[#51473F]">Leave type<select className={field} value={leaveType} onChange={e=>setLeaveType(e.target.value)}><option value="annual">Annual</option><option value="sick">Sick</option><option value="personal">Personal</option><option value="unpaid">Unpaid</option><option value="other">Other</option></select></label><div className="grid grid-cols-2 gap-3"><label className="block text-[11px] font-semibold text-[#51473F]">From<input required type="date" min={new Date().toISOString().slice(0,10)} className={field} value={leaveStart} onChange={e=>setLeaveStart(e.target.value)}/></label><label className="block text-[11px] font-semibold text-[#51473F]">To<input required type="date" min={leaveStart||new Date().toISOString().slice(0,10)} className={field} value={leaveEnd} onChange={e=>setLeaveEnd(e.target.value)}/></label></div><label className="block text-[11px] font-semibold text-[#51473F]">Reason<textarea required maxLength={1000} rows={3} className={field} value={leaveReason} onChange={e=>setLeaveReason(e.target.value)} placeholder="Briefly explain your request"/></label><button disabled={busy||!leaveStart||!leaveEnd||!leaveReason.trim()} className={button}>Submit leave request</button></form></div><div className="rounded-xl border bg-white p-4 sm:p-5" style={{borderColor:'var(--line, #E8E0D8)'}}><h2 className="text-[13px] font-semibold">My leave requests</h2><div className="mt-3 space-y-2">{leaveRequests.map(r=><article key={r.id} className="rounded-lg border p-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-[12px] font-semibold capitalize">{r.leave_type} leave · {r.starts_on} to {r.ends_on}</p><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${r.status==='approved'?'bg-green-50 text-green-800':r.status==='rejected'?'bg-red-50 text-red-800':'bg-amber-50 text-amber-800'}`}>{r.status}</span></div><p className="mt-2 text-[11px] text-[#81766D]">{r.reason}</p>{r.review_note&&<p className="mt-2 text-[10.5px] text-[#81766D]">Admin note: {r.review_note}</p>}</article>)}{!leaveRequests.length&&<p className="py-5 text-center text-[11px] text-[#81766D]">No leave requests submitted yet.</p>}</div></div></section>
     <section className="mb-4 grid grid-cols-1 gap-3 xl:grid-cols-[1.1fr_.9fr]">
       <div className="overflow-hidden rounded-xl border bg-white" style={{ borderColor: 'var(--line, #E8E0D8)' }}>
         <div className="flex items-start justify-between gap-3 border-b px-4 py-4 sm:px-5" style={{ borderColor: 'var(--line, #E8E0D8)' }}><div><h2 className="text-[13px] font-semibold">Clock in / out</h2><p className="mt-1 text-[11px] text-[#81766D]">GPS and a current premises code are required.</p></div><span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${open ? 'bg-green-50 text-green-800' : 'bg-[#F7F4F0] text-[#74685F]'}`}>{open ? 'On shift' : 'Off shift'}</span></div>
