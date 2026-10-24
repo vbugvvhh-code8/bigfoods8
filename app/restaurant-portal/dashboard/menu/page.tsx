@@ -183,14 +183,7 @@ export default function MenuBuilderPage() {
 
       {showAddForm && (
         <div className="mb-5">
-          <MenuItemForm
-            restaurantId={restaurant.id}
-            existingItem={editingItem ?? undefined}
-            onSubmit={addMenuItem}
-            onUpdate={updateMenuItem}
-            onDone={() => { setShowAddForm(false); setEditingItem(null); }}
-            onCancel={() => { setShowAddForm(false); setEditingItem(null); }}
-          />
+          <button type="button" onClick={() => router.push('/restaurant-portal/dashboard/menu/item')} className="rounded-xl px-3 py-2 text-sm font-bold text-white" style={{background:'var(--orange)'}}>Open menu editor</button>
         </div>
       )}
 
