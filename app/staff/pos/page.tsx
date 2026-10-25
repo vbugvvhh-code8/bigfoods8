@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Minus, Trash2, RefreshCw, ShoppingBag, LogOut, UtensilsCrossed, LayoutGrid, ClipboardList, Package, Users, ChartNoAxesColumn, Settings, UserRound, Headphones, CheckCircle2 } from "lucide-react";
+import { Search, Plus, Minus, Trash2, RefreshCw, ShoppingBag, LogOut, UtensilsCrossed, LayoutGrid, ClipboardList, Package, Users, ChartNoAxesColumn, FileText, Settings, UserRound, Headphones, CheckCircle2 } from "lucide-react";
 
 type Staff = { id: string; email: string; display_name: string; role: string; permissions: unknown; must_change_password: boolean };
-type Product = { id: string; name: string; category: string; subcategory: string | null; selling_price: number; image_url: string | null; image_urls?: string[] | null; is_available: boolean; sku?: string | null; sort_order?: number; promotional_price?: number | null; promotion_starts_at?: string | null; promotion_ends_at?: string | null; complementary_item_ids?: string[] | null };
+type Product = { id: string; name: string; sold_count?: number; category: string; subcategory: string | null; selling_price: number; image_url: string | null; image_urls?: string[] | null; is_available: boolean; sku?: string | null; sort_order?: number; promotional_price?: number | null; promotion_starts_at?: string | null; promotion_ends_at?: string | null; complementary_item_ids?: string[] | null };
 type CartLine = { key: string; product: Product; quantity: number };
 type SaleReceipt = { id: string; receipt_number: string; total_amount: number; payment_method: "cash" | "moniepoint_pos"; status: string; cash_received: number | null; change_due: number; created_at: string };
 const money = (value: number) => new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(value);
@@ -62,7 +62,7 @@ export default function StaffPosPage() {
   const subcategories = useMemo(() => ["All", ...Array.from(new Set(products.filter(p => category === "All" || p.category === category).map(p => p.subcategory).filter((x): x is string => Boolean(x)))).sort((a,b)=>a.localeCompare(b))], [products, category]);
   const visible = useMemo(() => products.filter(p => (category === "All" || p.category === category) && (subcategory === "All" || p.subcategory === subcategory) &&
     [p.name, p.category, p.subcategory ?? "", p.sku ?? ""].join(" ").toLowerCase().includes(search.toLowerCase())), [products, category, subcategory, search]);
-  const popular = useMemo(() => [...products].sort((a,b)=>Number(b.sort_order ?? 0)-Number(a.sort_order ?? 0)).slice(0,6), [products]);
+  const popular = useMemo(() => [...products].sort((a,b)=>Number(b.sold_count ?? 0)-Number(a.sold_count ?? 0) || Number(b.sort_order ?? 0)-Number(a.sort_order ?? 0)).slice(0,6), [products]);
   const recommendations = useMemo(() => {
     const ids = new Set(cart.flatMap(line => line.product.complementary_item_ids ?? []));
     return products.filter(p => ids.has(p.id) && !cart.some(line => line.product.id === p.id)).slice(0,4);
