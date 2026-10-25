@@ -176,6 +176,46 @@ Deno.serve(async (req: Request) => {
       await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.sale_recorded", details: { sale_id: sale.id, receipt_number: sale.receipt_number, payment_method: paymentMethod, total_amount: total, item_count: saleLines.length } });
       return json({ sale, items: saleLines }, 201);
     }
+    if (action === "pos_sales_list") {
+      if (!(has(actor, "pos.view") || has(actor, "pos.sell") || ["owner", "admin", "pos"].includes(actor.role))) return json({ error: "Forbidden" }, 403);
+      const page = Math.max(1, Math.min(10000, Math.floor(Number(body.page) || 1)));
+      const pageSize = Math.max(1, Math.min(100, Math.floor(Number(body.page_size) || 10)));
+      const search = String(body.search ?? "").trim().slice(0, 120);
+      const status = String(body.status ?? "all");
+      const from = String(body.from ?? "");
+      const to = String(body.to ?? "");
+      let query = db.from("bigfoods_pos_sales")
+        .select("id,receipt_number,cashier_staff_id,customer_email,payment_method,status,subtotal,total_amount,cash_received,change_due,created_at", { count: "exact" })
+        .order("created_at", { ascending: false });
+      if (status !== "all" && ["paid", "voided", "refunded", "needs_review"].includes(status)) query = query.eq("status", status);
+      if (from && /^\\d{4}-\\d{2}-\\d{2}$/.test(from)) query = query.gte("created_at", from + "T00:00:00.000Z");
+      if (to && /^\\d{4}-\\d{2}-\\d{2}$/.test(to)) query = query.lt("created_at", new Date(new Date(to + "T00:00:00.000Z").getTime() + 86400000).toISOString());
+      if (search) query = query.or("receipt_number.ilike.%"+search.replace(/[%,()]/g, "")+"%,customer_email.ilike.%"+search.replace(/[%,()]/g, "")+"%");
+      const { data: sales, count, error } = await query.range((page - 1) * pageSize, page * pageSize - 1);
+      if (error) return json({ error: "Unable to load POS sales." }, 503);
+      const ids = (sales ?? []).map((sale: any) => sale.id);
+      const { data: lines, error: lineError } = ids.length
+        ? await db.from("bigfoods_pos_sale_items").select("sale_id,product_id,product_name,quantity,unit_price,line_total").in("sale_id", ids)
+        : { data: [], error: null };
+      if (lineError) return json({ error: "Unable to load POS sale items." }, 503);
+      const grouped = new Map<string, any[]>();
+      for (const line of lines ?? []) grouped.set(line.sale_id, [...(grouped.get(line.sale_id) ?? []), line]);
+      return json({ orders: (sales ?? []).map((sale: any) => ({ ...sale, items: grouped.get(sale.id) ?? [] })), total: count ?? 0, page, page_size: pageSize });
+    }
+    if (action === "pos_sales_summary") {
+      if (!(has(actor, "pos.view") || has(actor, "pos.sell") || ["owner", "admin", "pos"].includes(actor.role))) return json({ error: "Forbidden" }, 403);
+      const from = String(body.from ?? "");
+      const to = String(body.to ?? "");
+      let query = db.from("bigfoods_pos_sales").select("id,payment_method,status,total_amount,created_at");
+      if (from && /^\\d{4}-\\d{2}-\\d{2}$/.test(from)) query = query.gte("created_at", from + "T00:00:00.000Z");
+      if (to && /^\\d{4}-\\d{2}-\\d{2}$/.test(to)) query = query.lt("created_at", new Date(new Date(to + "T00:00:00.000Z").getTime() + 86400000).toISOString());
+      const { data, error } = await query;
+      if (error) return json({ error: "Unable to load POS reporting data." }, 503);
+      const paid = (data ?? []).filter((s: any) => s.status === "paid");
+      const byPayment: Record<string, number> = {};
+      for (const sale of paid) byPayment[sale.payment_method] = (byPayment[sale.payment_method] ?? 0) + Number(sale.total_amount);
+      return json({ total_orders: (data ?? []).length, paid_orders: paid.length, total_sales: paid.reduce((n: number, s: any) => n + Number(s.total_amount), 0), by_payment_method: byPayment, sales: data ?? [] });
+    }
     if (action === "pos_item_save") {
       if (!canManagePosCatalogue(actor)) return json({ error: "Forbidden: catalogue management permission required." }, 403);
       const name = String(body.name ?? "").trim();
