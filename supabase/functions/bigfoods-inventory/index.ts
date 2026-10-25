@@ -92,6 +92,15 @@ Deno.serve(async (req: Request) => {
       if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
       return json({ waste: data }, 201);
     }
+    if (action === "recipe_overview") {
+      if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
+      const [menu, recipes] = await Promise.all([
+        db.from("menu_items").select("id,name").order("name").limit(500),
+        db.from("inventory_recipes").select("id,menu_item_id,name,version,output_quantity,output_unit,effective_from,is_active").eq("is_active", true).order("name").limit(300)
+      ]);
+      if (menu.error || recipes.error) return json({ error: "Unable to load recipe data. Confirm the inventory migrations have been applied." }, 503);
+      return json({ menu_items: menu.data ?? [], recipes: recipes.data ?? [] });
+    }
     if (action === "recipe_save") {
       if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
       const { data, error } = await db.rpc("bigfoods_inventory_save_recipe", {
