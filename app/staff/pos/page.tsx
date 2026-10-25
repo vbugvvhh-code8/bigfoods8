@@ -21,7 +21,8 @@ export default function StaffPosPage() {
   const [category, setCategory] = useState("All");
   const [subcategory, setSubcategory] = useState("All");
   const [customerEmail, setCustomerEmail] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer" | "card">("cash");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "moniepoint_pos">("cash");
+  const [terminalConfirmed, setTerminalConfirmed] = useState(false);
   const [cashReceived, setCashReceived] = useState("");
   const [receipt, setReceipt] = useState<SaleReceipt | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,8 +56,12 @@ export default function StaffPosPage() {
   useEffect(() => { void load(); }, [load]);
 
   const categories = useMemo(() => ["All", ...Array.from(new Set(products.map(p => p.category).filter(Boolean))).sort((a,b)=>a.localeCompare(b))], [products]);
+  const subcategories = useMemo(() => ["All", ...Array.from(new Set(products
+    .filter(p => category === "All" || p.category === category)
+    .map(p => p.subcategory).filter((value): value is string => Boolean(value?.trim()))).sort((a,b)=>a.localeCompare(b))], [products, category]);
   const visible = useMemo(() => products.filter(p => (category === "All" || p.category === category) &&
-    [p.name, p.category, p.subcategory ?? "", p.sku ?? ""].join(" ").toLowerCase().includes(search.toLowerCase())), [products, category, search]);
+    (subcategory === "All" || p.subcategory === subcategory) &&
+    [p.name, p.category, p.subcategory ?? "", p.sku ?? ""].join(" ").toLowerCase().includes(search.toLowerCase())), [products, category, subcategory, search]);
   const total = cart.reduce((sum, line) => sum + Number(line.product.selling_price) * line.quantity, 0);
   function add(product: Product) {
     setNotice("");
@@ -71,6 +76,8 @@ export default function StaffPosPage() {
   }
   async function checkout() {
     if (!cart.length || busy) return;
+    if (paymentMethod === "moniepoint_pos" && !terminalConfirmed) { setError("Confirm that the physical Moniepoint terminal shows a successful payment before recording this sale."); return; }
+    if (paymentMethod === "cash" && (!Number.isFinite(Number(cashReceived)) || Number(cashReceived) < total)) { setError("Cash received must be at least the order total."); return; }
     setBusy(true); setError(""); setNotice(""); setReceipt(null);
     try {
       const response = await fetch("/api/bigfoods-staff/inventory", {
@@ -80,6 +87,7 @@ export default function StaffPosPage() {
           idempotency_key: crypto.randomUUID(),
           payment_method: paymentMethod,
           cash_received: paymentMethod === "cash" ? Number(cashReceived) : null,
+          terminal_confirmed: paymentMethod === "moniepoint_pos" ? terminalConfirmed : false,
           customer_email: customerEmail.trim(),
           items: cart.map(line => ({ product_id: line.product.id, quantity: line.quantity }))
         }), cache: "no-store"
@@ -87,7 +95,7 @@ export default function StaffPosPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to record sale.");
       setReceipt(data.sale as SaleReceipt);
-      setCart([]); setCustomerEmail(""); setCashReceived("");
+      setCart([]); setCustomerEmail(""); setCashReceived(""); setTerminalConfirmed(false);
       setNotice(data.duplicate ? "This checkout was already recorded. No duplicate sale was created." : "Sale recorded successfully.");
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to record sale."); }
     finally { setBusy(false); }
@@ -125,9 +133,17 @@ export default function StaffPosPage() {
           <div className="my-4 max-h-[42vh] space-y-3 overflow-y-auto">{cart.map(line=><div key={line.key} className="flex gap-3 border-b border-[#F0E8E0] pb-3"><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-[#30261F]">{line.product.name}</p><p className="mt-1 text-xs text-[#817367]">{money(Number(line.product.selling_price))} each</p><div className="mt-2 inline-flex items-center gap-3 rounded-lg border border-[#E8E0D8] p-1"><button onClick={()=>changeQty(line.product.id,-1)} aria-label={"Decrease "+line.product.name} className="grid h-7 w-7 place-items-center rounded-md hover:bg-[#FBF7F2]"><Minus size={14}/></button><span className="min-w-4 text-center text-sm font-semibold">{line.quantity}</span><button onClick={()=>changeQty(line.product.id,1)} aria-label={"Increase "+line.product.name} className="grid h-7 w-7 place-items-center rounded-md hover:bg-[#FBF7F2]"><Plus size={14}/></button></div></div><div className="text-right"><p className="text-sm font-bold text-[#30261F]">{money(Number(line.product.selling_price)*line.quantity)}</p><button onClick={()=>changeQty(line.product.id,-line.quantity)} aria-label={"Remove "+line.product.name} className="mt-2 text-[#A34B37]"><Trash2 size={15}/></button></div></div>)}</div>}
         <label className="mt-4 block text-xs font-semibold text-[#6E6257]">Customer email<input type="email" value={customerEmail} onChange={e=>setCustomerEmail(e.target.value)} placeholder="customer@example.com" className="mt-1.5 w-full rounded-xl border border-[#E8E0D8] px-3 py-2.5 text-sm text-[#30261F] outline-none focus:border-orange-500"/></label>
         <div className="mt-4 space-y-2 border-t border-[#E8E0D8] pt-4"><div className="flex justify-between text-sm text-[#6E6257]"><span>Subtotal</span><span>{money(total)}</span></div><div className="flex justify-between text-lg font-bold text-[#30261F]"><span>Total</span><span>{money(total)}</span></div></div>
-        <button disabled={!cart.length || busy || loading} onClick={()=>setNotice("Cart is ready. Secure checkout is the next implementation step; no sale or payment has been created.")} className="mt-4 w-full rounded-xl bg-[#E87524] px-4 py-3.5 text-sm font-bold text-white hover:bg-[#D96417] disabled:cursor-not-allowed disabled:opacity-50">{busy?"Processing…":"Proceed to payment"}</button>
-        <button disabled={!cart.length} onClick={()=>{setCart([]);setCustomerEmail("");setNotice("");}} className="mt-2 w-full rounded-xl border border-[#E8E0D8] px-4 py-2.5 text-sm font-semibold text-[#47382D] disabled:opacity-50">Clear order</button>
-        <p className="mt-3 text-[11px] leading-5 text-[#817367]">Payment is not taken by this screen yet. Checkout will be enabled only after server-side payment verification and duplicate-sale protection are connected.</p>
+        <fieldset className="mt-4 space-y-2"><legend className="mb-2 text-xs font-semibold text-[#6E6257]">Payment method</legend>
+          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#E8E0D8] p-3 text-sm"><input type="radio" name="paymentMethod" checked={paymentMethod === "cash"} onChange={()=>{setPaymentMethod("cash");setTerminalConfirmed(false);}}/> Cash</label>
+          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#E8E0D8] p-3 text-sm"><input type="radio" name="paymentMethod" checked={paymentMethod === "moniepoint_pos"} onChange={()=>{setPaymentMethod("moniepoint_pos");setTerminalConfirmed(false);}}/> Physical Moniepoint POS terminal</label>
+        </fieldset>
+        {paymentMethod === "cash" ? <label className="mt-3 block text-xs font-semibold text-[#6E6257]">Cash received (₦)<input type="number" min={total} step="1" value={cashReceived} onChange={e=>setCashReceived(e.target.value)} placeholder={String(total)} className="mt-1.5 w-full rounded-xl border border-[#E8E0D8] px-3 py-2.5 text-sm outline-none focus:border-orange-500"/></label> :
+          <label className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900"><input className="mt-1" type="checkbox" checked={terminalConfirmed} onChange={e=>setTerminalConfirmed(e.target.checked)}/> I have checked the physical Moniepoint terminal and it shows this payment succeeded.</label>}
+        {paymentMethod === "cash" && Number(cashReceived) >= total && <div className="mt-2 flex justify-between rounded-lg bg-[#F7F4EF] px-3 py-2 text-sm"><span>Change due</span><strong>{money(Number(cashReceived)-total)}</strong></div>}
+        <button disabled={!cart.length || busy || loading || (paymentMethod === "cash" && (!cashReceived || Number(cashReceived) < total)) || (paymentMethod === "moniepoint_pos" && !terminalConfirmed)} onClick={()=>void checkout()} className="mt-4 w-full rounded-xl bg-[#E87524] px-4 py-3.5 text-sm font-bold text-white hover:bg-[#D96417] disabled:cursor-not-allowed disabled:opacity-50">{busy?"Recording sale…":"Confirm payment & record sale"}</button>
+        <button disabled={!cart.length || busy} onClick={()=>{setCart([]);setCustomerEmail("");setCashReceived("");setTerminalConfirmed(false);setNotice("");}} className="mt-2 w-full rounded-xl border border-[#E8E0D8] px-4 py-2.5 text-sm font-semibold text-[#47382D] disabled:opacity-50">Clear order</button>
+        {receipt && <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"><strong>Receipt {receipt.receipt_number}</strong><div className="mt-1">Total: {money(Number(receipt.total_amount))}</div>{receipt.payment_method === "cash" && <div>Change: {money(Number(receipt.change_due))}</div>}</div>}
+        <p className="mt-3 text-[11px] leading-5 text-[#817367]">Cash sales are recorded after validating the amount received. For Moniepoint, use the physical terminal first and confirm only after it reports success. This screen does not process card payments or integrate directly with the terminal.</p>
       </aside>
     </div>
   </StaffShell>;
