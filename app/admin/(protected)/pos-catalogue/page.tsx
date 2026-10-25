@@ -126,7 +126,6 @@ export default function BigFoodsPosCataloguePage() {
     event.preventDefault();
     if (!canSave || busy) { setError("Please complete all required fields and check each step before saving."); return; }
     setBusy(true); setError(""); setNotice("");
-    const supabase = getBrowserSupabase();
     const uploadedPaths: string[] = [];
     try {
       const uploadedUrls: string[] = [];
@@ -162,7 +161,7 @@ export default function BigFoodsPosCataloguePage() {
       }
       setNotice(form.id ? "Catalogue item updated." : "Catalogue item created."); setEditing(false); await load();
     } catch (e) {
-      if (uploadedPaths.length) await supabase.storage.from("menu-images").remove(uploadedPaths).catch(()=>undefined);
+      if (uploadedPaths.length) await call({ action: "pos_item_photo_delete", paths: uploadedPaths }).catch(()=>undefined);
       setError(e instanceof Error ? e.message : "Unable to save catalogue item");
     } finally { setBusy(false); }
   }
