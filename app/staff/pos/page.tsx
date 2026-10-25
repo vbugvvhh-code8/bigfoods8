@@ -95,12 +95,12 @@ export default function StaffPosPage() {
 
   const nav = [
     { label:"POS", icon:LayoutGrid, active:true, click:()=>{} },
-    { label:"Orders", icon:ClipboardList, click:()=>setNotice("Order history is the next POS module to connect.") },
-    { label:"Menu", icon:UtensilsCrossed, click:()=>router.push("/admin/pos-catalogue") },
-    { label:"Inventory", icon:Package, click:()=>setNotice("Inventory management remains in the admin workspace.") },
+    { label:"Orders", icon:ClipboardList, click:()=>router.push("/staff/pos/orders") },
+    { label:"Menu", icon:UtensilsCrossed, click:()=>router.push("/staff/pos-catalogue") },
+    { label:"Inventory", icon:Package, click:()=>router.push("/staff/inventory") },
     { label:"Customers", icon:Users, click:()=>setNotice("Customer management is not connected to cashier POS yet.") },
-    { label:"Analytics", icon:ChartNoAxesColumn, click:()=>setNotice("Sales analytics will be added after order history.") },
-    { label:"Settings", icon:Settings, click:()=>setNotice("POS settings are managed by an administrator.") },
+    { label:"Analytics", icon:ChartNoAxesColumn, click:()=>router.push("/staff/pos/analytics") },
+    { label:"Settings", icon:Settings, click:()=>router.push("/staff/settings") },
   ];
 
   if (!staff || !authorized) return <main className="grid min-h-screen place-items-center bg-[#F7F4F0] p-6"><div className="max-w-md rounded-2xl border border-[#E8E0D8] bg-white p-6 text-center shadow-sm"><h1 className="text-lg font-bold text-[#30261F]">{loading ? "Checking POS access…" : "POS access restricted"}</h1><p className="mt-2 text-sm leading-6 text-[#81766D]">{error || "Verifying your secure staff session…"}</p><button onClick={() => router.replace("/staff")} className="mt-4 rounded-xl bg-[#F47721] px-4 py-2.5 text-sm font-semibold text-white">Return to staff dashboard</button></div></main>;
