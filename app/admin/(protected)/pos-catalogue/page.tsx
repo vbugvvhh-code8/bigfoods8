@@ -8,23 +8,18 @@ import { ChipPicker } from "@/components/restaurant/dashboard/MenuItemForm";
 import { MENU_CATEGORY_NAMES, MENU_CATEGORY_PRESETS } from "@/lib/menuCategoryPresets";
 import PageHeader from "@/components/admin/layout/PageHeader";
 
-type Option = { id: string; name: string; price: number; stock_quantity?: number | null; stock_reserved?: number };
-type OptionGroup = { id: string; name: string; required: boolean; selection_type: "single" | "multiple"; min_select?: number; max_select?: number; options: Option[] };
 type Window = { day: number; start: string; end: string };
 type PosItem = {
   id: string; name: string; sku: string | null; description: string | null; category: string; subcategory: string | null;
   selling_price: number; image_url: string | null; image_urls?: string[] | null; is_available: boolean; sort_order: number;
-  ingredients?: string | null; serving_size?: string | null; preparation_time_minutes?: number | null; stock_quantity?: number | null;
-  availability_schedule_enabled?: boolean; availability_schedule?: Window[] | null; allergens?: string[] | null; dietary_tags?: string[] | null;
+  availability_schedule_enabled?: boolean; availability_schedule?: Window[] | null;
   promotional_price?: number | null; promotion_starts_at?: string | null; promotion_ends_at?: string | null;
-  complementary_item_ids?: string[] | null; option_groups?: OptionGroup[] | null;
+  complementary_item_ids?: string[] | null;
 };
 const blank = {
   id: "", name: "", description: "", category: "meals", subcategory: "", selling_price: "",
-  image_urls: [] as string[], is_available: true, sort_order: "0", ingredients: "", serving_size: "",
-  preparation_time_minutes: "", stock_quantity: "", schedule_enabled: false, schedule: [] as Window[],
-  allergens: "", dietary_tags: "", promotional_price: "", promotion_starts_at: "", promotion_ends_at: "",
-  complementary_item_ids: [] as string[], option_groups: [] as OptionGroup[]
+  image_urls: [] as string[], is_available: true, sort_order: "0", schedule_enabled: false, schedule: [] as Window[],
+  promotional_price: "", promotion_starts_at: "", promotion_ends_at: "", complementary_item_ids: [] as string[]
 };
 const steps = ["Product details", "Product photo", "Weekly availability", "Promotions & recommendations", "Review & save"];
 const field = "w-full rounded-[9px] border px-3 py-2.5 text-[13px] outline-none";
@@ -72,18 +67,13 @@ export default function BigFoodsPosCataloguePage() {
   const filtered = items.filter(item => [item.name, item.sku ?? "", item.category, item.subcategory ?? ""].join(" ").toLowerCase().includes(query.toLowerCase()));
   const price = Number(form.selling_price);
   const promo = form.promotional_price.trim() ? Number(form.promotional_price) : null;
-  const stock = form.stock_quantity.trim() ? Number(form.stock_quantity) : null;
-  const preparation = form.preparation_time_minutes.trim() ? Number(form.preparation_time_minutes) : null;
   const imageCount = form.image_urls.length + newImages.length;
   const validSchedule = !form.schedule_enabled || form.schedule.every(w => Number.isInteger(w.day) && w.day >= 0 && w.day <= 6 &&
     /^([01]\d|2[0-3]):[0-5]\d$/.test(w.start) && /^([01]\d|2[0-3]):[0-5]\d$/.test(w.end) && w.start < w.end);
   const validPromo = promo === null || (Number.isSafeInteger(promo) && promo > 0 && Number.isSafeInteger(price) && promo < price);
   const validPromoWindow = !form.promotion_starts_at || !form.promotion_ends_at || new Date(form.promotion_ends_at).getTime() > new Date(form.promotion_starts_at).getTime();
   const canSave = form.name.trim().length > 0 && form.category.trim().length > 0 && form.selling_price.trim().length > 0 &&
-    Number.isSafeInteger(price) && price > 0 && step === 5 && imageCount === 1 &&
-    (stock === null || (Number.isSafeInteger(stock) && stock >= 0)) &&
-    (preparation === null || (Number.isSafeInteger(preparation) && preparation > 0)) &&
-    validOptions && validSchedule && validPromo && validPromoWindow;
+    Number.isSafeInteger(price) && price > 0 && step === 5 && imageCount === 1 && validSchedule && validPromo && validPromoWindow;
 
   function startNew() { setForm({...blank}); setNewImages([]); setRemovedImages([]); setStep(1); setEditing(true); setError(""); setNotice(""); }
   function startEdit(item: PosItem) {
@@ -91,11 +81,7 @@ export default function BigFoodsPosCataloguePage() {
     setForm({
       ...blank, id:item.id, name:item.name, description:item.description ?? "", category:item.category,
       subcategory:item.subcategory ?? "", selling_price:String(item.selling_price), image_urls:urls, is_available:item.is_available,
-      sort_order:String(item.sort_order), ingredients:item.ingredients ?? "", serving_size:item.serving_size ?? "",
-      preparation_time_minutes:item.preparation_time_minutes == null ? "" : String(item.preparation_time_minutes),
-      stock_quantity:item.stock_quantity == null ? "" : String(item.stock_quantity),
-      schedule_enabled:Boolean(item.availability_schedule_enabled), schedule:item.availability_schedule ?? [],
-      allergens:(item.allergens ?? []).join(", "), dietary_tags:(item.dietary_tags ?? []).join(", "),
+      sort_order:String(item.sort_order), schedule_enabled:Boolean(item.availability_schedule_enabled), schedule:item.availability_schedule ?? [],
       promotional_price:item.promotional_price == null ? "" : String(item.promotional_price),
       promotion_starts_at:item.promotion_starts_at ? new Date(item.promotion_starts_at).toISOString().slice(0,16) : "",
       promotion_ends_at:item.promotion_ends_at ? new Date(item.promotion_ends_at).toISOString().slice(0,16) : "",
@@ -140,10 +126,8 @@ export default function BigFoodsPosCataloguePage() {
         action:"pos_item_save", id:form.id || undefined, name:form.name.trim(),
         description:form.description.trim() || null, category:form.category.trim(), subcategory:form.subcategory.trim() || null,
         selling_price:price, image_urls:finalUrls, image_url:finalUrls[0] ?? null, is_available:form.is_available,
-        sort_order:Number(form.sort_order) || 0, ingredients:form.ingredients.trim() || null, serving_size:form.serving_size.trim() || null,
-        preparation_time_minutes:preparation, stock_quantity:stock, availability_schedule_enabled:form.schedule_enabled,
-        availability_schedule:form.schedule_enabled ? form.schedule : [], allergens:form.allergens.split(",").map(v=>v.trim()).filter(Boolean),
-        dietary_tags:form.dietary_tags.split(",").map(v=>v.trim()).filter(Boolean), promotional_price:promo,
+        sort_order:Number(form.sort_order) || 0, availability_schedule_enabled:form.schedule_enabled,
+        availability_schedule:form.schedule_enabled ? form.schedule : [], promotional_price:promo,
         promotion_starts_at:form.promotion_starts_at ? new Date(form.promotion_starts_at).toISOString() : null,
         promotion_ends_at:form.promotion_ends_at ? new Date(form.promotion_ends_at).toISOString() : null,
         complementary_item_ids:form.complementary_item_ids
