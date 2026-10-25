@@ -92,19 +92,61 @@ Deno.serve(async (req: Request) => {
       if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
       return json({ waste: data }, 201);
     }
+    if (action === "pos_catalogue_overview") {
+      if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.from("bigfoods_pos_items")
+        .select("id,name,sku,description,category,subcategory,selling_price,image_url,is_available,sort_order,created_at,updated_at")
+        .order("sort_order").order("name").limit(1000);
+      if (error) return json({ error: "Unable to load the BigFoods POS catalogue. Apply the POS catalogue migration." }, 503);
+      return json({ items: data ?? [] });
+    }
+    if (action === "pos_item_save") {
+      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
+      const name = String(body.name ?? "").trim();
+      const category = String(body.category ?? "").trim();
+      const price = Number(body.selling_price);
+      if (!name || !category || !Number.isFinite(price) || price < 0) return json({ error: "Name, category and a valid non-negative selling price are required." }, 400);
+      const payload = {
+        name, sku: String(body.sku ?? "").trim() || null, description: String(body.description ?? "").trim() || null,
+        category, subcategory: String(body.subcategory ?? "").trim() || null,
+        selling_price: price, image_url: String(body.image_url ?? "").trim() || null,
+        is_available: body.is_available !== false, sort_order: Number.isFinite(Number(body.sort_order)) ? Number(body.sort_order) : 0,
+        updated_by_staff_id: actor.id, updated_at: new Date().toISOString()
+      };
+      let result;
+      if (body.id) {
+        result = await db.from("bigfoods_pos_items").update(payload).eq("id", body.id)
+          .select("id,name,sku,description,category,subcategory,selling_price,image_url,is_available,sort_order").single();
+      } else {
+        result = await db.from("bigfoods_pos_items").insert({ ...payload, created_by_staff_id: actor.id })
+          .select("id,name,sku,description,category,subcategory,selling_price,image_url,is_available,sort_order").single();
+      }
+      if (result.error) return json({ error: result.error.message.includes("duplicate key") ? "That SKU is already in use." : "Unable to save catalogue item. Check the details and try again." }, 400);
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: body.id ? "pos.catalogue_item_updated" : "pos.catalogue_item_created", details: { item_id: result.data.id, name } });
+      return json({ item: result.data }, body.id ? 200 : 201);
+    }
+    if (action === "pos_item_availability") {
+      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
+      if (!body.id || typeof body.is_available !== "boolean") return json({ error: "Catalogue item and availability are required." }, 400);
+      const { data, error } = await db.from("bigfoods_pos_items").update({ is_available: body.is_available, updated_by_staff_id: actor.id, updated_at: new Date().toISOString() })
+        .eq("id", body.id).select("id,name,is_available").single();
+      if (error) return json({ error: "Unable to update item availability." }, 400);
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.catalogue_availability_changed", details: { item_id: data.id, is_available: data.is_available } });
+      return json({ item: data });
+    }
     if (action === "recipe_overview") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
-      const [menu, recipes] = await Promise.all([
-        db.from("menu_items").select("id,name").order("name").limit(500),
-        db.from("inventory_recipes").select("id,menu_item_id,name,version,output_quantity,output_unit,effective_from,is_active").eq("is_active", true).order("name").limit(300)
+      const [items, recipes] = await Promise.all([
+        db.from("bigfoods_pos_items").select("id,name,category,is_available").order("name").limit(1000),
+        db.from("inventory_recipes").select("id,bigfoods_pos_item_id,name,version,output_quantity,output_unit,effective_from,is_active").eq("is_active", true).not("bigfoods_pos_item_id", "is", null).order("name").limit(300)
       ]);
-      if (menu.error || recipes.error) return json({ error: "Unable to load recipe data. Confirm the inventory migrations have been applied." }, 503);
-      return json({ menu_items: menu.data ?? [], recipes: recipes.data ?? [] });
+      if (items.error || recipes.error) return json({ error: "Unable to load in-house recipe data. Confirm the POS catalogue migrations have been applied." }, 503);
+      return json({ pos_items: items.data ?? [], recipes: recipes.data ?? [] });
     }
     if (action === "recipe_save") {
       if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
-      const { data, error } = await db.rpc("bigfoods_inventory_save_recipe", {
-        p_actor_staff_id: actor.id, p_menu_item_id: body.menu_item_id, p_name: body.name,
+      const { data, error } = await db.rpc("bigfoods_inventory_save_inhouse_recipe", {
+        p_actor_staff_id: actor.id, p_bigfoods_pos_item_id: body.bigfoods_pos_item_id, p_name: body.name,
         p_output_quantity: body.output_quantity, p_output_unit: body.output_unit, p_ingredients: body.ingredients
       });
       if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
