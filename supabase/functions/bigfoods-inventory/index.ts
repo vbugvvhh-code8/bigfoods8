@@ -7,6 +7,7 @@ const enc = new TextEncoder();
 const digest = async (v: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(v))), x => x.toString(16).padStart(2, "0")).join("");
 type Actor = { id: string; role: string; permissions: unknown; is_active: boolean; must_change_password: boolean; is_platform_admin?: boolean };
 const has = (a: Actor, permission: string) => a.is_platform_admin === true || ["owner", "admin"].includes(a.role) || (a.role === "inventory" && ["inventory.view", "inventory.receive", "inventory.count", "inventory.process", "inventory.waste"].includes(permission)) || (Array.isArray(a.permissions) && a.permissions.includes(permission));
+const canManagePosCatalogue = (a: Actor) => has(a, "inventory.manage") || has(a, "pos.manage") || has(a, "pos.catalogue.manage");
 
 async function actorFor(db: any, token: string, bearer: string): Promise<Actor | null> {
   if (/^[0-9a-f]{64}$/i.test(token)) {
@@ -93,7 +94,7 @@ Deno.serve(async (req: Request) => {
       return json({ waste: data }, 201);
     }
     if (action === "pos_item_photo_upload") {
-      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
+      if (!canManagePosCatalogue(actor)) return json({ error: "Forbidden: catalogue management permission required." }, 403);
       const encoded = String(body.image_base64 ?? "");
       if (!encoded || encoded.length > 500000 || !encoded.startsWith("data:image/jpeg;base64,")) {
         return json({ error: "Choose a compressed JPEG photo under the allowed size." }, 400);
@@ -110,7 +111,7 @@ Deno.serve(async (req: Request) => {
       return json({ path, url: data.publicUrl }, 201);
     }
     if (action === "pos_item_photo_delete") {
-      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
+      if (!canManagePosCatalogue(actor)) return json({ error: "Forbidden: catalogue management permission required." }, 403);
       const paths = Array.isArray(body.paths) ? body.paths.map((v: unknown) => String(v)).filter((v: string) => v.startsWith("bigfoods/pos/") && !v.includes("..")) : [];
       if (paths.length) {
         const { error } = await db.storage.from("menu-images").remove(paths);
@@ -176,7 +177,7 @@ Deno.serve(async (req: Request) => {
       return json({ sale, items: saleLines }, 201);
     }
     if (action === "pos_item_save") {
-      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
+      if (!canManagePosCatalogue(actor)) return json({ error: "Forbidden: catalogue management permission required." }, 403);
       const name = String(body.name ?? "").trim();
       const category = String(body.category ?? "").trim();
       const price = Number(body.selling_price);
@@ -221,7 +222,7 @@ Deno.serve(async (req: Request) => {
       return json({ item: result.data }, body.id ? 200 : 201);
     }
     if (action === "pos_item_availability") {
-      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
+      if (!canManagePosCatalogue(actor)) return json({ error: "Forbidden: catalogue management permission required." }, 403);
       if (!body.id || typeof body.is_available !== "boolean") return json({ error: "Catalogue item and availability are required." }, 400);
       const { data, error } = await db.from("bigfoods_pos_items").update({ is_available: body.is_available, updated_by_staff_id: actor.id, updated_at: new Date().toISOString() })
         .eq("id", body.id).select("id,name,is_available").single();
