@@ -6,7 +6,6 @@ import getBrowserSupabase from "@/lib/supabase/client";
 import { compressImage } from "@/lib/compressImage";
 import { ChipPicker } from "@/components/restaurant/dashboard/MenuItemForm";
 import { MENU_CATEGORY_NAMES, MENU_CATEGORY_PRESETS } from "@/lib/menuCategoryPresets";
-import PageHeader from "@/components/admin/layout/PageHeader";
 import StaffShell from "@/components/staff/StaffShell";
 import { useRouter } from "next/navigation";
 
@@ -66,7 +65,7 @@ export default function BigFoodsPosCataloguePage() {
       if (!sessionRes.ok || !sessionData.staff) { router.replace("/staff/login"); return; }
       const staff = sessionData.staff;
       const permissions = Array.isArray(staff.permissions) ? staff.permissions : [];
-      if (!["owner", "admin", "pos"].includes(String(staff.role || "").toLowerCase()) && !permissions.includes("pos.sell") && !permissions.includes("pos.view")) {
+      if (!["owner", "admin"].includes(String(staff.role || "").toLowerCase()) && !permissions.includes("inventory.manage") && !permissions.includes("pos.manage") && !permissions.includes("pos.catalogue.manage")) {
         setError("Your account does not have permission to access the POS catalogue."); return;
       }
       setCurrentStaff(staff);
@@ -173,7 +172,6 @@ export default function BigFoodsPosCataloguePage() {
   const inputStyle = { borderColor: "var(--line)", color: "var(--ink)", background: "var(--white)" };
 
   return <StaffShell title="POS Catalogue" subtitle="Manage BigFoods products available for POS sales." staffName={currentStaff?.display_name} staffRole={currentStaff?.role} staffPermissions={currentStaff?.permissions}><main className="mx-auto max-w-7xl space-y-5 pb-10">
-    <PageHeader title="BigFoods POS catalogue" subtitle="Manage products sold by BigFoods cashiers. Restaurant-owned menus stay separate." />
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex flex-wrap gap-2"><button className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-95" style={{background:"var(--orange)"}} onClick={startNew}><Plus size={16}/> Add item</button><a href="/admin/inventory/workflows" className="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold" style={{borderColor:"var(--line)",color:"var(--ink)"}}><Boxes size={16}/> Recipe & production</a></div>
       <button className="inline-flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-semibold" style={{borderColor:"var(--line)",color:"var(--ink)"}} onClick={() => void load()} disabled={loading}><RefreshCw size={15} className={loading ? "animate-spin" : ""}/> Refresh</button>
