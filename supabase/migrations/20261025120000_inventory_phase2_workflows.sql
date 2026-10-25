@@ -52,7 +52,7 @@ begin
   if not found or v_actor.must_change_password then raise exception 'Forbidden'; end if;
   if not (v_actor.role in ('owner','admin') or v_actor.permissions @> '["inventory.manage"]'::jsonb) then raise exception 'Forbidden'; end if;
   if nullif(trim(p_name),'') is null or nullif(trim(p_output_unit),'') is null or p_output_quantity is null or p_output_quantity<=0 then raise exception 'Recipe name, output and unit are required'; end if;
-  if jsonb_typeof(p_ingredients) <> 'array' or jsonb_array_length(p_ingredients)=0 then raise exception 'Add at least one ingredient'; end if;
+  if coalesce(jsonb_typeof(p_ingredients),'') <> 'array' or jsonb_array_length(p_ingredients)=0 then raise exception 'Add at least one ingredient'; end if;
   perform 1 from public.menu_items where id=p_menu_item_id;
   if not found then raise exception 'Menu item not found'; end if;
   select coalesce(max(version),0)+1 into v_version from public.inventory_recipes where name=trim(p_name);
