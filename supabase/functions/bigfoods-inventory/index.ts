@@ -76,6 +76,14 @@ Deno.serve(async (req: Request) => {
       if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message.includes("duplicate key") ? "That batch code already exists." : error.message }, error.message.includes("Forbidden") ? 403 : 400);
       return json({ receipt: data }, 201);
     }
+    if (action === "production_list") {
+      if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.from("inventory_production_batches")
+        .select("id,batch_code,input_inventory_item_id,input_batch_id,raw_input_quantity,raw_input_unit,output_inventory_item_id,output_quantity,output_unit,unprocessed_quantity,allowed_loss_quantity,actual_loss_quantity,variance_quantity,status,started_at,finished_at")
+        .order("started_at", { ascending: false }).limit(100);
+      if (error) return json({ error: "Unable to load production batches." }, 503);
+      return json({ production: data ?? [] });
+    }
     if (action === "waste") {
       if (!has(actor, "inventory.waste")) return json({ error: "Forbidden" }, 403);
       const { data, error } = await db.rpc("bigfoods_inventory_log_waste", {
