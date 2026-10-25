@@ -37,7 +37,9 @@ export default function BigFoodsPosCataloguePage() {
   const [notice, setNotice] = useState("");
   const [newImages, setNewImages] = useState<File[]>([]);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
-  const [otherItems, setOtherItems] = useState<{id:string;name:string}[]>([]);\n  const newImagePreview = useMemo(() => newImages[0] ? URL.createObjectURL(newImages[0]) : "", [newImages]);\n  useEffect(() => () => { if (newImagePreview) URL.revokeObjectURL(newImagePreview); }, [newImagePreview]);
+  const [otherItems, setOtherItems] = useState<{id:string;name:string}[]>([]);
+  const newImagePreview = useMemo(() => newImages[0] ? URL.createObjectURL(newImages[0]) : "", [newImages]);
+  useEffect(() => () => { if (newImagePreview) URL.revokeObjectURL(newImagePreview); }, [newImagePreview]);
 
   const call = useCallback(async (body: Record<string, unknown>) => {
     const supabase = getBrowserSupabase();
