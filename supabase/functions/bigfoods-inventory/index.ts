@@ -126,7 +126,15 @@ Deno.serve(async (req: Request) => {
         .select("id,name,sku,description,category,subcategory,selling_price,image_url,image_urls,is_available,sort_order,ingredients,serving_size,preparation_time_minutes,stock_quantity,availability_schedule_enabled,availability_schedule,allergens,dietary_tags,promotional_price,promotion_starts_at,promotion_ends_at,complementary_item_ids,option_groups,created_at,updated_at")
         .order("sort_order").order("name").limit(1000);
       if (error) return json({ error: "Unable to load the BigFoods POS catalogue. Apply the POS catalogue migration." }, 503);
-      return json({ items: data ?? [] });
+      // Rank quick-add products by actual paid POS quantities; use catalogue sort order only as a tie-breaker.
+      const { data: paidSales } = await db.from("bigfoods_pos_sales").select("id").eq("status", "paid").order("created_at", { ascending: false }).limit(5000);
+      const paidSaleIds = (paidSales ?? []).map((sale: any) => sale.id);
+      const { data: soldLines } = paidSaleIds.length
+        ? await db.from("bigfoods_pos_sale_items").select("product_id,quantity").in("sale_id", paidSaleIds).limit(20000)
+        : { data: [], error: null };
+      const soldCounts = new Map<string, number>();
+      for (const line of soldLines ?? []) soldCounts.set(line.product_id, (soldCounts.get(line.product_id) ?? 0) + Number(line.quantity));
+      return json({ items: (data ?? []).map((item: any) => ({ ...item, sold_count: soldCounts.get(item.id) ?? 0 })) });
     }
     if (action === "pos_sale_create") {
       if (!(has(actor, "pos.sell") || ["owner", "admin", "pos"].includes(actor.role))) return json({ error: "Your account cannot record POS sales." }, 403);
