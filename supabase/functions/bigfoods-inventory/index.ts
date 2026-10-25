@@ -126,7 +126,15 @@ Deno.serve(async (req: Request) => {
         .select("id,name,sku,description,category,subcategory,selling_price,image_url,image_urls,is_available,sort_order,ingredients,serving_size,preparation_time_minutes,stock_quantity,availability_schedule_enabled,availability_schedule,allergens,dietary_tags,promotional_price,promotion_starts_at,promotion_ends_at,complementary_item_ids,option_groups,created_at,updated_at")
         .order("sort_order").order("name").limit(1000);
       if (error) return json({ error: "Unable to load the BigFoods POS catalogue. Apply the POS catalogue migration." }, 503);
-      return json({ items: data ?? [] });
+      // Rank quick-add products by actual paid POS quantities; use catalogue sort order only as a tie-breaker.
+      const { data: paidSales } = await db.from("bigfoods_pos_sales").select("id").eq("status", "paid").order("created_at", { ascending: false }).limit(5000);
+      const paidSaleIds = (paidSales ?? []).map((sale: any) => sale.id);
+      const { data: soldLines } = paidSaleIds.length
+        ? await db.from("bigfoods_pos_sale_items").select("product_id,quantity").in("sale_id", paidSaleIds).limit(20000)
+        : { data: [], error: null };
+      const soldCounts = new Map<string, number>();
+      for (const line of soldLines ?? []) soldCounts.set(line.product_id, (soldCounts.get(line.product_id) ?? 0) + Number(line.quantity));
+      return json({ items: (data ?? []).map((item: any) => ({ ...item, sold_count: soldCounts.get(item.id) ?? 0 })) });
     }
     if (action === "pos_sale_create") {
       if (!(has(actor, "pos.sell") || ["owner", "admin", "pos"].includes(actor.role))) return json({ error: "Your account cannot record POS sales." }, 403);
@@ -175,6 +183,46 @@ Deno.serve(async (req: Request) => {
       }
       await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.sale_recorded", details: { sale_id: sale.id, receipt_number: sale.receipt_number, payment_method: paymentMethod, total_amount: total, item_count: saleLines.length } });
       return json({ sale, items: saleLines }, 201);
+    }
+    if (action === "pos_sales_list") {
+      if (!(has(actor, "pos.view") || has(actor, "pos.sell") || ["owner", "admin", "pos"].includes(actor.role))) return json({ error: "Forbidden" }, 403);
+      const page = Math.max(1, Math.min(10000, Math.floor(Number(body.page) || 1)));
+      const pageSize = Math.max(1, Math.min(100, Math.floor(Number(body.page_size) || 10)));
+      const search = String(body.search ?? "").trim().slice(0, 120);
+      const status = String(body.status ?? "all");
+      const from = String(body.from ?? "");
+      const to = String(body.to ?? "");
+      let query = db.from("bigfoods_pos_sales")
+        .select("id,receipt_number,cashier_staff_id,customer_email,payment_method,status,subtotal,total_amount,cash_received,change_due,created_at", { count: "exact" })
+        .order("created_at", { ascending: false });
+      if (status !== "all" && ["paid", "voided", "refunded", "needs_review"].includes(status)) query = query.eq("status", status);
+      if (from && /^\\d{4}-\\d{2}-\\d{2}$/.test(from)) query = query.gte("created_at", from + "T00:00:00.000Z");
+      if (to && /^\\d{4}-\\d{2}-\\d{2}$/.test(to)) query = query.lt("created_at", new Date(new Date(to + "T00:00:00.000Z").getTime() + 86400000).toISOString());
+      if (search) query = query.or("receipt_number.ilike.%"+search.replace(/[%,()]/g, "")+"%,customer_email.ilike.%"+search.replace(/[%,()]/g, "")+"%");
+      const { data: sales, count, error } = await query.range((page - 1) * pageSize, page * pageSize - 1);
+      if (error) return json({ error: "Unable to load POS sales." }, 503);
+      const ids = (sales ?? []).map((sale: any) => sale.id);
+      const { data: lines, error: lineError } = ids.length
+        ? await db.from("bigfoods_pos_sale_items").select("sale_id,product_id,product_name,quantity,unit_price,line_total").in("sale_id", ids)
+        : { data: [], error: null };
+      if (lineError) return json({ error: "Unable to load POS sale items." }, 503);
+      const grouped = new Map<string, any[]>();
+      for (const line of lines ?? []) grouped.set(line.sale_id, [...(grouped.get(line.sale_id) ?? []), line]);
+      return json({ orders: (sales ?? []).map((sale: any) => ({ ...sale, items: grouped.get(sale.id) ?? [] })), total: count ?? 0, page, page_size: pageSize });
+    }
+    if (action === "pos_sales_summary") {
+      if (!(has(actor, "pos.view") || has(actor, "pos.sell") || ["owner", "admin", "pos"].includes(actor.role))) return json({ error: "Forbidden" }, 403);
+      const from = String(body.from ?? "");
+      const to = String(body.to ?? "");
+      let query = db.from("bigfoods_pos_sales").select("id,payment_method,status,total_amount,created_at");
+      if (from && /^\\d{4}-\\d{2}-\\d{2}$/.test(from)) query = query.gte("created_at", from + "T00:00:00.000Z");
+      if (to && /^\\d{4}-\\d{2}-\\d{2}$/.test(to)) query = query.lt("created_at", new Date(new Date(to + "T00:00:00.000Z").getTime() + 86400000).toISOString());
+      const { data, error } = await query;
+      if (error) return json({ error: "Unable to load POS reporting data." }, 503);
+      const paid = (data ?? []).filter((s: any) => s.status === "paid");
+      const byPayment: Record<string, number> = {};
+      for (const sale of paid) byPayment[sale.payment_method] = (byPayment[sale.payment_method] ?? 0) + Number(sale.total_amount);
+      return json({ total_orders: (data ?? []).length, paid_orders: paid.length, total_sales: paid.reduce((n: number, s: any) => n + Number(s.total_amount), 0), by_payment_method: byPayment, sales: data ?? [] });
     }
     if (action === "pos_item_save") {
       if (!canManagePosCatalogue(actor)) return json({ error: "Forbidden: catalogue management permission required." }, 403);
