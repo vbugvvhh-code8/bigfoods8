@@ -92,6 +92,32 @@ Deno.serve(async (req: Request) => {
       if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
       return json({ waste: data }, 201);
     }
+    if (action === "pos_item_photo_upload") {
+      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
+      const encoded = String(body.image_base64 ?? "");
+      if (!encoded || encoded.length > 500000 || !encoded.startsWith("data:image/jpeg;base64,")) {
+        return json({ error: "Choose a compressed JPEG photo under the allowed size." }, 400);
+      }
+      const raw = encoded.slice("data:image/jpeg;base64,".length);
+      const binary = atob(raw);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      if (bytes.byteLength > 350000) return json({ error: "Photo is too large after compression. Choose a smaller image." }, 400);
+      const path = `bigfoods/pos/${crypto.randomUUID()}.jpg`;
+      const { error } = await db.storage.from("menu-images").upload(path, bytes, { contentType: "image/jpeg", upsert: false });
+      if (error) return json({ error: "Unable to upload this photo. Please try again." }, 400);
+      const { data } = db.storage.from("menu-images").getPublicUrl(path);
+      return json({ path, url: data.publicUrl }, 201);
+    }
+    if (action === "pos_item_photo_delete") {
+      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
+      const paths = Array.isArray(body.paths) ? body.paths.map((v: unknown) => String(v)).filter((v: string) => v.startsWith("bigfoods/pos/") && !v.includes("..")) : [];
+      if (paths.length) {
+        const { error } = await db.storage.from("menu-images").remove(paths);
+        if (error) return json({ error: "Item saved, but a removed photo could not be deleted from storage." }, 400);
+      }
+      return json({ success: true });
+    }
     if (action === "pos_catalogue_overview") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
       const { data, error } = await db.from("bigfoods_pos_items")
