@@ -6,6 +6,7 @@ import { resolveRestaurantEntryPath } from './lib/resolveRestaurantEntryPath';
 const ADMIN_LOGIN_PATH = '/admin/login';
 const ADMIN_BASE = '/admin';
 const STAFF_LOGIN_PATH = '/staff/login';
+const STAFF_BOOTSTRAP_PATH = '/staff/bootstrap';
 const STAFF_BASE = '/staff';
 const STAFF_COOKIE = 'bf_staff_session';
 const RESTAURANT_LOGIN_PATH = '/restaurant-portal/login';
@@ -31,8 +32,21 @@ const ONBOARDING_PATH_ORDER = [
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (pathname === ADMIN_LOGIN_PATH || pathname === STAFF_LOGIN_PATH || pathname === RESTAURANT_LOGIN_PATH || pathname === RIDER_LOGIN_PATH) {
+  if (pathname === ADMIN_LOGIN_PATH || pathname === STAFF_LOGIN_PATH || pathname === STAFF_BOOTSTRAP_PATH || pathname === RESTAURANT_LOGIN_PATH || pathname === RIDER_LOGIN_PATH) {
     return NextResponse.next();
+  }
+
+  // Staff management lives in the staff workspace, never inside /admin.
+  // A staff cookie alone must not authorize any /admin route.
+  if (pathname === '/admin/pos-catalogue' || pathname.startsWith('/admin/pos-catalogue/')) {
+    return NextResponse.redirect(new URL('/staff/pos-catalogue', req.url));
+  }
+  if (pathname === '/admin/inventory' || pathname.startsWith('/admin/inventory/')) {
+    return NextResponse.redirect(new URL('/staff/inventory', req.url));
+  }
+
+  if (pathname === '/admin/staff' || pathname.startsWith('/admin/staff/')) {
+    return NextResponse.redirect(new URL('/staff/manage', req.url));
   }
 
   const isAdminRoute = pathname.startsWith(ADMIN_BASE);
@@ -53,6 +67,24 @@ export async function middleware(req: NextRequest) {
         body: JSON.stringify({ token, action: 'validate' }), cache: 'no-store',
       });
       if (!check.ok) return NextResponse.redirect(new URL(STAFF_LOGIN_PATH, req.url));
+      const sessionData = await check.json().catch(() => ({}));
+      const staff = sessionData?.staff;
+      const mustChangePassword = Boolean(staff?.must_change_password);
+      if (mustChangePassword && pathname !== '/staff/change-password') {
+        return NextResponse.redirect(new URL('/staff/change-password', req.url));
+      }
+      if (!mustChangePassword && pathname === '/staff/change-password') {
+        return NextResponse.redirect(new URL('/staff', req.url));
+      }
+      // Restrict the staff-management screen at the route boundary as well as
+      // inside its API; non-managers should not see the management UI.
+      const isStaffManageRoute = pathname === '/staff/manage' || pathname.startsWith('/staff/manage/');
+      if (isStaffManageRoute) {
+        const permissions = staff?.permissions;
+        const canManageStaff = staff && staff.is_active !== false &&
+          (['owner', 'admin'].includes(staff.role) || (Array.isArray(permissions) && permissions.includes('staff.manage')));
+        if (!canManageStaff) return NextResponse.redirect(new URL('/staff', req.url));
+      }
       return NextResponse.next();
     } catch {
       return NextResponse.redirect(new URL(STAFF_LOGIN_PATH, req.url));

@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import NavItem from './NavItem';
-import { LayoutGrid, MapPin, Utensils, Bike, Settings, Menu, X, Inbox, AlertTriangle, Wallet, Banknote, Megaphone, Users, LogOut, Route, ShieldCheck, Tags, ClipboardList, CalendarDays } from 'lucide-react';
+import { LayoutGrid, Boxes, Monitor, MapPin, Utensils, Bike, Settings, Menu, X, Inbox, AlertTriangle, Wallet, Banknote, Megaphone, Users, LogOut, Route, ShieldCheck, Tags, ClipboardList, CalendarDays, Clock3, CalendarCheck, ArrowLeftRight, WalletCards, HeartPulse } from 'lucide-react';
 import useSession from '@/hooks/useSession';
 import getBrowserSupabase from '@/lib/supabase/client';
 
@@ -39,21 +39,25 @@ function BrandBlock() {
   );
 }
 
-function NavList() {
+function NavList({ items = NAV_ITEMS }: { items?: typeof NAV_ITEMS }) {
   return (
     <nav className="flex flex-col gap-0.5">
-      {NAV_ITEMS.map((n) => (
-        <NavItem key={n.id} href={n.id} icon={n.icon} label={n.label} />
-      ))}
+      {items.map((n) => <NavItem key={n.id} href={n.id} icon={n.icon} label={n.label} />)}
     </nav>
   );
 }
 
-function LogoutButton() {
+function LogoutButton({ staffMode = false }: { staffMode?: boolean }) {
   const router = useRouter();
   const supabase = getBrowserSupabase();
 
   async function handleLogout() {
+    if (staffMode) {
+      await fetch('/api/bigfoods-staff/session', { method: 'DELETE' });
+      router.push('/staff/login');
+      router.refresh();
+      return;
+    }
     await supabase.auth.signOut();
     router.push('/admin/login');
   }
@@ -72,6 +76,7 @@ function LogoutButton() {
 
 export default function Sidebar() {
   const { profile } = useSession();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
   const footer = (
@@ -115,7 +120,7 @@ export default function Sidebar() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div onClick={() => setOpen(false)}>
+            <div onClick={(event) => { if ((event.target as HTMLElement).closest("a")) setOpen(false); }}>
               <NavList />
             </div>
             {footer}

@@ -1,0 +1,16 @@
+"use client";
+import { FormEvent,useState } from "react";
+import { useRouter } from "next/navigation";
+export const dynamic="force-dynamic";
+export default function StaffBootstrapPage(){
+ const router=useRouter();const [secret,setSecret]=useState("");const [email,setEmail]=useState("");const [name,setName]=useState("");const [password,setPassword]=useState("");const [confirm,setConfirm]=useState("");const [error,setError]=useState("");const [busy,setBusy]=useState(false);
+ async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();setError("");if(password.length<14){setError("Use a password of at least 14 characters.");return;}if(password!==confirm){setError("Passwords do not match.");return;}setBusy(true);try{const res=await fetch("/api/bigfoods-staff/bootstrap",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({bootstrap_secret:secret,email,display_name:name,password})});const data=await res.json();if(!res.ok)throw new Error(data.error||"Unable to initialize staff system");router.replace("/staff/login");router.refresh();}catch(err){setError(err instanceof Error?err.message:"Unable to initialize staff system");}finally{setBusy(false);}}
+ return <main className="min-h-screen flex items-center justify-center bg-[#F7F4F0] px-4"><form onSubmit={submit} className="w-full max-w-lg rounded-2xl border bg-white p-7 shadow-sm"><p className="text-xs font-semibold uppercase tracking-widest text-orange-700">One-time setup</p><h1 className="mt-2 text-2xl font-semibold">Create BigFoods owner account</h1><p className="mt-2 mb-6 text-sm text-gray-600">This only works after the staff migration and Edge Function are deployed, the bootstrap secret is configured, and no staff account exists. Keep the bootstrap secret private.</p>
+ <label className="mb-1 block text-sm font-medium">Bootstrap secret</label><input required type="password" autoComplete="off" value={secret} onChange={e=>setSecret(e.target.value)} className="mb-4 w-full rounded-lg border px-3 py-2.5"/>
+ <label className="mb-1 block text-sm font-medium">Owner full name</label><input required minLength={2} maxLength={120} value={name} onChange={e=>setName(e.target.value)} className="mb-4 w-full rounded-lg border px-3 py-2.5"/>
+ <label className="mb-1 block text-sm font-medium">Owner work email</label><input required type="email" value={email} onChange={e=>setEmail(e.target.value)} className="mb-4 w-full rounded-lg border px-3 py-2.5"/>
+ <label className="mb-1 block text-sm font-medium">Owner password (14+ characters)</label><input required minLength={14} type="password" autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} className="mb-4 w-full rounded-lg border px-3 py-2.5"/>
+ <label className="mb-1 block text-sm font-medium">Confirm owner password</label><input required minLength={14} type="password" autoComplete="new-password" value={confirm} onChange={e=>setConfirm(e.target.value)} className="mb-4 w-full rounded-lg border px-3 py-2.5"/>
+ {error&&<p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}<button disabled={busy} className="w-full rounded-lg bg-orange-600 px-4 py-3 font-semibold text-white disabled:opacity-60">{busy?"Setting up…":"Create owner account"}</button>
+ </form></main>;
+}
