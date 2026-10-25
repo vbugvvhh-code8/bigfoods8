@@ -76,6 +76,56 @@ Deno.serve(async (req: Request) => {
       if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message.includes("duplicate key") ? "That batch code already exists." : error.message }, error.message.includes("Forbidden") ? 403 : 400);
       return json({ receipt: data }, 201);
     }
+    if (action === "waste") {
+      if (!has(actor, "inventory.waste")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.rpc("bigfoods_inventory_log_waste", {
+        p_actor_staff_id: actor.id, p_batch_id: body.batch_id, p_quantity: body.quantity, p_reason: body.reason
+      });
+      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
+      return json({ waste: data }, 201);
+    }
+    if (action === "recipe_save") {
+      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.rpc("bigfoods_inventory_save_recipe", {
+        p_actor_staff_id: actor.id, p_menu_item_id: body.menu_item_id, p_name: body.name,
+        p_output_quantity: body.output_quantity, p_output_unit: body.output_unit, p_ingredients: body.ingredients
+      });
+      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
+      return json({ recipe: data }, 201);
+    }
+    if (action === "production_start") {
+      if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
+      const rawQty = Number(body.raw_input_quantity), allowedLoss = Number(body.allowed_loss_quantity ?? 0);
+      if (!body.batch_code || !body.input_inventory_item_id || !body.input_batch_id || !body.output_inventory_item_id ||
+          !Number.isFinite(rawQty) || rawQty <= 0 || !Number.isFinite(allowedLoss) || allowedLoss < 0) {
+        return json({ error: "Complete the production batch details with valid quantities." }, 400);
+      }
+      const { data: source, error: sourceError } = await db.from("inventory_batches").select("id,inventory_item_id,remaining_quantity,base_unit,status").eq("id", body.input_batch_id).maybeSingle();
+      if (sourceError || !source || source.status !== "active" || source.inventory_item_id !== body.input_inventory_item_id || Number(source.remaining_quantity) < rawQty) {
+        return json({ error: "The selected source batch is unavailable or has insufficient stock." }, 400);
+      }
+      const { data: output, error: outputError } = await db.from("inventory_items").select("id,base_unit,is_active").eq("id", body.output_inventory_item_id).maybeSingle();
+      if (outputError || !output || !output.is_active) return json({ error: "Select an active output inventory item." }, 400);
+      const { data, error } = await db.from("inventory_production_batches").insert({
+        batch_code: String(body.batch_code).trim(), input_inventory_item_id: body.input_inventory_item_id,
+        input_batch_id: body.input_batch_id, raw_input_quantity: rawQty, raw_input_unit: source.base_unit,
+        output_inventory_item_id: body.output_inventory_item_id, output_unit: output.base_unit,
+        unprocessed_quantity: 0, allowed_loss_quantity: allowedLoss, status: "in_progress", started_by_staff_id: actor.id
+      }).select("id,batch_code,status,raw_input_quantity,raw_input_unit,allowed_loss_quantity").single();
+      if (error) return json({ error: error.message.includes("duplicate key") ? "That production batch code already exists." : "Unable to start production batch." }, 400);
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "inventory.production_started", details: { production_batch_id: data.id, batch_code: data.batch_code, raw_input_quantity: rawQty } });
+      return json({ production: data }, 201);
+    }
+    if (action === "production_finish") {
+      if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.rpc("bigfoods_inventory_finish_production", {
+        p_actor_staff_id: actor.id, p_batch_id: body.production_batch_id,
+        p_output_quantity: body.output_quantity, p_unprocessed_quantity: body.unprocessed_quantity,
+        p_actual_loss_quantity: body.actual_loss_quantity, p_review_note: body.review_note ?? null
+      });
+      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
+      return json({ production: data }, 200);
+    }
     return json({ error: "Unknown inventory action" }, 400);
   } catch {
     return json({ error: "Inventory service unavailable" }, 503);
