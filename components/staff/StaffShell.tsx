@@ -2,9 +2,9 @@
 
 import { ReactNode, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound, CalendarPlus, Repeat2 } from 'lucide-react';
+import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound, CalendarPlus, Repeat2, ShoppingCart } from 'lucide-react';
 
-export default function StaffShell({ children, title, subtitle, staffName }: { children: ReactNode; title: string; subtitle?: string; staffName?: string }) {
+export default function StaffShell({ children, title, subtitle, staffName, staffRole, staffPermissions }: { children: ReactNode; title: string; subtitle?: string; staffName?: string; staffRole?: string; staffPermissions?: unknown }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -15,8 +15,11 @@ export default function StaffShell({ children, title, subtitle, staffName }: { c
     router.refresh();
   }
 
+  const permissions = Array.isArray(staffPermissions) ? staffPermissions : [];
+  const canUsePos = ['owner', 'admin', 'cashier', 'pos'].includes((staffRole || '').toLowerCase()) || permissions.includes('pos.sell') || permissions.includes('pos.view');
   const items = [
     { href: '/staff', label: 'Dashboard', icon: <LayoutGrid className="h-4 w-4" /> },
+    ...(canUsePos ? [{ href: '/staff/pos', label: 'POS', icon: <ShoppingCart className="h-4 w-4" /> }] : []),
     { href: '/staff/attendance', label: 'Attendance & schedule', icon: <CalendarDays className="h-4 w-4" /> },
     { href: '/staff/leave', label: 'Request leave', icon: <CalendarPlus className="h-4 w-4" /> },
     { href: '/staff/shift-swaps', label: 'Shift swaps', icon: <Repeat2 className="h-4 w-4" /> },
