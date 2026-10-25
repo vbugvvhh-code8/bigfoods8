@@ -19,6 +19,7 @@ function activePrice(p: Product) {
 export default function StaffPosPage() {
   const router = useRouter();
   const [staff, setStaff] = useState<Staff | null>(null);
+  const [authorized, setAuthorized] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [search, setSearch] = useState("");
@@ -36,7 +37,7 @@ export default function StaffPosPage() {
   const [walkIn, setWalkIn] = useState(true);
 
   const load = useCallback(async () => {
-    setLoading(true); setError("");
+    setLoading(true); setError(""); setAuthorized(false);
     try {
       const sessionRes = await fetch("/api/bigfoods-staff/session", { cache: "no-store" });
       const session = await sessionRes.json();
@@ -44,9 +45,10 @@ export default function StaffPosPage() {
       setStaff(session.staff as Staff);
       if (session.staff.must_change_password) { router.replace("/staff/change-password"); return; }
       const permissions = session.staff.permissions;
-      const allowed = ["owner", "admin", "cashier", "pos"].includes(session.staff.role) ||
+      const allowed = ["owner", "admin", "pos"].includes(String(session.staff.role).toLowerCase()) ||
         (Array.isArray(permissions) && (permissions.includes("pos.sell") || permissions.includes("pos.view")));
-      if (!allowed) { setError("Your staff account does not have permission to use the POS. Ask an administrator to grant POS access."); return; }
+      if (!allowed) { setError("POS access is restricted. Your account needs the POS role or an explicit POS permission."); return; }
+      setAuthorized(true);
       const res = await fetch("/api/bigfoods-staff/inventory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "pos_catalogue_overview" }), cache: "no-store" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Could not load the BigFoods product catalogue.");
@@ -91,15 +93,7 @@ export default function StaffPosPage() {
     finally { setBusy(false); }
   }
 
-  const nav = [
-    { label:"POS", icon:LayoutGrid, active:true, click:()=>{} },
-    { label:"Orders", icon:ClipboardList, click:()=>setNotice("Order history is the next POS module to connect.") },
-    { label:"Menu", icon:UtensilsCrossed, click:()=>router.push("/admin/pos-catalogue") },
-    { label:"Inventory", icon:Package, click:()=>setNotice("Inventory management remains in the admin workspace.") },
-    { label:"Customers", icon:Users, click:()=>setNotice("Customer management is not connected to cashier POS yet.") },
-    { label:"Analytics", icon:ChartNoAxesColumn, click:()=>setNotice("Sales analytics will be added after order history.") },
-    { label:"Settings", icon:Settings, click:()=>setNotice("POS settings are managed by an administrator.") },
-  ];
+  if (!staff || !authorized) return <main className="grid min-h-screen place-items-center bg-[#F7F4F0] p-6"><div className="max-w-md rounded-2xl border border-[#E8E0D8] bg-white p-6 text-center shadow-sm"><h1 className="text-lg font-bold text-[#30261F]">{loading ? "Checking POS access…" : "POS access restricted"}</h1><p className="mt-2 text-sm leading-6 text-[#81766D]">{error || "Verifying your secure staff session…"}</p><button onClick={() => router.replace("/staff")} className="mt-4 rounded-xl bg-[#F47721] px-4 py-2.5 text-sm font-semibold text-white">Return to staff dashboard</button></div></main>;
 
   return <main className="min-h-screen bg-[#F6F7F8] text-[#171923]">
     <div className="flex min-h-screen">
