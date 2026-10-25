@@ -132,11 +132,16 @@ export default function BigFoodsPosCataloguePage() {
       const uploadedUrls: string[] = [];
       for (const file of newImages) {
         const compressed = await compressImage(file, { maxDimension: 1280, maxKB: 300 });
-        const path = `bigfoods/pos/${crypto.randomUUID()}.jpg`;
-        const { error: uploadError } = await supabase.storage.from("menu-images").upload(path, compressed, { contentType: "image/jpeg", upsert: false });
-        if (uploadError) throw new Error(`Photo upload failed: ${uploadError.message}`);
-        uploadedPaths.push(path);
-        uploadedUrls.push(supabase.storage.from("menu-images").getPublicUrl(path).data.publicUrl);
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("Could not read photo."));
+          reader.onerror = () => reject(new Error("Could not read photo."));
+          reader.readAsDataURL(compressed);
+        });
+        const uploaded = await call({ action: "pos_item_photo_upload", image_base64: base64 });
+        if (!uploaded.url || !uploaded.path) throw new Error("Photo upload did not return a usable URL.");
+        uploadedPaths.push(uploaded.path);
+        uploadedUrls.push(uploaded.url);
       }
       const finalUrls = [...form.image_urls, ...uploadedUrls];
       await call({
@@ -153,7 +158,7 @@ export default function BigFoodsPosCataloguePage() {
       });
       if (removedImages.length) {
         const paths = removedImages.map(url => { try { const u = new URL(url); const marker = "/storage/v1/object/public/menu-images/"; const i = u.pathname.indexOf(marker); return i < 0 ? null : decodeURIComponent(u.pathname.slice(i + marker.length)); } catch { return null; } }).filter((v):v is string=>!!v && v.startsWith("bigfoods/pos/"));
-        if (paths.length) await supabase.storage.from("menu-images").remove(paths);
+        if (paths.length) await call({ action: "pos_item_photo_delete", paths });
       }
       setNotice(form.id ? "Catalogue item updated." : "Catalogue item created."); setEditing(false); await load();
     } catch (e) {
