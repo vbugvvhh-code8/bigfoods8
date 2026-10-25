@@ -37,7 +37,7 @@ export default function BigFoodsPosCataloguePage() {
   const [notice, setNotice] = useState("");
   const [newImages, setNewImages] = useState<File[]>([]);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
-  const [otherItems, setOtherItems] = useState<{id:string;name:string}[]>([]);
+  const [otherItems, setOtherItems] = useState<{id:string;name:string}[]>([]);\n  const newImagePreview = useMemo(() => newImages[0] ? URL.createObjectURL(newImages[0]) : "", [newImages]);\n  useEffect(() => () => { if (newImagePreview) URL.revokeObjectURL(newImagePreview); }, [newImagePreview]);
 
   const call = useCallback(async (body: Record<string, unknown>) => {
     const supabase = getBrowserSupabase();
@@ -200,7 +200,7 @@ export default function BigFoodsPosCataloguePage() {
           </section>
         </section>
         <section style={{display:step===5?undefined:"none"}}>
-          <div className="mb-4 rounded-xl p-4" style={{background:"var(--peach)"}}><p className="text-[11px] font-bold uppercase tracking-wide" style={{color:"var(--orange)"}}>Review product</p><h3 className="mt-1 text-lg font-bold" style={{color:"var(--ink)"}}>{form.name||"Untitled product"}</h3><p className="mt-1 text-xl font-bold" style={{color:"var(--ink)"}}>{form.selling_price?money(price):"Price not set"}</p><p className="mt-1 text-xs" style={{color:"var(--gray)"}}>{form.category}{form.subcategory?" · "+form.subcategory:""}</p>{form.description&&<p className="mt-3 text-sm" style={{color:"var(--ink)"}}>{form.description}</p>}{form.image_urls[0]&&<img src={form.image_urls[0]} alt="Product" className="mt-3 h-24 w-24 rounded-xl object-cover"/>}{newImages[0]&&<p className="mt-2 text-xs" style={{color:"var(--gray)"}}>New photo ready to upload</p>}</div>
+          <div className="mb-4 rounded-xl p-4" style={{background:"var(--peach)"}}><p className="text-[11px] font-bold uppercase tracking-wide" style={{color:"var(--orange)"}}>Review product</p><h3 className="mt-1 text-lg font-bold" style={{color:"var(--ink)"}}>{form.name||"Untitled product"}</h3><p className="mt-1 text-xl font-bold" style={{color:"var(--ink)"}}>{form.selling_price?money(price):"Price not set"}</p><p className="mt-1 text-xs" style={{color:"var(--gray)"}}>{form.category}{form.subcategory?" · "+form.subcategory:""}</p>{form.description&&<p className="mt-3 text-sm" style={{color:"var(--ink)"}}>{form.description}</p>}{form.image_urls[0]&&<img src={form.image_urls[0]} alt="Product" className="mt-3 h-24 w-24 rounded-xl object-cover"/>}{newImagePreview&&<img src={newImagePreview} alt="New product preview" className="mt-3 h-24 w-24 rounded-xl object-cover"/>}</div>
           <div className="space-y-2 rounded-xl border p-4 text-sm" style={{borderColor:"var(--line)",color:"var(--ink)"}}><div className="flex justify-between gap-4"><span style={{color:"var(--gray)"}}>Photos</span><span>{imageCount}/1</span></div><div className="flex justify-between gap-4"><span style={{color:"var(--gray)"}}>POS status</span><span>{form.is_available?"Available":"Hidden"}</span></div><div className="flex justify-between gap-4"><span style={{color:"var(--gray)"}}>Promotion</span><span>{promo===null?"None":money(promo)}</span></div></div>
         </section>
         {error&&<p role="alert" className="mt-3 text-[11px]" style={{color:"var(--red)"}}>{error}</p>}
