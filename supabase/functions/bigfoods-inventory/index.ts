@@ -123,6 +123,9 @@ Deno.serve(async (req: Request) => {
       }
       const { data: output, error: outputError } = await db.from("inventory_items").select("id,base_unit,is_active").eq("id", body.output_inventory_item_id).maybeSingle();
       if (outputError || !output || !output.is_active) return json({ error: "Select an active output inventory item." }, 400);
+      if (String(output.base_unit).trim().toLowerCase() !== String(source.base_unit).trim().toLowerCase()) {
+        return json({ error: "For yield variance tracking, raw input and output must use the same base unit." }, 400);
+      }
       const { data, error } = await db.from("inventory_production_batches").insert({
         batch_code: String(body.batch_code).trim(), input_inventory_item_id: body.input_inventory_item_id,
         input_batch_id: body.input_batch_id, raw_input_quantity: rawQty, raw_input_unit: source.base_unit,
