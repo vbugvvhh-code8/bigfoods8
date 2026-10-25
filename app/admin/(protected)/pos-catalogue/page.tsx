@@ -155,7 +155,6 @@ export default function BigFoodsPosCataloguePage() {
   }
   const label = "mb-1.5 block text-[12px] font-medium";
   const inputStyle = { borderColor: "var(--line)", color: "var(--ink)", background: "var(--white)" };
-  function updateGroup(id:string, patch:Partial<OptionGroup>) { setForm(f=>({...f,option_groups:f.option_groups.map(g=>g.id===id?{...g,...patch}:g)})); }
 
   return <main className="mx-auto max-w-7xl space-y-5 pb-10">
     <PageHeader title="BigFoods POS catalogue" subtitle="Manage products sold by BigFoods cashiers. Restaurant-owned menus stay separate." />
