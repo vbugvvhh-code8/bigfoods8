@@ -5,7 +5,7 @@ create table if not exists public.bigfoods_pos_sales (
   idempotency_key uuid not null unique,
   cashier_staff_id uuid references public.bigfoods_staff(id) on delete restrict,
   customer_email text,
-  payment_method text not null check (payment_method in ('cash','moniepoint_pos')),
+  payment_method text not null check (payment_method in ('cash','transfer','card')),
   status text not null default 'paid' check (status in ('paid','voided','refunded','needs_review')),
   subtotal numeric(14,2) not null check (subtotal >= 0),
   total_amount numeric(14,2) not null check (total_amount >= 0),
@@ -15,7 +15,7 @@ create table if not exists public.bigfoods_pos_sales (
   created_at timestamptz not null default now(),
   constraint bigfoods_pos_sales_cash_fields check (
     (payment_method = 'cash' and cash_received is not null and cash_received >= total_amount)
-    or (payment_method = 'moniepoint_pos' and cash_received is null)
+    or (payment_method in ('transfer','card') and cash_received is null)
   )
 );
 create table if not exists public.bigfoods_pos_sale_items (
