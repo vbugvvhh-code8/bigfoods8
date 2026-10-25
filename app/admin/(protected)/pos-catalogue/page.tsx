@@ -75,13 +75,6 @@ export default function BigFoodsPosCataloguePage() {
   const stock = form.stock_quantity.trim() ? Number(form.stock_quantity) : null;
   const preparation = form.preparation_time_minutes.trim() ? Number(form.preparation_time_minutes) : null;
   const imageCount = form.image_urls.length + newImages.length;
-  const validOptions = form.option_groups.every(g => g.name.trim() && g.options.length >= 2 &&
-    g.options.every(o => o.name.trim() && Number.isSafeInteger(o.price) && o.price >= 0 &&
-      (o.stock_quantity == null ? Number(o.stock_reserved ?? 0) === 0 : Number.isSafeInteger(o.stock_quantity) && o.stock_quantity >= Number(o.stock_reserved ?? 0))) &&
-    (g.selection_type !== "single" || (g.min_select ?? (g.required ? 1 : 0)) <= 1) &&
-    (g.min_select ?? (g.required ? 1 : 0)) >= 0 &&
-    (g.max_select ?? g.options.length) >= (g.min_select ?? (g.required ? 1 : 0)) &&
-    (g.max_select ?? g.options.length) <= g.options.length);
   const validSchedule = !form.schedule_enabled || form.schedule.every(w => Number.isInteger(w.day) && w.day >= 0 && w.day <= 6 &&
     /^([01]\d|2[0-3]):[0-5]\d$/.test(w.start) && /^([01]\d|2[0-3]):[0-5]\d$/.test(w.end) && w.start < w.end);
   const validPromo = promo === null || (Number.isSafeInteger(promo) && promo > 0 && Number.isSafeInteger(price) && promo < price);
@@ -106,7 +99,7 @@ export default function BigFoodsPosCataloguePage() {
       promotional_price:item.promotional_price == null ? "" : String(item.promotional_price),
       promotion_starts_at:item.promotion_starts_at ? new Date(item.promotion_starts_at).toISOString().slice(0,16) : "",
       promotion_ends_at:item.promotion_ends_at ? new Date(item.promotion_ends_at).toISOString().slice(0,16) : "",
-      complementary_item_ids:item.complementary_item_ids ?? [], option_groups:item.option_groups ?? []
+      complementary_item_ids:item.complementary_item_ids ?? []
     });
     setNewImages([]); setRemovedImages([]); setStep(1); setEditing(true); setError(""); setNotice("");
   }
@@ -153,7 +146,7 @@ export default function BigFoodsPosCataloguePage() {
         dietary_tags:form.dietary_tags.split(",").map(v=>v.trim()).filter(Boolean), promotional_price:promo,
         promotion_starts_at:form.promotion_starts_at ? new Date(form.promotion_starts_at).toISOString() : null,
         promotion_ends_at:form.promotion_ends_at ? new Date(form.promotion_ends_at).toISOString() : null,
-        complementary_item_ids:form.complementary_item_ids, option_groups:[]
+        complementary_item_ids:form.complementary_item_ids
       });
       let cleanupWarning = "";
       if (removedImages.length) {
