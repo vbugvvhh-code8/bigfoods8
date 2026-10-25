@@ -134,7 +134,7 @@ Deno.serve(async (req: Request) => {
       const customerEmail = typeof body.customer_email === "string" ? body.customer_email.trim().toLowerCase() : "";
       const cashReceived = paymentMethod === "cash" ? Number(body.cash_received) : null;
       if (!lines.length || lines.length > 100 || !/^[0-9a-f-]{36}$/i.test(idempotencyKey)) return json({ error: "Order items or checkout reference are invalid." }, 400);
-      if (!["cash", "moniepoint_pos"].includes(paymentMethod)) return json({ error: "Choose cash or Moniepoint POS terminal." }, 400);
+      if (!["cash", "transfer", "card"].includes(paymentMethod)) return json({ error: "Choose cash, bank transfer, or card." }, 400);
       if (customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) return json({ error: "Enter a valid customer email." }, 400);
       const quantities = new Map<string, number>();
       for (const line of lines) {
@@ -156,7 +156,7 @@ Deno.serve(async (req: Request) => {
         customer_email: customerEmail || null, payment_method: paymentMethod, status: "paid",
         subtotal: total, total_amount: total, cash_received: paymentMethod === "cash" ? cashReceived : null,
         change_due: paymentMethod === "cash" ? cashReceived! - total : 0,
-        payment_note: paymentMethod === "moniepoint_pos" ? "Terminal payment confirmed by cashier" : null
+        payment_note: paymentMethod === "transfer" ? "Bank transfer confirmed by cashier" : paymentMethod === "card" ? "Card payment confirmed by cashier" : null
       }).select("id,receipt_number,total_amount,payment_method,status,cash_received,change_due,created_at").single();
       if (saleError || !sale) return json({ error: saleError?.code === "23505" ? "This checkout was already submitted. Refresh the sales screen." : "Unable to save this sale. No receipt was issued." }, 409);
       const saleLines = [...quantities.entries()].map(([id, quantity]) => {
