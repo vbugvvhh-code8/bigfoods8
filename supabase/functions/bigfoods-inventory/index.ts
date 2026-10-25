@@ -6,7 +6,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 const enc = new TextEncoder();
 const digest = async (v: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(v))), x => x.toString(16).padStart(2, "0")).join("");
 type Actor = { id: string; role: string; permissions: unknown; is_active: boolean; must_change_password: boolean; is_platform_admin?: boolean };
-const has = (a: Actor, permission: string) => a.is_platform_admin === true || ["owner", "admin"].includes(a.role) || a.role === "inventory" || (Array.isArray(a.permissions) && a.permissions.includes(permission));
+const has = (a: Actor, permission: string) => a.is_platform_admin === true || ["owner", "admin"].includes(a.role) || (a.role === "inventory" && ["inventory.view", "inventory.receive", "inventory.count", "inventory.process", "inventory.waste"].includes(permission)) || (Array.isArray(a.permissions) && a.permissions.includes(permission));
 
 async function actorFor(db: any, token: string, bearer: string): Promise<Actor | null> {
   if (/^[0-9a-f]{64}$/i.test(token)) {
