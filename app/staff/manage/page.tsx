@@ -2,6 +2,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import getBrowserSupabase from "@/lib/supabase/client";
+import StaffShell from "@/components/staff/StaffShell";
 import { Users, UserPlus, Search, Pencil, UserCheck, UserX, RefreshCw, ShieldCheck, Clock3 } from "lucide-react";
 
 type StaffRow = { id:string; email:string; display_name:string; role:string; permissions:string[]; is_active:boolean; must_change_password:boolean; phone?:string|null; job_title?:string|null; start_date?:string|null; monthly_salary?:number|null; last_login_at:string|null; created_at:string };
@@ -9,6 +10,7 @@ const roles = ["admin","manager","inventory","pos","support","auditor"];
 export const dynamic = "force-dynamic";
 export default function StaffManagementPage() {
   const router = useRouter();
+  const [currentStaff,setCurrentStaff] = useState<any>(null);
   const [rows,setRows] = useState<StaffRow[]>([]);
   const [loading,setLoading] = useState(true);
   const [busy,setBusy] = useState(false);
@@ -42,6 +44,7 @@ export default function StaffManagementPage() {
       const sessionRes = await fetch("/api/bigfoods-staff/session",{cache:"no-store"});
       const session = await sessionRes.json();
       if (!sessionRes.ok) { router.replace("/staff/login"); return; }
+      setCurrentStaff(session.staff);
       const staffRole = session.staff?.role;
       const permissions = session.staff?.permissions;
       if (!["owner","admin"].includes(staffRole) && !(Array.isArray(permissions) && permissions.includes("staff.manage"))) {
@@ -93,7 +96,7 @@ export default function StaffManagementPage() {
   });
   const activeCount = rows.filter(row => row.is_active).length;
   const inactiveCount = rows.length - activeCount;
-  return <div className="space-y-5">
+  return <StaffShell title="Staff management" subtitle="Manage team accounts, access roles and employment details." staffName={currentStaff?.display_name} staffRole={currentStaff?.role} staffPermissions={currentStaff?.permissions}><div className="space-y-5">
     {error && <div role="alert" className="rounded-lg border px-4 py-3 text-[12px]" style={{borderColor:"#E8B4A8",background:"#FFF3F0",color:"#9B3020"}}>{error}</div>}
     {notice && <div role="status" className="rounded-lg border px-4 py-3 text-[12px]" style={{borderColor:"#B8D8C2",background:"#F0FAF2",color:"#23643B"}}>{notice}</div>}
 
@@ -131,5 +134,5 @@ export default function StaffManagementPage() {
       {loading?<div className="space-y-3 p-5">{[1,2,3].map(n=><div key={n} className="h-12 animate-pulse rounded-md" style={{background:"#F5F1EC"}}/>)}</div>:filteredRows.length===0?<div className="flex flex-col items-center px-5 py-12 text-center"><Users className="h-8 w-8" style={{color:"#C9BFB4"}}/><p className="mt-3 text-[13px] font-medium">{rows.length===0?"No staff accounts yet":"No matching staff found"}</p><p className="mt-1 max-w-sm text-[11px]" style={{color:"var(--gray)"}}>{rows.length===0?"Use “Add staff member” to create the first staff account.":"Try another search term or change the status filter."}</p></div>:<div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left"><thead style={{background:"#F8F5F1"}}><tr className="text-[9.5px] uppercase tracking-wider" style={{color:"var(--gray)"}}>{["Staff member","Role / job title","Start date","Monthly salary","Status","Last sign in","Actions"].map(label=><th key={label} className="px-4 py-3 font-semibold">{label}</th>)}</tr></thead><tbody>{filteredRows.map(row=><tr key={row.id} className="border-t transition-colors hover:bg-[#FFFCF8]" style={{borderColor:"var(--line)"}}><td className="px-4 py-3.5"><p className="text-[11.5px] font-semibold">{row.display_name}</p><p className="mt-0.5 text-[10.5px]" style={{color:"var(--gray)"}}>{row.email}</p>{row.phone&&<p className="mt-0.5 text-[10px]" style={{color:"var(--gray)"}}>{row.phone}</p>}</td><td className="px-4 py-3.5"><span className="text-[11px] font-medium capitalize">{row.role}</span>{row.job_title&&<p className="mt-0.5 text-[10px]" style={{color:"var(--gray)"}}>{row.job_title}</p>}</td><td className="px-4 py-3.5 text-[11px]">{row.start_date?new Date(`${row.start_date}T00:00:00`).toLocaleDateString("en-NG",{day:"2-digit",month:"short",year:"numeric"}):"—"}</td><td className="px-4 py-3.5 text-[11px]">{row.monthly_salary==null?"—":new Intl.NumberFormat("en-NG",{style:"currency",currency:"NGN",maximumFractionDigits:2}).format(row.monthly_salary)}</td><td className="px-4 py-3.5"><span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium" style={row.is_active?{background:"#EAF6ED",color:"#286B3B"}:{background:"#F0EEEB",color:"#756E67"}}><span className="h-1.5 w-1.5 rounded-full" style={{background:row.is_active?"#2D8A48":"#8B8178"}}/>{row.is_active?"Active":"Inactive"}</span>{row.must_change_password&&<p className="mt-1 text-[9.5px]" style={{color:"#A05B00"}}>Password change required</p>}</td><td className="px-4 py-3.5 text-[10.5px]" style={{color:"var(--gray)"}}>{row.last_login_at?new Date(row.last_login_at).toLocaleString():"Never"}</td><td className="px-4 py-3.5"><div className="flex items-center gap-1.5"><button disabled={busy} onClick={()=>editRow(row)} title="Edit staff profile" className="inline-flex items-center gap-1 rounded-md border px-2.5 py-2 text-[10.5px] disabled:opacity-50" style={{borderColor:"var(--line)"}}><Pencil className="h-3 w-3"/> Edit</button><button disabled={busy} onClick={()=>void toggle(row)} title={row.is_active?"Deactivate account":"Activate account"} className="inline-flex items-center gap-1 rounded-md border px-2.5 py-2 text-[10.5px] disabled:opacity-50" style={{borderColor:"var(--line)",color:row.is_active?"#A33B2B":"#286B3B"}}>{row.is_active?<UserX className="h-3 w-3"/>:<UserCheck className="h-3 w-3"/>}{row.is_active?"Disable":"Enable"}</button></div></td></tr>)}</tbody></table></div>}
       <div className="flex items-center justify-between border-t px-5 py-3 text-[10px]" style={{borderColor:"var(--line)",color:"var(--gray)"}}><span>Showing {filteredRows.length} of {rows.length} staff accounts</span><span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3"/> Account changes are audited</span></div>
     </section>
-  </div>;
+  </div></StaffShell>;
 }
