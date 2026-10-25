@@ -2,7 +2,7 @@
 
 import { ReactNode, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound, CalendarPlus, Repeat2, ShoppingCart, Users, ClipboardList, PackageOpen, Warehouse, ChevronDown, MapPin, Clock3, CalendarCheck, QrCode, ClipboardCheck, HeartPulse, Target } from 'lucide-react';
+import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound, CalendarPlus, Repeat2, ShoppingCart, Users, ClipboardList, PackageOpen, Warehouse, ChevronDown, MapPin, Clock3, CalendarCheck, QrCode, ClipboardCheck, HeartPulse, Target, Settings } from 'lucide-react';
 
 export default function StaffShell({ children, title, subtitle, staffName, staffRole, staffPermissions }: { children: ReactNode; title: string; subtitle?: string; staffName?: string; staffRole?: string; staffPermissions?: unknown }) {
   const pathname = usePathname();
@@ -20,6 +20,7 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
   const canUsePos = ['owner', 'admin', 'pos'].includes((staffRole || '').toLowerCase()) || permissions.includes('pos.sell') || permissions.includes('pos.view');
   const items = [
     { href: '/staff', label: 'Dashboard', icon: <LayoutGrid className="h-4 w-4" /> },
+    { href: '/staff/settings', label: 'Settings', icon: <Settings className="h-4 w-4" /> },
     ...(canUsePos ? [{ href: '/staff/pos', label: 'POS', icon: <ShoppingCart className="h-4 w-4" /> }] : []),
     ...(['owner', 'admin'].includes((staffRole || '').toLowerCase()) || permissions.includes('inventory.manage') || permissions.includes('pos.manage') || permissions.includes('pos.catalogue.manage') ? [{ href: '/staff/pos-catalogue', label: 'POS Catalogue', icon: <PackageOpen className="h-4 w-4" /> }] : []),
     ...(['owner', 'admin', 'inventory'].includes((staffRole || '').toLowerCase()) || permissions.includes('inventory.manage') || permissions.includes('inventory.view') ? [{ href: '/staff/inventory', label: 'Inventory', icon: <Warehouse className="h-4 w-4" /> }] : []),
