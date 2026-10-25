@@ -39,10 +39,10 @@ export async function middleware(req: NextRequest) {
   // Staff management lives in the staff workspace, never inside /admin.
   // A staff cookie alone must not authorize any /admin route.
   if (pathname === '/admin/pos-catalogue' || pathname.startsWith('/admin/pos-catalogue/')) {
-    return NextResponse.redirect(new URL('/staff/pos-catalogue', request.url));
+    return NextResponse.redirect(new URL('/staff/pos-catalogue', req.url));
   }
   if (pathname === '/admin/inventory' || pathname.startsWith('/admin/inventory/')) {
-    return NextResponse.redirect(new URL('/staff/inventory', request.url));
+    return NextResponse.redirect(new URL('/staff/inventory', req.url));
   }
 
   if (pathname === '/admin/staff' || pathname.startsWith('/admin/staff/')) {
