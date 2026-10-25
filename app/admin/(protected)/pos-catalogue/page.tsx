@@ -1,17 +1,34 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Boxes, Plus, RefreshCw, Search, Pencil, Eye, EyeOff, ArrowLeft, ArrowRight, ImagePlus } from "lucide-react";
-import PageHeader from "@/components/admin/layout/PageHeader";
+import { Boxes, Plus, RefreshCw, Search, Pencil, Eye, EyeOff, ArrowLeft, ArrowRight, ImagePlus, X, Loader2 } from "lucide-react";
+import getBrowserSupabase from "@/lib/supabase/client";
+import { compressImage } from "@/lib/compressImage";
 import { ChipPicker } from "@/components/restaurant/dashboard/MenuItemForm";
 import { MENU_CATEGORY_NAMES, MENU_CATEGORY_PRESETS } from "@/lib/menuCategoryPresets";
-import getBrowserSupabase from "@/lib/supabase/client";
+import PageHeader from "@/components/admin/layout/PageHeader";
 
-type PosItem = { id: string; name: string; sku: string | null; description: string | null; category: string; subcategory: string | null; selling_price: number; image_url: string | null; is_available: boolean; sort_order: number };
-const blank = { id: "", name: "", sku: "", description: "", category: "Meals", subcategory: "", selling_price: "", image_url: "", is_available: true, sort_order: "0" };
+type Option = { id: string; name: string; price: number; stock_quantity?: number | null; stock_reserved?: number };
+type OptionGroup = { id: string; name: string; required: boolean; selection_type: "single" | "multiple"; min_select?: number; max_select?: number; options: Option[] };
+type Window = { day: number; start: string; end: string };
+type PosItem = {
+  id: string; name: string; sku: string | null; description: string | null; category: string; subcategory: string | null;
+  selling_price: number; image_url: string | null; image_urls?: string[] | null; is_available: boolean; sort_order: number;
+  ingredients?: string | null; serving_size?: string | null; preparation_time_minutes?: number | null; stock_quantity?: number | null;
+  availability_schedule_enabled?: boolean; availability_schedule?: Window[] | null; allergens?: string[] | null; dietary_tags?: string[] | null;
+  promotional_price?: number | null; promotion_starts_at?: string | null; promotion_ends_at?: string | null;
+  complementary_item_ids?: string[] | null; option_groups?: OptionGroup[] | null;
+};
+const blank = {
+  id: "", name: "", sku: "", description: "", category: "meals", subcategory: "", selling_price: "",
+  image_urls: [] as string[], is_available: true, sort_order: "0", ingredients: "", serving_size: "",
+  preparation_time_minutes: "", stock_quantity: "", schedule_enabled: false, schedule: [] as Window[],
+  allergens: "", dietary_tags: "", promotional_price: "", promotion_starts_at: "", promotion_ends_at: "",
+  complementary_item_ids: [] as string[], option_groups: [] as OptionGroup[]
+};
+const steps = ["Basic information", "Photos", "Variants & extras", "Stock & availability", "Preparation & details", "Review & save"];
 const field = "w-full rounded-[9px] border px-3 py-2.5 text-[13px] outline-none";
 const money = (n: number) => new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(n);
-const steps = ["Basic information", "Photos", "Stock & availability", "Review & save"];
 
 export default function BigFoodsPosCataloguePage() {
   const [items, setItems] = useState<PosItem[]>([]);
@@ -23,9 +40,13 @@ export default function BigFoodsPosCataloguePage() {
   const [step, setStep] = useState(1);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [newImages, setNewImages] = useState<File[]>([]);
+  const [removedImages, setRemovedImages] = useState<string[]>([]);
+  const [otherItems, setOtherItems] = useState<{id:string;name:string}[]>([]);
 
   const call = useCallback(async (body: Record<string, unknown>) => {
-    const { data: { session } } = await getBrowserSupabase().auth.getSession();
+    const supabase = getBrowserSupabase();
+    const { data: { session } } = await supabase.auth.getSession();
     const response = await fetch("/api/bigfoods-staff/inventory", {
       method: "POST", headers: { "Content-Type": "application/json", ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
       body: JSON.stringify(body), cache: "no-store"
@@ -37,8 +58,11 @@ export default function BigFoodsPosCataloguePage() {
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
-    try { const data = await call({ action: "pos_catalogue_overview" }); setItems(data.items ?? []); }
-    catch (e) { setError(e instanceof Error ? e.message : "Unable to load catalogue"); }
+    try {
+      const data = await call({ action: "pos_catalogue_overview" });
+      setItems(data.items ?? []);
+      setOtherItems((data.items ?? []).map((x:PosItem)=>({id:x.id,name:x.name})));
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to load catalogue"); }
     finally { setLoading(false); }
   }, [call]);
   useEffect(() => { void load(); }, [load]);
@@ -46,32 +70,96 @@ export default function BigFoodsPosCataloguePage() {
   const categoryOptions = useMemo(() => Array.from(new Set([...MENU_CATEGORY_NAMES, ...items.map(i => i.category.trim().toLowerCase()).filter(Boolean)])).sort((a,b)=>a.localeCompare(b)), [items]);
   const subcategoryOptions = form.category ? (MENU_CATEGORY_PRESETS[form.category.toLowerCase()] ?? []) : [];
   const filtered = items.filter(item => [item.name, item.sku ?? "", item.category, item.subcategory ?? ""].join(" ").toLowerCase().includes(query.toLowerCase()));
-  const parsedPrice = Number(form.selling_price);
-  const canSave = form.name.trim().length > 0 && form.category.trim().length > 0 && form.selling_price.trim().length > 0 && Number.isFinite(parsedPrice) && parsedPrice >= 0 && step === 4;
+  const price = Number(form.selling_price);
+  const promo = form.promotional_price.trim() ? Number(form.promotional_price) : null;
+  const stock = form.stock_quantity.trim() ? Number(form.stock_quantity) : null;
+  const preparation = form.preparation_time_minutes.trim() ? Number(form.preparation_time_minutes) : null;
+  const imageCount = form.image_urls.length + newImages.length;
+  const validOptions = form.option_groups.every(g => g.name.trim() && g.options.length >= 2 &&
+    g.options.every(o => o.name.trim() && Number.isSafeInteger(o.price) && o.price >= 0 &&
+      (o.stock_quantity == null ? Number(o.stock_reserved ?? 0) === 0 : Number.isSafeInteger(o.stock_quantity) && o.stock_quantity >= Number(o.stock_reserved ?? 0))) &&
+    (g.selection_type !== "single" || (g.min_select ?? (g.required ? 1 : 0)) <= 1) &&
+    (g.min_select ?? (g.required ? 1 : 0)) >= 0 &&
+    (g.max_select ?? g.options.length) >= (g.min_select ?? (g.required ? 1 : 0)) &&
+    (g.max_select ?? g.options.length) <= g.options.length);
+  const validSchedule = !form.schedule_enabled || form.schedule.every(w => Number.isInteger(w.day) && w.day >= 0 && w.day <= 6 &&
+    /^([01]\d|2[0-3]):[0-5]\d$/.test(w.start) && /^([01]\d|2[0-3]):[0-5]\d$/.test(w.end) && w.start < w.end);
+  const validPromo = promo === null || (Number.isSafeInteger(promo) && promo > 0 && Number.isSafeInteger(price) && promo < price);
+  const validPromoWindow = !form.promotion_starts_at || !form.promotion_ends_at || new Date(form.promotion_ends_at).getTime() > new Date(form.promotion_starts_at).getTime();
+  const canSave = form.name.trim().length > 0 && form.category.trim().length > 0 && form.selling_price.trim().length > 0 &&
+    Number.isSafeInteger(price) && price > 0 && step === 6 && imageCount >= 1 && imageCount <= 3 &&
+    (stock === null || (Number.isSafeInteger(stock) && stock >= 0)) &&
+    (preparation === null || (Number.isSafeInteger(preparation) && preparation > 0)) &&
+    validOptions && validSchedule && validPromo && validPromoWindow;
 
-  function startNew() { setForm(blank); setStep(1); setEditing(true); setError(""); setNotice(""); }
+  function startNew() { setForm({...blank}); setNewImages([]); setRemovedImages([]); setStep(1); setEditing(true); setError(""); setNotice(""); }
   function startEdit(item: PosItem) {
-    setForm({ id: item.id, name: item.name, sku: item.sku ?? "", description: item.description ?? "", category: item.category, subcategory: item.subcategory ?? "", selling_price: String(item.selling_price), image_url: item.image_url ?? "", is_available: item.is_available, sort_order: String(item.sort_order) });
-    setStep(1); setEditing(true); setError(""); setNotice("");
+    const urls = Array.isArray(item.image_urls) && item.image_urls.length ? item.image_urls : item.image_url ? [item.image_url] : [];
+    setForm({
+      ...blank, id:item.id, name:item.name, sku:item.sku ?? "", description:item.description ?? "", category:item.category,
+      subcategory:item.subcategory ?? "", selling_price:String(item.selling_price), image_urls:urls, is_available:item.is_available,
+      sort_order:String(item.sort_order), ingredients:item.ingredients ?? "", serving_size:item.serving_size ?? "",
+      preparation_time_minutes:item.preparation_time_minutes == null ? "" : String(item.preparation_time_minutes),
+      stock_quantity:item.stock_quantity == null ? "" : String(item.stock_quantity),
+      schedule_enabled:Boolean(item.availability_schedule_enabled), schedule:item.availability_schedule ?? [],
+      allergens:(item.allergens ?? []).join(", "), dietary_tags:(item.dietary_tags ?? []).join(", "),
+      promotional_price:item.promotional_price == null ? "" : String(item.promotional_price),
+      promotion_starts_at:item.promotion_starts_at ? new Date(item.promotion_starts_at).toISOString().slice(0,16) : "",
+      promotion_ends_at:item.promotion_ends_at ? new Date(item.promotion_ends_at).toISOString().slice(0,16) : "",
+      complementary_item_ids:item.complementary_item_ids ?? [], option_groups:item.option_groups ?? []
+    });
+    setNewImages([]); setRemovedImages([]); setStep(1); setEditing(true); setError(""); setNotice("");
   }
-
   function nextStep() {
     setError("");
-    if (step === 1 && (!form.name.trim() || !form.category.trim() || form.selling_price.trim() === "" || !Number.isFinite(parsedPrice) || parsedPrice < 0)) {
-      setError("Enter a product name, category and valid selling price before continuing."); return;
+    if (step === 1 && (!form.name.trim() || !form.category.trim() || !form.selling_price.trim() || !Number.isSafeInteger(price) || price <= 0)) {
+      setError("Enter a product name, category and valid price greater than ₦0."); return;
     }
-    setStep(s => Math.min(4, s + 1));
+    if (step === 2 && (imageCount < 1 || imageCount > 3)) { setError("Add 1–3 photos before continuing."); return; }
+    if (step === 3 && !validOptions) { setError("Each option group needs a name, at least two named options, and valid prices and stock."); return; }
+    if (step === 4 && (!validSchedule || (stock !== null && (!Number.isSafeInteger(stock) || stock < 0)))) { setError("Check stock and scheduled availability values."); return; }
+    if (step === 5 && (!validPromo || !validPromoWindow || (preparation !== null && (!Number.isSafeInteger(preparation) || preparation <= 0)))) { setError("Check preparation time and promotion details."); return; }
+    setStep(s => Math.min(6, s + 1));
   }
 
   async function save(event: FormEvent) {
     event.preventDefault();
-    if (!canSave || busy) return;
+    if (!canSave || busy) { setError("Please complete all required fields and check each step before saving."); return; }
     setBusy(true); setError(""); setNotice("");
+    const supabase = getBrowserSupabase();
+    const uploadedPaths: string[] = [];
     try {
-      await call({ action: "pos_item_save", ...form, selling_price: parsedPrice, sort_order: Number(form.sort_order) || 0 });
+      const uploadedUrls: string[] = [];
+      for (const file of newImages) {
+        const compressed = await compressImage(file, { maxDimension: 1280, maxKB: 300 });
+        const path = `bigfoods/pos/${crypto.randomUUID()}.jpg`;
+        const { error: uploadError } = await supabase.storage.from("menu-images").upload(path, compressed, { contentType: "image/jpeg", upsert: false });
+        if (uploadError) throw new Error(`Photo upload failed: ${uploadError.message}`);
+        uploadedPaths.push(path);
+        uploadedUrls.push(supabase.storage.from("menu-images").getPublicUrl(path).data.publicUrl);
+      }
+      const finalUrls = [...form.image_urls, ...uploadedUrls];
+      await call({
+        action:"pos_item_save", id:form.id || undefined, name:form.name.trim(), sku:form.sku.trim() || null,
+        description:form.description.trim() || null, category:form.category.trim(), subcategory:form.subcategory.trim() || null,
+        selling_price:price, image_urls:finalUrls, image_url:finalUrls[0] ?? null, is_available:form.is_available,
+        sort_order:Number(form.sort_order) || 0, ingredients:form.ingredients.trim() || null, serving_size:form.serving_size.trim() || null,
+        preparation_time_minutes:preparation, stock_quantity:stock, availability_schedule_enabled:form.schedule_enabled,
+        availability_schedule:form.schedule_enabled ? form.schedule : [], allergens:form.allergens.split(",").map(v=>v.trim()).filter(Boolean),
+        dietary_tags:form.dietary_tags.split(",").map(v=>v.trim()).filter(Boolean), promotional_price:promo,
+        promotion_starts_at:form.promotion_starts_at ? new Date(form.promotion_starts_at).toISOString() : null,
+        promotion_ends_at:form.promotion_ends_at ? new Date(form.promotion_ends_at).toISOString() : null,
+        complementary_item_ids:form.complementary_item_ids, option_groups:form.option_groups
+      });
+      if (removedImages.length) {
+        const paths = removedImages.map(url => { try { const u = new URL(url); const marker = "/storage/v1/object/public/menu-images/"; const i = u.pathname.indexOf(marker); return i < 0 ? null : decodeURIComponent(u.pathname.slice(i + marker.length)); } catch { return null; } }).filter((v):v is string=>!!v && v.startsWith("bigfoods/pos/"));
+        if (paths.length) await supabase.storage.from("menu-images").remove(paths);
+      }
       setNotice(form.id ? "Catalogue item updated." : "Catalogue item created."); setEditing(false); await load();
-    } catch (e) { setError(e instanceof Error ? e.message : "Unable to save catalogue item"); }
-    finally { setBusy(false); }
+    } catch (e) {
+      if (uploadedPaths.length) await supabase.storage.from("menu-images").remove(uploadedPaths).catch(()=>undefined);
+      setError(e instanceof Error ? e.message : "Unable to save catalogue item");
+    } finally { setBusy(false); }
   }
 
   async function toggle(item: PosItem) {
@@ -80,9 +168,9 @@ export default function BigFoodsPosCataloguePage() {
     catch (e) { setError(e instanceof Error ? e.message : "Unable to update availability"); }
     finally { setBusy(false); }
   }
-
   const label = "mb-1.5 block text-[12px] font-medium";
   const inputStyle = { borderColor: "var(--line)", color: "var(--ink)", background: "var(--white)" };
+  function updateGroup(id:string, patch:Partial<OptionGroup>) { setForm(f=>({...f,option_groups:f.option_groups.map(g=>g.id===id?{...g,...patch}:g)})); }
 
   return <main className="mx-auto max-w-7xl space-y-5 pb-10">
     <PageHeader title="BigFoods POS catalogue" subtitle="Manage products sold by BigFoods cashiers. Restaurant-owned menus stay separate." />
@@ -90,52 +178,71 @@ export default function BigFoodsPosCataloguePage() {
       <div className="flex flex-wrap gap-2"><button className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-95" style={{background:"var(--orange)"}} onClick={startNew}><Plus size={16}/> Add item</button><a href="/admin/inventory/workflows" className="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold" style={{borderColor:"var(--line)",color:"var(--ink)"}}><Boxes size={16}/> Recipe & production</a></div>
       <button className="inline-flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-semibold" style={{borderColor:"var(--line)",color:"var(--ink)"}} onClick={() => void load()} disabled={loading}><RefreshCw size={15} className={loading ? "animate-spin" : ""}/> Refresh</button>
     </div>
-    {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
+    {error && !editing && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
     {notice && <div role="status" className="rounded-xl px-4 py-3 text-sm" style={{background:"var(--peach)",color:"var(--ink)"}}>{notice}</div>}
     {editing && <section className="mx-auto w-full max-w-3xl rounded-[16px] border p-4 sm:p-6" style={{borderColor:"var(--line)",background:"var(--white)"}}>
       <div className="mb-6">
-        <div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{color:"var(--orange)"}}>{form.id ? "Edit catalogue item" : "New BigFoods product"}</p><h2 className="mt-1 text-xl font-bold" style={{color:"var(--ink)"}}>{steps[step-1]}</h2><p className="mt-1 text-xs" style={{color:"var(--gray)"}}>Step {step} of {steps.length} · Your entries stay here while you move between steps.</p></div><button type="button" onClick={()=>setEditing(false)} className="rounded-lg border px-3 py-2 text-xs font-semibold" style={{borderColor:"var(--line)",color:"var(--ink)"}}>Cancel</button></div>
-        <div className="grid grid-cols-4 gap-1.5" aria-label="Form progress">{steps.map((_,i)=><div key={i} className="h-1.5 rounded-full" style={{background:i+1<=step?"var(--orange)":"var(--line)"}} />)}</div>
+        <div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{color:"var(--orange)"}}>{form.id ? "Edit catalogue item" : "New BigFoods product"}</p><h2 className="mt-1 text-xl font-bold" style={{color:"var(--ink)"}}>{steps[step-1]}</h2><p className="mt-1 text-xs" style={{color:"var(--gray)"}}>Step {step} of 6 · Your progress stays here while you move between steps.</p></div><div className="flex items-center gap-2"><span className="rounded-full px-3 py-1 text-xs font-bold" style={{background:"var(--peach)",color:"var(--ink)"}}>{Math.round(step/6*100)}%</span><button type="button" onClick={()=>setEditing(false)} className="rounded-lg border px-3 py-2 text-xs font-semibold" style={{borderColor:"var(--line)",color:"var(--ink)"}}>Cancel</button></div></div>
+        <div className="grid grid-cols-6 gap-1.5" aria-label="Form progress">{steps.map((_,i)=><div key={i} className="h-1.5 rounded-full" style={{background:i+1<=step?"var(--orange)":"var(--line)"}} />)}</div>
       </div>
       <form onSubmit={save}>
         <section style={{display:step===1?undefined:"none"}}>
           <div className="mb-3"><label className={label} style={{color:"var(--ink)"}}>Product / meal name</label><input required maxLength={160} className={field} style={inputStyle} value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="e.g. BigFoods Jollof Rice & Chicken"/></div>
-          <div className="mb-3"><label className={label} style={{color:"var(--ink)"}}>Selling price (₦)</label><input required type="number" min="0" step="1" className={field} style={inputStyle} value={form.selling_price} onChange={e=>setForm({...form,selling_price:e.target.value})} placeholder="2500"/></div>
+          <div className="mb-3"><label className={label} style={{color:"var(--ink)"}}>Price (₦)</label><input required inputMode="numeric" className={field} style={inputStyle} value={form.selling_price} onChange={e=>setForm({...form,selling_price:e.target.value.replace(/[^\d]/g,"")})} placeholder="2500"/></div>
           <div className="mb-3"><ChipPicker label="Category" options={categoryOptions} value={form.category} onChange={v=>setForm({...form,category:v,subcategory:""})}/></div>
           <div className="mb-3"><ChipPicker label="Sub-category (optional)" options={subcategoryOptions} value={form.subcategory} onChange={v=>setForm({...form,subcategory:v})}/></div>
           <div className="mb-3"><label className={label} style={{color:"var(--ink)"}}>Description (optional)</label><textarea maxLength={1200} rows={3} className={field} style={inputStyle} value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Describe the product and what customers can expect."/></div>
         </section>
         <section style={{display:step===2?undefined:"none"}}>
-          <label className={label} style={{color:"var(--ink)"}}>Product photo (optional)</label>
-          <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-dashed p-4" style={{borderColor:"var(--line)"}}>
-            {form.image_url ? <img src={form.image_url} alt="Product preview" className="h-20 w-20 rounded-xl object-cover" /> : <div className="flex h-20 w-20 items-center justify-center rounded-xl" style={{background:"var(--peach)",color:"var(--orange)"}}><ImagePlus size={25}/></div>}
-            <div className="min-w-0 flex-1"><p className="text-sm font-semibold" style={{color:"var(--ink)"}}>Add a product image</p><p className="mt-1 text-xs" style={{color:"var(--gray)"}}>Use the image URL for now. Direct photo upload can be connected to the shared storage flow separately.</p></div>
-          </div>
-          <label className={label} style={{color:"var(--ink)"}}>Image URL</label><input type="url" className={field} style={inputStyle} value={form.image_url} onChange={e=>setForm({...form,image_url:e.target.value})} placeholder="https://…"/>
-          {form.image_url && <button type="button" className="mt-2 text-xs font-semibold underline" style={{color:"var(--orange)"}} onClick={()=>setForm({...form,image_url:""})}>Remove image</button>}
+          <label className={label} style={{color:"var(--ink)"}}>Photos (1–3 required)</label>
+          <div className="mb-2 flex flex-wrap gap-2">
+            {form.image_urls.map((url,i)=><div key={url} className="relative h-16 w-16 overflow-hidden rounded-[9px] border" style={{borderColor:"var(--line)"}}><img src={url} alt="" className="h-full w-full object-cover"/><button type="button" onClick={()=>{setRemovedImages(p=>[...p,url]);setForm(f=>({...f,image_urls:f.image_urls.filter((_,n)=>n!==i)}));}} className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full" style={{background:"rgba(0,0,0,.65)"}} aria-label="Remove photo"><X className="h-2.5 w-2.5 text-white"/></button></div>)}
+            {newImages.map((file,i)=><div key={i} className="relative h-16 w-16 overflow-hidden rounded-[9px] border" style={{borderColor:"var(--line)"}}><img src={URL.createObjectURL(file)} alt="" className="h-full w-full object-cover"/><button type="button" onClick={()=>setNewImages(p=>p.filter((_,n)=>n!==i))} className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full" style={{background:"rgba(0,0,0,.65)"}} aria-label="Remove photo"><X className="h-2.5 w-2.5 text-white"/></button></div>)}
+            {imageCount<3&&<label className="flex h-16 w-16 cursor-pointer items-center justify-center rounded-[9px]" style={{border:"1.5px dashed var(--line)"}}><ImagePlus className="h-5 w-5" style={{color:"var(--gray)"}}/><input type="file" accept="image/*" multiple className="hidden" onChange={e=>{const files=Array.from(e.target.files??[]).slice(0,3-imageCount);setNewImages(p=>[...p,...files]);e.currentTarget.value="";}}/></label>}
+          </div><p className="mb-3 text-[11px]" style={{color:"var(--gray)"}}>{imageCount}/3 photos · At least one photo is required. Photos are compressed before upload.</p>
         </section>
-        <section style={{display:step===3?undefined:"none"}}>
-          <div className="mb-4 rounded-xl border p-4" style={{borderColor:"var(--line)",background:"var(--white)"}}>
-            <h3 className="text-[13px] font-bold" style={{color:"var(--ink)"}}>POS availability</h3><p className="mt-1 text-[11px] leading-5" style={{color:"var(--gray)"}}>Control whether this product is shown to cashiers as available for sale.</p>
-            <label className="mt-4 flex items-center gap-3 rounded-xl p-3" style={{background:"var(--peach)",color:"var(--ink)"}}><input type="checkbox" checked={form.is_available} onChange={e=>setForm({...form,is_available:e.target.checked})} className="h-4 w-4 accent-orange-500"/><span><span className="block text-sm font-semibold">{form.is_available?"Available for cashier sales":"Hidden from cashier sales"}</span><span className="mt-0.5 block text-xs" style={{color:"var(--gray)"}}>You can change this later without deleting the product.</span></span></label>
-          </div>
-          <div className="mb-3"><label className={label} style={{color:"var(--ink)"}}>SKU / item code (optional)</label><input maxLength={80} className={field} style={inputStyle} value={form.sku} onChange={e=>setForm({...form,sku:e.target.value})} placeholder="BF-MEAL-001"/></div>
-          <div className="mb-3"><label className={label} style={{color:"var(--ink)"}}>Display order</label><input type="number" step="1" className={field} style={inputStyle} value={form.sort_order} onChange={e=>setForm({...form,sort_order:e.target.value})}/><p className="mt-1 text-[11px]" style={{color:"var(--gray)"}}>Lower numbers appear first in the catalogue.</p></div>
+        <section className="mb-4 rounded-xl border p-3" style={{borderColor:"var(--line)",background:"var(--white)",display:step===3?undefined:"none"}}>
+          <div className="mb-1 flex items-center justify-between gap-3"><h3 className="text-[13px] font-bold" style={{color:"var(--ink)"}}>Variants & extras</h3><button type="button" onClick={()=>setForm(f=>({...f,option_groups:[...f.option_groups,{id:crypto.randomUUID(),name:"Choose an option",required:false,selection_type:"single",options:[{id:crypto.randomUUID(),name:"",price:0},{id:crypto.randomUUID(),name:"",price:0}]}]}))} className="rounded-lg px-3 py-2 text-[11px] font-bold text-white" style={{background:"var(--orange)"}}>+ Add group</button></div>
+          <p className="mb-3 text-[11px] leading-5" style={{color:"var(--gray)"}}>Set choices such as Chicken, Beef or Fish with extra prices. These are added to the base price. Use a required single-choice group for one protein, or optional multiple-choice groups for extras.</p>
+          {!form.option_groups.length&&<p className="rounded-lg p-3 text-[11px]" style={{background:"var(--peach)",color:"var(--gray)"}}>No options added. Customers can order at the base price.</p>}
+          <div className="space-y-4">{form.option_groups.map((g,gi)=><div key={g.id} className="rounded-lg border p-3" style={{borderColor:"var(--line)"}}>
+            <div className="mb-3 flex items-start gap-2"><div className="flex-1"><label className={label} style={{color:"var(--ink)"}}>Group name</label><input className={field} style={inputStyle} maxLength={80} value={g.name} onChange={e=>updateGroup(g.id,{name:e.target.value})} placeholder="e.g. Choose your protein"/></div><button type="button" onClick={()=>setForm(f=>({...f,option_groups:f.option_groups.filter(x=>x.id!==g.id)}))} className="mt-5 rounded-lg border px-2.5 py-2 text-[11px]" style={{borderColor:"var(--line)",color:"var(--red,#C1453A)"}}>Remove</button></div>
+            <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2"><div><label className={label} style={{color:"var(--ink)"}}>Selection type</label><select className={field} style={inputStyle} value={g.selection_type} onChange={e=>updateGroup(g.id,{selection_type:e.target.value as "single"|"multiple",max_select:e.target.value==="single"?1:undefined,min_select:g.required?1:0})}><option value="single">Choose one</option><option value="multiple">Choose multiple</option></select></div><label className="flex items-center gap-2 self-end pb-2 text-[11px] font-semibold" style={{color:"var(--ink)"}}><input type="checkbox" checked={g.required} onChange={e=>updateGroup(g.id,{required:e.target.checked,min_select:e.target.checked?1:0})}/> Customer must choose</label></div>
+            {g.selection_type==="multiple"&&<div className="mb-3 grid grid-cols-2 gap-3"><div><label className={label} style={{color:"var(--gray)"}}>Minimum choices</label><input type="number" min={g.required?1:0} max={g.options.length} className={field} style={inputStyle} value={g.min_select??(g.required?1:0)} onChange={e=>updateGroup(g.id,{min_select:e.target.value===""?undefined:Number(e.target.value)})}/></div><div><label className={label} style={{color:"var(--gray)"}}>Maximum choices (optional)</label><input type="number" min={1} max={g.options.length} className={field} style={inputStyle} value={g.max_select??""} onChange={e=>updateGroup(g.id,{max_select:e.target.value===""?undefined:Number(e.target.value)})} placeholder="No limit"/></div></div>}
+            <div className="space-y-2">{g.options.map(o=><div key={o.id} className="grid grid-cols-[minmax(0,1fr)_78px_92px_34px] items-center gap-2"><input className={field+" min-w-0"} style={inputStyle} maxLength={80} value={o.name} onChange={e=>updateGroup(g.id,{options:g.options.map(x=>x.id===o.id?{...x,name:e.target.value}:x)})} placeholder="e.g. Chicken, Beef, Fish"/><input type="number" min={0} step={1} className={field} style={inputStyle} value={o.price} aria-label={"Extra price for "+(o.name||"option")} onChange={e=>updateGroup(g.id,{options:g.options.map(x=>x.id===o.id?{...x,price:e.target.value===""?0:Number(e.target.value)}:x)})} placeholder="₦ extra"/><input type="number" min={0} step={1} className={field} style={inputStyle} value={o.stock_quantity??""} aria-label={"Stock quantity for "+(o.name||"option")} onChange={e=>updateGroup(g.id,{options:g.options.map(x=>x.id===o.id?{...x,stock_quantity:e.target.value===""?null:Number(e.target.value)}:x)})} placeholder="∞ stock"/><button type="button" aria-label="Remove option" onClick={()=>updateGroup(g.id,{options:g.options.filter(x=>x.id!==o.id)})} className="flex h-8 w-8 items-center justify-center rounded-lg border" style={{borderColor:"var(--line)",color:"var(--red,#C1453A)"}}>×</button></div>)}</div>
+            <button type="button" onClick={()=>updateGroup(g.id,{options:[...g.options,{id:crypto.randomUUID(),name:"",price:0}]})} className="mt-3 text-[11px] font-semibold underline underline-offset-2" style={{color:"var(--orange)"}}>+ Add option</button><p className="mt-2 text-[10px]" style={{color:"var(--gray)"}}>Extra price in naira (₦). Enter 0 if included in base price.</p>
+          </div>)}</div>
         </section>
         <section style={{display:step===4?undefined:"none"}}>
-          <div className="mb-4 rounded-xl p-4" style={{background:"var(--peach)"}}><p className="text-[11px] font-bold uppercase tracking-wide" style={{color:"var(--orange)"}}>Review product</p><h3 className="mt-1 text-lg font-bold" style={{color:"var(--ink)"}}>{form.name || "Untitled product"}</h3><p className="mt-1 text-xl font-bold" style={{color:"var(--ink)"}}>{form.selling_price ? money(parsedPrice) : "Price not set"}</p><p className="mt-1 text-xs" style={{color:"var(--gray)"}}>{form.category}{form.subcategory ? " · "+form.subcategory : ""}</p>{form.description && <p className="mt-3 text-sm" style={{color:"var(--ink)"}}>{form.description}</p>}</div>
-          <div className="space-y-2 rounded-xl border p-4 text-sm" style={{borderColor:"var(--line)",color:"var(--ink)"}}><div className="flex justify-between gap-4"><span style={{color:"var(--gray)"}}>SKU</span><span>{form.sku || "Not set"}</span></div><div className="flex justify-between gap-4"><span style={{color:"var(--gray)"}}>Photo</span><span>{form.image_url ? "Added" : "Not added"}</span></div><div className="flex justify-between gap-4"><span style={{color:"var(--gray)"}}>POS status</span><span>{form.is_available?"Available":"Hidden"}</span></div></div>
+          <div className="mb-4 rounded-xl border p-4" style={{borderColor:"var(--line)",background:"var(--white)"}}><h3 className="text-[13px] font-bold" style={{color:"var(--ink)"}}>POS availability</h3><p className="mt-1 text-[11px] leading-5" style={{color:"var(--gray)"}}>Control whether cashiers see this product as available for sale.</p><label className="mt-4 flex items-center gap-3 rounded-xl p-3" style={{background:"var(--peach)",color:"var(--ink)"}}><input type="checkbox" checked={form.is_available} onChange={e=>setForm({...form,is_available:e.target.checked})} className="h-4 w-4 accent-orange-500"/><span><span className="block text-sm font-semibold">{form.is_available?"Available for cashier sales":"Hidden from cashier sales"}</span><span className="mt-0.5 block text-xs" style={{color:"var(--gray)"}}>You can change this later without deleting the product.</span></span></label></div>
+          <div className="mb-3"><label className={label} style={{color:"var(--ink)"}}>SKU / item code (optional)</label><input maxLength={80} className={field} style={inputStyle} value={form.sku} onChange={e=>setForm({...form,sku:e.target.value})} placeholder="BF-MEAL-001"/></div>
+          <div className="mb-3"><label className={label} style={{color:"var(--ink)"}}>Stock quantity (optional)</label><input type="number" min={0} step={1} className={field} style={inputStyle} value={form.stock_quantity} onChange={e=>setForm({...form,stock_quantity:e.target.value})} placeholder="Leave blank for untracked stock"/></div>
+          <div className="mb-3"><label className={label} style={{color:"var(--ink)"}}>Display order</label><input type="number" step={1} className={field} style={inputStyle} value={form.sort_order} onChange={e=>setForm({...form,sort_order:e.target.value})}/><p className="mt-1 text-[11px]" style={{color:"var(--gray)"}}>Lower numbers appear first in the catalogue.</p></div>
+          <div className="rounded-xl border p-3" style={{borderColor:"var(--line)"}}><h3 className="mb-1 text-sm font-bold" style={{color:"var(--ink)"}}>Scheduled availability</h3><p className="mb-3 text-xs leading-5" style={{color:"var(--gray)"}}>Optionally restrict ordering to weekly time windows in Nigeria time (Africa/Lagos).</p><label className="flex min-h-11 items-center gap-3 rounded-xl border p-3 text-sm font-semibold" style={{borderColor:"var(--line)",color:"var(--ink)"}}><input type="checkbox" checked={form.schedule_enabled} onChange={e=>setForm({...form,schedule_enabled:e.target.checked})} className="h-4 w-4 accent-orange-500"/> Enable weekly schedule</label>
+          {form.schedule_enabled&&<div className="mt-3 space-y-3">{["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map((dayName,day)=>{const wins=form.schedule.filter(w=>w.day===day);return <div key={day} className="rounded-lg border p-3" style={{borderColor:"var(--line)"}}><div className="mb-2 flex items-center justify-between"><span className="text-xs font-semibold" style={{color:"var(--ink)"}}>{dayName}</span><button type="button" className="text-xs font-semibold" style={{color:"var(--orange)"}} onClick={()=>setForm(f=>({...f,schedule:[...f.schedule,{day,start:"09:00",end:"17:00"}]}))}>+ Add window</button></div>{wins.map((w,i)=><div key={i} className="mb-2 grid grid-cols-[1fr_1fr_auto] items-center gap-2"><input type="time" className={field} style={inputStyle} value={w.start} onChange={e=>setForm(f=>({...f,schedule:f.schedule.map((x,j)=>x.day===day&&wins.indexOf(x)===i?{...x,start:e.target.value}:x)}))}/><input type="time" className={field} style={inputStyle} value={w.end} onChange={e=>setForm(f=>({...f,schedule:f.schedule.map((x,j)=>x.day===day&&wins.indexOf(x)===i?{...x,end:e.target.value}:x)}))}/><button type="button" onClick={()=>setForm(f=>({...f,schedule:f.schedule.filter(x=>!(x.day===day&&wins.indexOf(x)===i))}))} className="rounded-lg border px-3 py-2 text-xs" style={{borderColor:"var(--line)"}}>Remove</button></div>)}{!wins.length&&<p className="text-[11px]" style={{color:"var(--gray)"}}>No restriction set for this day.</p>}</div>})}</div>}
+          </div>
         </section>
-        {error && <p role="alert" className="mt-3 text-[11px]" style={{color:"var(--red)"}}>{error}</p>}
-        <div className="mt-6 flex items-center justify-between gap-3 border-t pt-4" style={{borderColor:"var(--line)"}}>
-          <button type="button" disabled={step===1||busy} onClick={()=>{setError("");setStep(s=>Math.max(1,s-1));}} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold disabled:opacity-40" style={{borderColor:"var(--line)",color:"var(--ink)"}}><ArrowLeft size={15}/> Back</button>
-          {step<4 ? <button type="button" onClick={nextStep} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white" style={{background:"var(--orange)"}}>Continue <ArrowRight size={15}/></button> : <button type="submit" disabled={!canSave||busy} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50" style={{background:"var(--orange)"}}>{busy?"Saving…":form.id?"Save changes":"Save item"}</button>}
-        </div>
+        <section style={{display:step===5?undefined:"none"}}>
+          <div className="mb-3"><label className={label} style={{color:"var(--ink)"}}>Ingredients (optional)</label><textarea maxLength={1200} rows={2} className={field} style={inputStyle} value={form.ingredients} onChange={e=>setForm({...form,ingredients:e.target.value})} placeholder="e.g. rice, tomatoes, peppers, chicken"/></div>
+          <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2"><div><label className={label} style={{color:"var(--ink)"}}>Portion / serving size</label><input maxLength={100} className={field} style={inputStyle} value={form.serving_size} onChange={e=>setForm({...form,serving_size:e.target.value})} placeholder="e.g. 1 plate, serves 2"/></div><div><label className={label} style={{color:"var(--ink)"}}>Preparation time (minutes)</label><input inputMode="numeric" className={field} style={inputStyle} value={form.preparation_time_minutes} onChange={e=>setForm({...form,preparation_time_minutes:e.target.value.replace(/[^\d]/g,"")})} placeholder="e.g. 20"/></div></div>
+          <div className="mb-3"><label className={label} style={{color:"var(--ink)"}}>Allergens (comma-separated)</label><input maxLength={500} className={field} style={inputStyle} value={form.allergens} onChange={e=>setForm({...form,allergens:e.target.value})} placeholder="e.g. peanuts, dairy, eggs"/></div>
+          <div className="mb-4"><label className={label} style={{color:"var(--ink)"}}>Dietary tags (comma-separated)</label><input maxLength={500} className={field} style={inputStyle} value={form.dietary_tags} onChange={e=>setForm({...form,dietary_tags:e.target.value})} placeholder="e.g. vegetarian, spicy, halal"/></div>
+          <section className="mb-4 space-y-3 rounded-xl border p-3" style={{borderColor:"var(--line)",background:"var(--white)"}}><h3 className="text-sm font-bold" style={{color:"var(--ink)"}}>Promotions & recommendations</h3><div><label className={label} style={{color:"var(--ink)"}}>Promotional price (₦, optional)</label><input inputMode="numeric" className={field} style={inputStyle} value={form.promotional_price} onChange={e=>setForm({...form,promotional_price:e.target.value.replace(/[^\d]/g,"")})} placeholder="Leave blank for regular price"/><p className="mt-1 text-[11px]" style={{color:"var(--gray)"}}>Must be lower than regular price. Leave blank to disable the discount.</p></div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><label className="text-[12px] font-medium" style={{color:"var(--ink)"}}>Promotion starts<input type="datetime-local" value={form.promotion_starts_at} onChange={e=>setForm({...form,promotion_starts_at:e.target.value})} className="mt-1.5 w-full rounded-lg border px-2 py-2 text-sm" style={inputStyle}/></label><label className="text-[12px] font-medium" style={{color:"var(--ink)"}}>Promotion ends<input type="datetime-local" value={form.promotion_ends_at} onChange={e=>setForm({...form,promotion_ends_at:e.target.value})} className="mt-1.5 w-full rounded-lg border px-2 py-2 text-sm" style={inputStyle}/></label></div>
+            <div><p className="mb-2 text-[12px] font-medium" style={{color:"var(--ink)"}}>Complementary items (optional)</p><p className="mb-2 text-[11px]" style={{color:"var(--gray)"}}>Recommend other BigFoods items alongside this product.</p><div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border p-2" style={{borderColor:"var(--line)"}}>{otherItems.filter(o=>o.id!==form.id).length?otherItems.filter(o=>o.id!==form.id).map(o=><label key={o.id} className="flex items-center gap-2 py-1 text-sm" style={{color:"var(--ink)"}}><input type="checkbox" checked={form.complementary_item_ids.includes(o.id)} onChange={e=>setForm(f=>({...f,complementary_item_ids:e.target.checked?[...f.complementary_item_ids,o.id]:f.complementary_item_ids.filter(id=>id!==o.id)}))} className="h-4 w-4 accent-orange-500"/>{o.name}</label>):<p className="text-xs" style={{color:"var(--gray)"}}>Add other catalogue items first to create recommendations.</p>}</div></div>
+          </section>
+        </section>
+        <section style={{display:step===6?undefined:"none"}}>
+          <div className="mb-4 rounded-xl p-4" style={{background:"var(--peach)"}}><p className="text-[11px] font-bold uppercase tracking-wide" style={{color:"var(--orange)"}}>Review product</p><h3 className="mt-1 text-lg font-bold" style={{color:"var(--ink)"}}>{form.name||"Untitled product"}</h3><p className="mt-1 text-xl font-bold" style={{color:"var(--ink)"}}>{form.selling_price?money(price):"Price not set"}</p><p className="mt-1 text-xs" style={{color:"var(--gray)"}}>{form.category}{form.subcategory?" · "+form.subcategory:""}</p>{form.description&&<p className="mt-3 text-sm" style={{color:"var(--ink)"}}>{form.description}</p>}{form.image_urls[0]&&<img src={form.image_urls[0]} alt="Product" className="mt-3 h-24 w-24 rounded-xl object-cover"/>}{newImages[0]&&<p className="mt-2 text-xs" style={{color:"var(--gray)"}}>New photo ready to upload</p>}</div>
+          <div className="space-y-2 rounded-xl border p-4 text-sm" style={{borderColor:"var(--line)",color:"var(--ink)"}}><div className="flex justify-between gap-4"><span style={{color:"var(--gray)"}}>SKU</span><span>{form.sku||"Not set"}</span></div><div className="flex justify-between gap-4"><span style={{color:"var(--gray)"}}>Photos</span><span>{imageCount}/3</span></div><div className="flex justify-between gap-4"><span style={{color:"var(--gray)"}}>Variants / extras</span><span>{form.option_groups.length} group(s)</span></div><div className="flex justify-between gap-4"><span style={{color:"var(--gray)"}}>Stock</span><span>{form.stock_quantity||"Not tracked"}</span></div><div className="flex justify-between gap-4"><span style={{color:"var(--gray)"}}>POS status</span><span>{form.is_available?"Available":"Hidden"}</span></div><div className="flex justify-between gap-4"><span style={{color:"var(--gray)"}}>Promotion</span><span>{promo===null?"None":money(promo)}</span></div></div>
+        </section>
+        {error&&<p role="alert" className="mt-3 text-[11px]" style={{color:"var(--red)"}}>{error}</p>}
+        <div className="mt-6 flex items-center justify-between gap-3 border-t pt-4" style={{borderColor:"var(--line)"}}><button type="button" disabled={step===1||busy} onClick={()=>{setError("");setStep(s=>Math.max(1,s-1));}} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold disabled:opacity-40" style={{borderColor:"var(--line)",color:"var(--ink)"}}><ArrowLeft size={15}/> Back</button>{step<6?<button type="button" onClick={nextStep} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white" style={{background:"var(--orange)"}}>Continue <ArrowRight size={15}/></button>:<button type="submit" disabled={!canSave||busy} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50" style={{background:"var(--orange)"}}>{busy?<Loader2 size={15} className="animate-spin"/>:null}{busy?(form.id?"Saving changes…":"Adding item…"):form.id?"Save menu item":"Add menu item"}</button>}</div>
       </form>
     </section>}
     <section className="overflow-hidden rounded-[16px] border" style={{borderColor:"var(--line)",background:"var(--white)"}}>
       <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between" style={{borderColor:"var(--line)"}}><div><h2 className="font-semibold" style={{color:"var(--ink)"}}>In-house products</h2><p className="mt-1 text-sm" style={{color:"var(--gray)"}}>{items.length} catalogue item{items.length===1?"":"s"} · {items.filter(i=>i.is_available).length} available to sell</p></div><div className="relative sm:w-72"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{color:"var(--gray)"}}/><input className={field+" pl-9"} style={inputStyle} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search dishes or categories"/></div></div>
-      {loading ? <div className="p-10 text-center text-sm" style={{color:"var(--gray)"}}>Loading catalogue…</div> : <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead><tr style={{background:"var(--peach)",color:"var(--gray)"}}><th className="px-4 py-3">Product</th><th className="px-4 py-3">Category</th><th className="px-4 py-3">Price</th><th className="px-4 py-3">POS status</th><th className="px-4 py-3 text-right">Actions</th></tr></thead><tbody>{filtered.map(item=><tr key={item.id} className="border-t" style={{borderColor:"var(--line)",color:"var(--ink)"}}><td className="px-4 py-3.5"><div className="font-semibold">{item.name}</div><div className="mt-0.5 text-xs" style={{color:"var(--gray)"}}>{item.sku||"No SKU"}{item.description?" · "+item.description:""}</div></td><td className="px-4 py-3.5"><div>{item.category}</div>{item.subcategory&&<div className="mt-0.5 text-xs" style={{color:"var(--gray)"}}>{item.subcategory}</div>}</td><td className="px-4 py-3.5 font-semibold tabular-nums">{money(Number(item.selling_price))}</td><td className="px-4 py-3.5"><span className="rounded-full px-2.5 py-1 text-xs font-semibold" style={{background:item.is_available?"#E7F6EC":"#F2EEE9",color:item.is_available?"#216E3A":"#6F6257"}}>{item.is_available?"Available":"Hidden"}</span></td><td className="px-4 py-3.5"><div className="flex justify-end gap-2"><button className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold" style={{borderColor:"var(--line)",color:"var(--ink)"}} onClick={()=>startEdit(item)} disabled={busy}><Pencil size={14}/> Edit</button><button className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold" style={{borderColor:"var(--line)",color:"var(--ink)"}} onClick={()=>void toggle(item)} disabled={busy}>{item.is_available?<EyeOff size={14}/>:<Eye size={14}/>} {item.is_available?"Hide":"Show"}</button></div></td></tr>)}{!filtered.length&&<tr><td colSpan={5} className="px-4 py-10 text-center text-sm" style={{color:"var(--gray)"}}>{query?"No items match your search.":"No BigFoods products yet. Add the first in-house meal or product."}</td></tr>}</tbody></table></div>}
+      {loading?<div className="p-10 text-center text-sm" style={{color:"var(--gray)"}}>Loading catalogue…</div>:<div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead><tr style={{background:"var(--peach)",color:"var(--gray)"}}><th className="px-4 py-3">Product</th><th className="px-4 py-3">Category</th><th className="px-4 py-3">Price</th><th className="px-4 py-3">POS status</th><th className="px-4 py-3 text-right">Actions</th></tr></thead><tbody>{filtered.map(item=><tr key={item.id} className="border-t" style={{borderColor:"var(--line)",color:"var(--ink)"}}><td className="px-4 py-3.5"><div className="font-semibold">{item.name}</div><div className="mt-0.5 text-xs" style={{color:"var(--gray)"}}>{item.sku||"No SKU"}{item.description?" · "+item.description:""}</div></td><td className="px-4 py-3.5"><div>{item.category}</div>{item.subcategory&&<div className="mt-0.5 text-xs" style={{color:"var(--gray)"}}>{item.subcategory}</div>}</td><td className="px-4 py-3.5 font-semibold tabular-nums">{money(Number(item.selling_price))}</td><td className="px-4 py-3.5"><span className="rounded-full px-2.5 py-1 text-xs font-semibold" style={{background:item.is_available?"#E7F6EC":"#F2EEE9",color:item.is_available?"#216E3A":"#6F6257"}}>{item.is_available?"Available":"Hidden"}</span></td><td className="px-4 py-3.5"><div className="flex justify-end gap-2"><button className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold" style={{borderColor:"var(--line)",color:"var(--ink)"}} onClick={()=>startEdit(item)} disabled={busy}><Pencil size={14}/> Edit</button><button className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold" style={{borderColor:"var(--line)",color:"var(--ink)"}} onClick={()=>void toggle(item)} disabled={busy}>{item.is_available?<EyeOff size={14}/>:<Eye size={14}/>} {item.is_available?"Hide":"Show"}</button></div></td></tr>)}{!filtered.length&&<tr><td colSpan={5} className="px-4 py-10 text-center text-sm" style={{color:"var(--gray)"}}>{query?"No items match your search.":"No BigFoods products yet. Add the first in-house meal or product."}</td></tr>}</tbody></table></div>}
     </section>
   </main>;
 }
