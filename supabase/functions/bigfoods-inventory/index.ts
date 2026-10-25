@@ -139,7 +139,7 @@ Deno.serve(async (req: Request) => {
       if (preparationMinutes !== null && (!Number.isSafeInteger(preparationMinutes) || preparationMinutes <= 0)) return json({ error: "Preparation time must be a positive whole number." }, 400);
       if (stockQuantity !== null && (!Number.isSafeInteger(stockQuantity) || stockQuantity < 0)) return json({ error: "Stock quantity must be a non-negative whole number." }, 400);
       const payload = {
-        name, sku: String(body.sku ?? "").trim() || null, description: String(body.description ?? "").trim() || null,
+        name, sku: String(body.sku ?? "").trim() || (body.id ? undefined : `BF-${crypto.randomUUID().slice(0, 8).toUpperCase()}`), description: String(body.description ?? "").trim() || null,
         category, subcategory: String(body.subcategory ?? "").trim() || null,
         selling_price: price, image_url: String(body.image_url ?? "").trim() || null,
         image_urls: Array.isArray(body.image_urls) ? body.image_urls.map((v: unknown) => String(v)).slice(0, 3) : [],
