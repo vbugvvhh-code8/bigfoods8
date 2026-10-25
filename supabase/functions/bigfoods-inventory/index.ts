@@ -95,7 +95,7 @@ Deno.serve(async (req: Request) => {
     if (action === "pos_catalogue_overview") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
       const { data, error } = await db.from("bigfoods_pos_items")
-        .select("id,name,sku,description,category,subcategory,selling_price,image_url,is_available,sort_order,created_at,updated_at")
+        .select("id,name,sku,description,category,subcategory,selling_price,image_url,image_urls,is_available,sort_order,ingredients,serving_size,preparation_time_minutes,stock_quantity,availability_schedule_enabled,availability_schedule,allergens,dietary_tags,promotional_price,promotion_starts_at,promotion_ends_at,complementary_item_ids,option_groups,created_at,updated_at")
         .order("sort_order").order("name").limit(1000);
       if (error) return json({ error: "Unable to load the BigFoods POS catalogue. Apply the POS catalogue migration." }, 503);
       return json({ items: data ?? [] });
@@ -106,20 +106,40 @@ Deno.serve(async (req: Request) => {
       const category = String(body.category ?? "").trim();
       const price = Number(body.selling_price);
       if (!name || !category || !Number.isFinite(price) || price < 0) return json({ error: "Name, category and a valid non-negative selling price are required." }, 400);
+      const promoPrice = body.promotional_price == null || body.promotional_price === "" ? null : Number(body.promotional_price);
+      const preparationMinutes = body.preparation_time_minutes == null || body.preparation_time_minutes === "" ? null : Number(body.preparation_time_minutes);
+      const stockQuantity = body.stock_quantity == null || body.stock_quantity === "" ? null : Number(body.stock_quantity);
+      if (promoPrice !== null && (!Number.isSafeInteger(promoPrice) || promoPrice <= 0 || promoPrice >= price)) return json({ error: "Promotional price must be a whole number above zero and below the selling price." }, 400);
+      if (preparationMinutes !== null && (!Number.isSafeInteger(preparationMinutes) || preparationMinutes <= 0)) return json({ error: "Preparation time must be a positive whole number." }, 400);
+      if (stockQuantity !== null && (!Number.isSafeInteger(stockQuantity) || stockQuantity < 0)) return json({ error: "Stock quantity must be a non-negative whole number." }, 400);
       const payload = {
         name, sku: String(body.sku ?? "").trim() || null, description: String(body.description ?? "").trim() || null,
         category, subcategory: String(body.subcategory ?? "").trim() || null,
         selling_price: price, image_url: String(body.image_url ?? "").trim() || null,
+        image_urls: Array.isArray(body.image_urls) ? body.image_urls.map((v: unknown) => String(v)).slice(0, 3) : [],
+        ingredients: String(body.ingredients ?? "").trim() || null,
+        serving_size: String(body.serving_size ?? "").trim() || null,
+        preparation_time_minutes: preparationMinutes,
+        stock_quantity: stockQuantity,
+        availability_schedule_enabled: body.availability_schedule_enabled === true,
+        availability_schedule: Array.isArray(body.availability_schedule) ? body.availability_schedule : [],
+        allergens: Array.isArray(body.allergens) ? body.allergens.map((v: unknown) => String(v).trim()).filter(Boolean) : [],
+        dietary_tags: Array.isArray(body.dietary_tags) ? body.dietary_tags.map((v: unknown) => String(v).trim()).filter(Boolean) : [],
+        promotional_price: promoPrice,
+        promotion_starts_at: body.promotion_starts_at || null,
+        promotion_ends_at: body.promotion_ends_at || null,
+        complementary_item_ids: Array.isArray(body.complementary_item_ids) ? body.complementary_item_ids : [],
+        option_groups: Array.isArray(body.option_groups) ? body.option_groups : [],
         is_available: body.is_available !== false, sort_order: Number.isFinite(Number(body.sort_order)) ? Number(body.sort_order) : 0,
         updated_by_staff_id: actor.id, updated_at: new Date().toISOString()
       };
       let result;
       if (body.id) {
         result = await db.from("bigfoods_pos_items").update(payload).eq("id", body.id)
-          .select("id,name,sku,description,category,subcategory,selling_price,image_url,is_available,sort_order").single();
+          .select("id,name,sku,description,category,subcategory,selling_price,image_url,image_urls,is_available,sort_order,ingredients,serving_size,preparation_time_minutes,stock_quantity,availability_schedule_enabled,availability_schedule,allergens,dietary_tags,promotional_price,promotion_starts_at,promotion_ends_at,complementary_item_ids,option_groups").single();
       } else {
         result = await db.from("bigfoods_pos_items").insert({ ...payload, created_by_staff_id: actor.id })
-          .select("id,name,sku,description,category,subcategory,selling_price,image_url,is_available,sort_order").single();
+          .select("id,name,sku,description,category,subcategory,selling_price,image_url,image_urls,is_available,sort_order,ingredients,serving_size,preparation_time_minutes,stock_quantity,availability_schedule_enabled,availability_schedule,allergens,dietary_tags,promotional_price,promotion_starts_at,promotion_ends_at,complementary_item_ids,option_groups").single();
       }
       if (result.error) return json({ error: result.error.message.includes("duplicate key") ? "That SKU is already in use." : "Unable to save catalogue item. Check the details and try again." }, 400);
       await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: body.id ? "pos.catalogue_item_updated" : "pos.catalogue_item_created", details: { item_id: result.data.id, name } });
