@@ -83,7 +83,7 @@ export default function InventoryPage() {
   const secondary = "inline-flex items-center justify-center gap-2 rounded-xl border border-[#E7DED4] bg-white px-3.5 py-2.5 text-sm font-semibold text-[#47382D] transition hover:bg-[#FBF7F2] disabled:opacity-50";
 
   return <main className="mx-auto max-w-7xl space-y-6 pb-10">
-    <PageHeader title="Inventory management" description="Track ingredients, stock receipts, batches and exceptions in one auditable ledger." />
+    <PageHeader title="Inventory management" subtitle="Track ingredients, stock receipts, batches and exceptions in one auditable ledger." />
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex flex-wrap gap-2">
         <button className={primary} onClick={() => { setError(""); setItemOpen(true); }}><PackagePlus size={16}/> Add item</button>
