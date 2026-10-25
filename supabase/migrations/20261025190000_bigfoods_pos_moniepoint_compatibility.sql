@@ -19,9 +19,10 @@ begin
   end loop;
 end $$;
 
+-- NOT VALID keeps historical card/transfer rows intact while enforcing the new workflow on new writes.
 alter table public.bigfoods_pos_sales
   add constraint bigfoods_pos_sales_payment_method_check
-  check (payment_method in ('cash', 'moniepoint_pos'));
+  check (payment_method in ('cash', 'moniepoint_pos')) not valid;
 
 alter table public.bigfoods_pos_sales
   add constraint bigfoods_pos_sales_cash_fields
