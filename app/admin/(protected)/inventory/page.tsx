@@ -3,6 +3,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowDownToLine, Boxes, ClipboardList, PackagePlus, RefreshCw, Search, ShieldAlert } from "lucide-react";
 import PageHeader from "@/components/admin/layout/PageHeader";
+import Link from "next/link";
+import { CookingPot } from "lucide-react";
 import getBrowserSupabase from "@/lib/supabase/client";
 
 type Item = { id: string; name: string; sku: string | null; category: string; tracking_type: string; base_unit: string; reorder_level: number; is_perishable: boolean; is_active: boolean };
@@ -87,6 +89,7 @@ export default function InventoryPage() {
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex flex-wrap gap-2">
         <button className={primary} onClick={() => { setError(""); setItemOpen(true); }}><PackagePlus size={16}/> Add item</button>
+        <Link className={secondary} href="/admin/inventory/workflows"><CookingPot size={16}/> Waste & production</Link>
         <button className={secondary} onClick={() => { setError(""); setReceiptForm({ ...initialReceipt, inventory_item_id: overview.items[0]?.id ?? "", unit: overview.items[0]?.base_unit ?? "" }); setReceiptOpen(true); }} disabled={!overview.items.length}><ArrowDownToLine size={16}/> Receive stock</button>
       </div>
       <button className={secondary} onClick={() => void load()} disabled={loading}><RefreshCw size={15} className={loading ? "animate-spin" : ""}/> Refresh</button>
