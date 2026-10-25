@@ -155,11 +155,15 @@ export default function BigFoodsPosCataloguePage() {
         promotion_ends_at:form.promotion_ends_at ? new Date(form.promotion_ends_at).toISOString() : null,
         complementary_item_ids:form.complementary_item_ids, option_groups:form.option_groups
       });
+      let cleanupWarning = "";
       if (removedImages.length) {
         const paths = removedImages.map(url => { try { const u = new URL(url); const marker = "/storage/v1/object/public/menu-images/"; const i = u.pathname.indexOf(marker); return i < 0 ? null : decodeURIComponent(u.pathname.slice(i + marker.length)); } catch { return null; } }).filter((v):v is string=>!!v && v.startsWith("bigfoods/pos/"));
-        if (paths.length) await call({ action: "pos_item_photo_delete", paths });
+        if (paths.length) {
+          try { await call({ action: "pos_item_photo_delete", paths }); }
+          catch { cleanupWarning = " Item saved, but an old photo could not be deleted."; }
+        }
       }
-      setNotice(form.id ? "Catalogue item updated." : "Catalogue item created."); setEditing(false); await load();
+      setNotice((form.id ? "Catalogue item updated." : "Catalogue item created.") + cleanupWarning); setEditing(false); await load();
     } catch (e) {
       if (uploadedPaths.length) await call({ action: "pos_item_photo_delete", paths: uploadedPaths }).catch(()=>undefined);
       setError(e instanceof Error ? e.message : "Unable to save catalogue item");
