@@ -2,7 +2,7 @@
 
 import { ReactNode, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound, CalendarPlus, Repeat2, ShoppingCart } from 'lucide-react';
+import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound, CalendarPlus, Repeat2, ShoppingCart, Users, ClipboardList } from 'lucide-react';
 
 export default function StaffShell({ children, title, subtitle, staffName, staffRole, staffPermissions }: { children: ReactNode; title: string; subtitle?: string; staffName?: string; staffRole?: string; staffPermissions?: unknown }) {
   const pathname = usePathname();
@@ -21,6 +21,10 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
     { href: '/staff', label: 'Dashboard', icon: <LayoutGrid className="h-4 w-4" /> },
     ...(canUsePos ? [{ href: '/staff/pos', label: 'POS', icon: <ShoppingCart className="h-4 w-4" /> }] : []),
     { href: '/staff/attendance', label: 'Attendance & schedule', icon: <CalendarDays className="h-4 w-4" /> },
+    ...(['owner', 'admin'].includes((staffRole || '').toLowerCase()) || permissions.includes('staff.manage') ? [
+      { href: '/staff/manage', label: 'Staff management', icon: <Users className="h-4 w-4" /> },
+      { href: '/staff/operations', label: 'Staff operations', icon: <ClipboardList className="h-4 w-4" /> },
+    ] : []),
     { href: '/staff/leave', label: 'Request leave', icon: <CalendarPlus className="h-4 w-4" /> },
     { href: '/staff/shift-swaps', label: 'Shift swaps', icon: <Repeat2 className="h-4 w-4" /> },
   ];
