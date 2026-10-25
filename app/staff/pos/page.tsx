@@ -7,7 +7,7 @@ import StaffShell from "@/components/staff/StaffShell";
 
 type Staff = { id: string; email: string; display_name: string; role: string; permissions: unknown; must_change_password: boolean };
 type Product = { id: string; name: string; category: string; subcategory: string | null; selling_price: number; image_url: string | null; image_urls?: string[] | null; is_available: boolean; sku?: string | null; option_groups?: { id: string; name: string; required: boolean; selection_type: "single" | "multiple"; options: { id: string; name: string; price: number }[] }[] };
-type CartLine = { key: string; product: Product; quantity: number };\ntype SaleReceipt = { id: string; receipt_number: string; total_amount: number; payment_method: "cash" | "moniepoint_pos"; status: string; cash_received: number | null; change_due: number; created_at: string };
+type CartLine = { key: string; product: Product; quantity: number };\ntype SaleReceipt = { id: string; receipt_number: string; total_amount: number; payment_method: "cash" | "transfer" | "card"; status: string; cash_received: number | null; change_due: number; created_at: string };
 
 const money = (value: number) => new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(value);
 
@@ -18,7 +18,7 @@ export default function StaffPosPage() {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
-  const [customerEmail, setCustomerEmail] = useState("");\n  const [paymentMethod, setPaymentMethod] = useState<"cash" | "moniepoint_pos">("cash");\n  const [cashReceived, setCashReceived] = useState("");\n  const [receipt, setReceipt] = useState<SaleReceipt | null>(null);
+  const [customerEmail, setCustomerEmail] = useState("");\n  const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer" | "card">("cash");\n  const [cashReceived, setCashReceived] = useState("");\n  const [receipt, setReceipt] = useState<SaleReceipt | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
