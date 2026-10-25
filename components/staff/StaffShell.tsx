@@ -21,7 +21,7 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
   const items = [
     { href: '/staff', label: 'Dashboard', icon: <LayoutGrid className="h-4 w-4" /> },
     ...(canUsePos ? [{ href: '/staff/pos', label: 'POS', icon: <ShoppingCart className="h-4 w-4" /> }] : []),
-    ...(['owner', 'admin', 'pos'].includes((staffRole || '').toLowerCase()) || permissions.includes('pos.sell') || permissions.includes('pos.view') ? [{ href: '/staff/pos-catalogue', label: 'POS Catalogue', icon: <PackageOpen className="h-4 w-4" /> }] : []),
+    ...(['owner', 'admin'].includes((staffRole || '').toLowerCase()) || permissions.includes('inventory.manage') || permissions.includes('pos.manage') || permissions.includes('pos.catalogue.manage') ? [{ href: '/staff/pos-catalogue', label: 'POS Catalogue', icon: <PackageOpen className="h-4 w-4" /> }] : []),
     ...(['owner', 'admin', 'inventory'].includes((staffRole || '').toLowerCase()) || permissions.includes('inventory.manage') || permissions.includes('inventory.view') ? [{ href: '/staff/inventory', label: 'Inventory', icon: <Warehouse className="h-4 w-4" /> }] : []),
     { href: '/staff/attendance', label: 'Attendance & schedule', icon: <CalendarDays className="h-4 w-4" /> },
     ...(['owner', 'admin'].includes((staffRole || '').toLowerCase()) || permissions.includes('staff.manage') ? [
