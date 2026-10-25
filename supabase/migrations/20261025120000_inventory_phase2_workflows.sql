@@ -55,7 +55,7 @@ begin
   if jsonb_typeof(p_ingredients) <> 'array' or jsonb_array_length(p_ingredients)=0 then raise exception 'Add at least one ingredient'; end if;
   perform 1 from public.menu_items where id=p_menu_item_id;
   if not found then raise exception 'Menu item not found'; end if;
-  select coalesce(max(version),0)+1 into v_version from public.inventory_recipes where menu_item_id=p_menu_item_id;
+  select coalesce(max(version),0)+1 into v_version from public.inventory_recipes where name=trim(p_name);
   update public.inventory_recipes set is_active=false,effective_until=now()
     where menu_item_id=p_menu_item_id and is_active=true;
   insert into public.inventory_recipes(menu_item_id,name,version,output_quantity,output_unit,effective_from,is_active,created_by_staff_id)
@@ -92,7 +92,6 @@ declare
   v_output_item public.inventory_items%rowtype;
   v_output_batch public.inventory_batches%rowtype;
   v_variance numeric(14,4);
-  v_expected_loss numeric(14,4);
   v_movement public.inventory_movements%rowtype;
 begin
   select * into v_actor from public.bigfoods_staff where id=p_actor_staff_id and is_active for share;
@@ -103,8 +102,7 @@ begin
   if p_output_quantity is null or p_output_quantity<0 or p_unprocessed_quantity is null or p_unprocessed_quantity<0
      or p_actual_loss_quantity is null or p_actual_loss_quantity<0 then raise exception 'Production quantities cannot be negative'; end if;
   if p_unprocessed_quantity+p_actual_loss_quantity > v_prod.raw_input_quantity then raise exception 'Unprocessed quantity plus loss exceeds raw input'; end if;
-  v_expected_loss := v_prod.raw_input_quantity-p_output_quantity-p_unprocessed_quantity;
-  v_variance := p_actual_loss_quantity-v_expected_loss;
+  v_variance := v_prod.raw_input_quantity-p_output_quantity-p_unprocessed_quantity-p_actual_loss_quantity;
   if v_prod.input_batch_id is not null then
     select * into v_input from public.inventory_batches where id=v_prod.input_batch_id for update;
     if not found or v_input.remaining_quantity < v_prod.raw_input_quantity then raise exception 'Insufficient raw input batch stock'; end if;
