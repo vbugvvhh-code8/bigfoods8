@@ -16,7 +16,7 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
   }
 
   const permissions = Array.isArray(staffPermissions) ? staffPermissions : [];
-  const canUsePos = ['owner', 'admin', 'cashier', 'pos'].includes((staffRole || '').toLowerCase()) || permissions.includes('pos.sell') || permissions.includes('pos.view');
+  const canUsePos = ['owner', 'admin', 'pos'].includes((staffRole || '').toLowerCase()) || permissions.includes('pos.sell') || permissions.includes('pos.view');
   const items = [
     { href: '/staff', label: 'Dashboard', icon: <LayoutGrid className="h-4 w-4" /> },
     ...(canUsePos ? [{ href: '/staff/pos', label: 'POS', icon: <ShoppingCart className="h-4 w-4" /> }] : []),
