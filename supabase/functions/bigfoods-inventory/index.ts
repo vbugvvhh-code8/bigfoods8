@@ -119,7 +119,8 @@ Deno.serve(async (req: Request) => {
       return json({ success: true });
     }
     if (action === "pos_catalogue_overview") {
-      if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
+      const posViewer = ["owner", "admin", "cashier", "pos"].includes(actor.role) || has(actor, "pos.view") || has(actor, "pos.sell");
+      if (!posViewer) return json({ error: "Forbidden" }, 403);
       const { data, error } = await db.from("bigfoods_pos_items")
         .select("id,name,sku,description,category,subcategory,selling_price,image_url,image_urls,is_available,sort_order,ingredients,serving_size,preparation_time_minutes,stock_quantity,availability_schedule_enabled,availability_schedule,allergens,dietary_tags,promotional_price,promotion_starts_at,promotion_ends_at,complementary_item_ids,option_groups,created_at,updated_at")
         .order("sort_order").order("name").limit(1000);
@@ -134,7 +135,8 @@ Deno.serve(async (req: Request) => {
       const customerEmail = typeof body.customer_email === "string" ? body.customer_email.trim().toLowerCase() : "";
       const cashReceived = paymentMethod === "cash" ? Number(body.cash_received) : null;
       if (!lines.length || lines.length > 100 || !/^[0-9a-f-]{36}$/i.test(idempotencyKey)) return json({ error: "Order items or checkout reference are invalid." }, 400);
-      if (!["cash", "transfer", "card"].includes(paymentMethod)) return json({ error: "Choose cash, bank transfer, or card." }, 400);
+      if (!["cash", "moniepoint_pos"].includes(paymentMethod)) return json({ error: "Choose cash or physical Moniepoint POS." }, 400);
+      if (paymentMethod === "moniepoint_pos" && body.terminal_confirmed !== true) return json({ error: "Confirm the physical Moniepoint terminal succeeded before recording the sale." }, 400);
       if (customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) return json({ error: "Enter a valid customer email." }, 400);
       const quantities = new Map<string, number>();
       for (const line of lines) {
@@ -156,7 +158,7 @@ Deno.serve(async (req: Request) => {
         customer_email: customerEmail || null, payment_method: paymentMethod, status: "paid",
         subtotal: total, total_amount: total, cash_received: paymentMethod === "cash" ? cashReceived : null,
         change_due: paymentMethod === "cash" ? cashReceived! - total : 0,
-        payment_note: paymentMethod === "transfer" ? "Bank transfer confirmed by cashier" : paymentMethod === "card" ? "Card payment confirmed by cashier" : null
+        payment_note: paymentMethod === "moniepoint_pos" ? "Physical Moniepoint terminal success confirmed by cashier" : null
       }).select("id,receipt_number,total_amount,payment_method,status,cash_received,change_due,created_at").single();
       if (saleError || !sale) return json({ error: saleError?.code === "23505" ? "This checkout was already submitted. Refresh the sales screen." : "Unable to save this sale. No receipt was issued." }, 409);
       const saleLines = [...quantities.entries()].map(([id, quantity]) => {
