@@ -2,12 +2,13 @@
 
 import { ReactNode, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound, CalendarPlus, Repeat2, ShoppingCart, Users, ClipboardList, PackageOpen, Warehouse } from 'lucide-react';
+import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound, CalendarPlus, Repeat2, ShoppingCart, Users, ClipboardList, PackageOpen, Warehouse, ChevronDown, MapPin, Clock3, CalendarCheck, QrCode, ClipboardCheck, HeartPulse, Target } from 'lucide-react';
 
 export default function StaffShell({ children, title, subtitle, staffName, staffRole, staffPermissions }: { children: ReactNode; title: string; subtitle?: string; staffName?: string; staffRole?: string; staffPermissions?: unknown }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [operationsOpen, setOperationsOpen] = useState(pathname.startsWith('/staff/operations'));
 
   async function logout() {
     await fetch('/api/bigfoods-staff/session', { method: 'DELETE' });
@@ -31,10 +32,31 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
     { href: '/staff/shift-swaps', label: 'Shift swaps', icon: <Repeat2 className="h-4 w-4" /> },
   ];
 
+  const operationTabs = [
+    { tab: 'locations', label: 'Work locations', icon: <MapPin className="h-3.5 w-3.5" /> },
+    { tab: 'shifts', label: 'Shift templates', icon: <Clock3 className="h-3.5 w-3.5" /> },
+    { tab: 'assign', label: 'Staff shift schedule', icon: <CalendarCheck className="h-3.5 w-3.5" /> },
+    { tab: 'qr', label: 'Premises QR / token', icon: <QrCode className="h-3.5 w-3.5" /> },
+    { tab: 'attendance', label: 'Staff attendance', icon: <ClipboardCheck className="h-3.5 w-3.5" /> },
+    { tab: 'leave', label: 'Leave requests', icon: <CalendarPlus className="h-3.5 w-3.5" /> },
+    { tab: 'swaps', label: 'Shift swaps', icon: <Repeat2 className="h-3.5 w-3.5" /> },
+    { tab: 'payroll', label: 'Payroll & staff health', icon: <HeartPulse className="h-3.5 w-3.5" /> },
+    { tab: 'pool', label: 'Consistency pool', icon: <Target className="h-3.5 w-3.5" /> },
+  ];
   const nav = (closeOnClick = false) => (
     <nav className="flex flex-col gap-0.5">
       {items.map((item) => {
         const active = pathname === item.href || (item.href !== '/staff' && pathname.startsWith(item.href + '/'));
+        if (item.href === '/staff/operations') {
+          return <div key={item.href}>
+            <button onClick={() => { setOperationsOpen(value => !value); if (!pathname.startsWith('/staff/operations')) router.push('/staff/operations?tab=locations'); }} aria-expanded={operationsOpen} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-[12.5px] font-medium transition-all" style={{ background: active ? 'rgba(255,106,0,0.12)' : 'transparent', color: active ? '#FFFFFF' : '#B8B0A8', borderLeft: active ? '2px solid #FF6A00' : '2px solid transparent' }}>
+              {item.icon}<span className="flex-1">Staff Operations</span><ChevronDown className={`h-3.5 w-3.5 transition-transform ${operationsOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {operationsOpen && <div className="ml-3 mt-1 flex flex-col gap-0.5 border-l border-white/10 pl-2">
+              {operationTabs.map(section => <button key={section.tab} onClick={() => { router.push(`/staff/operations?tab=${section.tab}`); if (closeOnClick) setOpen(false); }} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-[11px] font-medium transition hover:bg-white/[.06]" style={{ color: active ? '#D8D2CB' : '#B8B0A8' }}>{section.icon}<span>{section.label}</span></button>)}
+            </div>}
+          </div>;
+        }
         return <button key={item.href} onClick={() => { router.push(item.href); if (closeOnClick) setOpen(false); }} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-[12.5px] font-medium transition-all" style={{ background: active ? 'rgba(255,106,0,0.12)' : 'transparent', color: active ? '#FFFFFF' : '#B8B0A8', borderLeft: active ? '2px solid #FF6A00' : '2px solid transparent' }}>{item.icon}<span>{item.label}</span></button>;
       })}
     </nav>
