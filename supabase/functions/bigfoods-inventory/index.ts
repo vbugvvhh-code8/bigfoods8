@@ -120,7 +120,7 @@ Deno.serve(async (req: Request) => {
       return json({ success: true });
     }
     if (action === "pos_catalogue_overview") {
-      const posViewer = ["owner", "admin", "cashier", "pos"].includes(actor.role) || has(actor, "pos.view") || has(actor, "pos.sell");
+      const posViewer = ["owner", "admin", "pos"].includes(actor.role) || has(actor, "pos.view") || has(actor, "pos.sell");
       if (!posViewer) return json({ error: "Forbidden" }, 403);
       const { data, error } = await db.from("bigfoods_pos_items")
         .select("id,name,sku,description,category,subcategory,selling_price,image_url,image_urls,is_available,sort_order,ingredients,serving_size,preparation_time_minutes,stock_quantity,availability_schedule_enabled,availability_schedule,allergens,dietary_tags,promotional_price,promotion_starts_at,promotion_ends_at,complementary_item_ids,option_groups,created_at,updated_at")
@@ -129,7 +129,7 @@ Deno.serve(async (req: Request) => {
       return json({ items: data ?? [] });
     }
     if (action === "pos_sale_create") {
-      if (!(has(actor, "pos.sell") || ["owner", "admin", "cashier", "pos"].includes(actor.role))) return json({ error: "Your account cannot record POS sales." }, 403);
+      if (!(has(actor, "pos.sell") || ["owner", "admin", "pos"].includes(actor.role))) return json({ error: "Your account cannot record POS sales." }, 403);
       const lines = Array.isArray(body.items) ? body.items : [];
       const paymentMethod = body.payment_method;
       const idempotencyKey = String(body.idempotency_key ?? "");
