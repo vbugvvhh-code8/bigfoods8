@@ -59,6 +59,7 @@ function NavList({ items = NAV_ITEMS }: { items?: typeof NAV_ITEMS }) {
     { href: '/admin/staff/operations?tab=leave', label: 'Leave Requests' },
     { href: '/admin/staff/operations?tab=swaps', label: 'Shift Swaps' },
     { href: '/admin/staff/operations?tab=payroll', label: 'Payroll & Staff Health' },
+    { href: '/admin/staff/operations?tab=pool', label: 'Consistency Pool' },
   ];
   return (
     <nav className="flex flex-col gap-0.5">
