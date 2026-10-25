@@ -7,7 +7,8 @@ import StaffShell from "@/components/staff/StaffShell";
 
 type Staff = { id: string; email: string; display_name: string; role: string; permissions: unknown; must_change_password: boolean };
 type Product = { id: string; name: string; category: string; subcategory: string | null; selling_price: number; image_url: string | null; image_urls?: string[] | null; is_available: boolean; sku?: string | null; option_groups?: { id: string; name: string; required: boolean; selection_type: "single" | "multiple"; options: { id: string; name: string; price: number }[] }[] };
-type CartLine = { key: string; product: Product; quantity: number };\ntype SaleReceipt = { id: string; receipt_number: string; total_amount: number; payment_method: "cash" | "transfer" | "card"; status: string; cash_received: number | null; change_due: number; created_at: string };
+type CartLine = { key: string; product: Product; quantity: number };
+type SaleReceipt = { id: string; receipt_number: string; total_amount: number; payment_method: "cash" | "moniepoint_pos"; status: string; cash_received: number | null; change_due: number; created_at: string };
 
 const money = (value: number) => new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(value);
 
@@ -17,8 +18,12 @@ export default function StaffPosPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("All");\n  const [subcategory, setSubcategory] = useState("All");
-  const [customerEmail, setCustomerEmail] = useState("");\n  const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer" | "card">("cash");\n  const [cashReceived, setCashReceived] = useState("");\n  const [receipt, setReceipt] = useState<SaleReceipt | null>(null);
+  const [category, setCategory] = useState("All");
+  const [subcategory, setSubcategory] = useState("All");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer" | "card">("cash");
+  const [cashReceived, setCashReceived] = useState("");
+  const [receipt, setReceipt] = useState<SaleReceipt | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -107,7 +112,8 @@ export default function StaffPosPage() {
           <span className="flex items-center text-xs text-[#817367]">{visible.length} products</span>
         </div>
         <div className="mb-4 flex gap-2 overflow-x-auto pb-1">{categories.map(c=><button key={c} onClick={()=>{setCategory(c);setSubcategory("All");}} className={"shrink-0 rounded-full px-4 py-2 text-sm font-semibold "+(category===c?"bg-[#E87524] text-white":"border border-[#E8E0D8] bg-white text-[#47382D]")}>{c}</button>)}</div>
-        {subcategories.length > 1 && <><h3 className="mb-2 text-sm font-bold text-[#30261F]">Subcategories</h3><div className="mb-4 flex gap-2 overflow-x-auto pb-1">{subcategories.map(c=><button key={c} onClick={()=>setSubcategory(c)} className={"shrink-0 rounded-full px-4 py-2 text-xs font-semibold "+(subcategory===c?"bg-[#E87524] text-white":"border border-[#E8E0D8] bg-white text-[#47382D]")}>{c}</button>)}</div></>}\n        {loading ? <div className="grid min-h-48 place-items-center text-sm text-[#817367]">Loading BigFoods menu…</div> :
+        {subcategories.length > 1 && <><h3 className="mb-2 text-sm font-bold text-[#30261F]">Subcategories</h3><div className="mb-4 flex gap-2 overflow-x-auto pb-1">{subcategories.map(c=><button key={c} onClick={()=>setSubcategory(c)} className={"shrink-0 rounded-full px-4 py-2 text-xs font-semibold "+(subcategory===c?"bg-[#E87524] text-white":"border border-[#E8E0D8] bg-white text-[#47382D]")}>{c}</button>)}</div></>}
+        {loading ? <div className="grid min-h-48 place-items-center text-sm text-[#817367]">Loading BigFoods menu…</div> :
         visible.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-4">{visible.map(p=><button key={p.id} onClick={()=>add(p)} className="group overflow-hidden rounded-xl border border-[#E8E0D8] bg-white text-left transition hover:border-orange-400 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-300">
           <div className="aspect-[4/3] overflow-hidden bg-[#FBF7F2]">{(p.image_urls?.[0] || p.image_url) ? <img src={p.image_urls?.[0] || p.image_url || ""} alt={p.name} className="h-full w-full object-cover transition group-hover:scale-[1.02]"/> : <div className="grid h-full place-items-center text-[#B6A89A]"><UtensilsCrossed size={28}/></div>}</div>
           <div className="p-3"><div className="line-clamp-2 min-h-10 text-sm font-semibold text-[#30261F]">{p.name}</div><div className="mt-1 text-xs text-[#817367]">{p.subcategory || p.category}</div><div className="mt-2 flex items-center justify-between gap-2"><span className="text-sm font-bold text-[#30261F]">{money(Number(p.selling_price))}</span><span className="grid h-7 w-7 place-items-center rounded-lg bg-orange-50 text-orange-700"><Plus size={16}/></span></div></div>
