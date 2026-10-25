@@ -1,16 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import NavItem from './NavItem';
-import { LayoutGrid, Boxes, Monitor, MapPin, Utensils, Bike, Settings, Menu, X, Inbox, AlertTriangle, Wallet, Banknote, Megaphone, Users, LogOut, Route, ShieldCheck, Tags, ClipboardList, CalendarDays, Clock3, CalendarCheck, ArrowLeftRight, WalletCards, HeartPulse, ChevronDown } from 'lucide-react';
+import { LayoutGrid, Boxes, Monitor, MapPin, Utensils, Bike, Settings, Menu, X, Inbox, AlertTriangle, Wallet, Banknote, Megaphone, Users, LogOut, Route, ShieldCheck, Tags, ClipboardList, CalendarDays, Clock3, CalendarCheck, ArrowLeftRight, WalletCards, HeartPulse } from 'lucide-react';
 import useSession from '@/hooks/useSession';
 import getBrowserSupabase from '@/lib/supabase/client';
 
 const NAV_ITEMS = [
   { id: '/admin/dashboard', label: 'Dashboard', icon: <LayoutGrid className="w-4 h-4" /> },
-  { id: '/admin/staff', label: 'Staff Management', icon: <Users className="w-4 h-4" /> },
   { id: '/admin/pos-catalogue', label: 'BigFoods POS Catalogue', icon: <Monitor className="w-4 h-4" /> },
   { id: '/admin/inventory', label: 'Inventory', icon: <Boxes className="w-4 h-4" /> },
   { id: '/admin/zone-map', label: 'Zone Map', icon: <MapPin className="w-4 h-4" /> },
@@ -45,23 +44,6 @@ function BrandBlock() {
 
 function NavList({ items = NAV_ITEMS }: { items?: typeof NAV_ITEMS }) {
   const pathname = usePathname();
-  const staffOpen = pathname.startsWith('/admin/staff');
-  const [staffExpanded, setStaffExpanded] = useState(staffOpen);
-  useEffect(() => {
-    if (staffOpen) setStaffExpanded(true);
-  }, [staffOpen]);
-  const staffLinks = [
-    { href: '/admin/staff', label: 'Staff Directory' },
-    { href: '/admin/staff/operations?tab=locations', label: 'Work Locations' },
-    { href: '/admin/staff/operations?tab=shifts', label: 'Shift Templates' },
-    { href: '/admin/staff/operations?tab=assign', label: 'Shift Schedule' },
-    { href: '/admin/staff/operations?tab=qr', label: 'Premises QR / Token' },
-    { href: '/admin/staff/operations?tab=attendance', label: 'Attendance' },
-    { href: '/admin/staff/operations?tab=leave', label: 'Leave Requests' },
-    { href: '/admin/staff/operations?tab=swaps', label: 'Shift Swaps' },
-    { href: '/admin/staff/operations?tab=payroll', label: 'Payroll & Staff Health' },
-    { href: '/admin/staff/operations?tab=pool', label: 'Consistency Pool' },
-  ];
   return (
     <nav className="flex flex-col gap-0.5">
       {items.map((n) => n.id === '/admin/staff' ? (
@@ -116,7 +98,7 @@ export default function Sidebar() {
 
   const footer = (
     <div className="mt-auto pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-      <LogoutButton staffMode={pathname.startsWith('/admin/staff')} />
+      <LogoutButton />
       <div className="text-[10.5px] px-2.5 mt-1" style={{ color: '#7A736A' }}>
         {profile ? `Logged in as ${profile.full_name ?? profile.id}` : 'Logged in as Admin'}
       </div>
