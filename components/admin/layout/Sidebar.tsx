@@ -9,8 +9,6 @@ import getBrowserSupabase from '@/lib/supabase/client';
 
 const NAV_ITEMS = [
   { id: '/admin/dashboard', label: 'Dashboard', icon: <LayoutGrid className="w-4 h-4" /> },
-  { id: '/admin/pos-catalogue', label: 'BigFoods POS Catalogue', icon: <Monitor className="w-4 h-4" /> },
-  { id: '/admin/inventory', label: 'Inventory', icon: <Boxes className="w-4 h-4" /> },
   { id: '/admin/zone-map', label: 'Zone Map', icon: <MapPin className="w-4 h-4" /> },
   { id: '/admin/areas', label: 'Service Areas', icon: <MapPin className="w-4 h-4" /> },
   { id: '/admin/seller-places', label: 'Seller Places', icon: <Users className="w-4 h-4" /> },
