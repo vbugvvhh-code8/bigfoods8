@@ -1,7 +1,7 @@
 "use client";
 import {useCallback,useEffect,useState} from "react";
 import {useRouter} from "next/navigation";
-import {Search,CalendarDays,Download,Plus,ChevronLeft,ChevronRight,X,Printer,ReceiptText,ShoppingCart,Banknote,Package,ChartNoAxesCombined,FileText,Settings,Utensils,RefreshCw,MoreHorizontal} from "lucide-react";
+import {Search,CalendarDays,Download,Plus,ChevronLeft,ChevronRight,X,Printer,ReceiptText,ShoppingCart,Banknote,Package,ChartNoAxesCombined,FileText,Settings,Utensils,RefreshCw,MoreHorizontal,Users} from "lucide-react";
 type Item={sale_id:string;product_id:string|null;product_name:string;quantity:number;unit_price:number;line_total:number};
 type Order={id:string;receipt_number:string;cashier_staff_id:string;customer_email:string|null;payment_method:string;status:string;subtotal:number;total_amount:number;cash_received:number|null;change_due:number;created_at:string;items:Item[]};
 const money=(n:number)=>new Intl.NumberFormat("en-NG",{style:"currency",currency:"NGN",maximumFractionDigits:0}).format(Number(n)||0);
