@@ -99,7 +99,7 @@ begin
   if not (v_actor.role in ('owner','admin','inventory') or v_actor.permissions @> '["inventory.process"]'::jsonb) then raise exception 'Forbidden'; end if;
   select * into v_prod from public.inventory_production_batches where id=p_batch_id for update;
   if not found or v_prod.status <> 'in_progress' then raise exception 'Production batch is not in progress'; end if;
-  if p_output_quantity is null or p_output_quantity<0 or p_unprocessed_quantity is null or p_unprocessed_quantity<0
+  if p_output_quantity is null or p_output_quantity<=0 or p_unprocessed_quantity is null or p_unprocessed_quantity<0
      or p_actual_loss_quantity is null or p_actual_loss_quantity<0 then raise exception 'Production quantities cannot be negative'; end if;
   if p_unprocessed_quantity+p_actual_loss_quantity > v_prod.raw_input_quantity then raise exception 'Unprocessed quantity plus loss exceeds raw input'; end if;
   v_variance := v_prod.raw_input_quantity-p_output_quantity-p_unprocessed_quantity-p_actual_loss_quantity;
