@@ -2,7 +2,6 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowDownToLine, Boxes, ClipboardList, PackagePlus, RefreshCw, Search, ShieldAlert } from "lucide-react";
-import PageHeader from "@/components/admin/layout/PageHeader";
 import StaffShell from "@/components/staff/StaffShell";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -99,7 +98,6 @@ export default function InventoryPage() {
   const secondary = "inline-flex items-center justify-center gap-2 rounded-xl border border-[#E7DED4] bg-white px-3.5 py-2.5 text-sm font-semibold text-[#47382D] transition hover:bg-[#FBF7F2] disabled:opacity-50";
 
   return <StaffShell title="Inventory" subtitle="Track stock, batches, movements and inventory alerts." staffName={currentStaff?.display_name} staffRole={currentStaff?.role} staffPermissions={currentStaff?.permissions}><main className="mx-auto max-w-7xl space-y-6 pb-10">
-    <PageHeader title="Inventory management" subtitle="Track ingredients, stock receipts, batches and exceptions in one auditable ledger." />
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex flex-wrap gap-2">
         <button className={primary} onClick={() => { setError(""); setItemOpen(true); }}><PackagePlus size={16}/> Add item</button>
