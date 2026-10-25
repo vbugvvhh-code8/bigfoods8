@@ -7,7 +7,7 @@ import StaffShell from "@/components/staff/StaffShell";
 
 type Staff = { id: string; email: string; display_name: string; role: string; permissions: unknown; must_change_password: boolean };
 type Product = { id: string; name: string; category: string; subcategory: string | null; selling_price: number; image_url: string | null; image_urls?: string[] | null; is_available: boolean; sku?: string | null; option_groups?: { id: string; name: string; required: boolean; selection_type: "single" | "multiple"; options: { id: string; name: string; price: number }[] }[] };
-type CartLine = { key: string; product: Product; quantity: number };
+type CartLine = { key: string; product: Product; quantity: number };\ntype SaleReceipt = { id: string; receipt_number: string; total_amount: number; payment_method: "cash" | "moniepoint_pos"; status: string; cash_received: number | null; change_due: number; created_at: string };
 
 const money = (value: number) => new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(value);
 
@@ -18,7 +18,7 @@ export default function StaffPosPage() {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
-  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");\n  const [paymentMethod, setPaymentMethod] = useState<"cash" | "moniepoint_pos">("cash");\n  const [cashReceived, setCashReceived] = useState("");\n  const [receipt, setReceipt] = useState<SaleReceipt | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -64,6 +64,30 @@ export default function StaffPosPage() {
   function changeQty(id: string, delta: number) {
     setCart(lines => lines.map(line => line.product.id === id ? { ...line, quantity: line.quantity + delta } : line).filter(line => line.quantity > 0));
   }
+  async function checkout() {
+    if (!cart.length || busy) return;
+    setBusy(true); setError(""); setNotice(""); setReceipt(null);
+    try {
+      const response = await fetch("/api/bigfoods-staff/inventory", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "pos_sale_create",
+          idempotency_key: crypto.randomUUID(),
+          payment_method: paymentMethod,
+          cash_received: paymentMethod === "cash" ? Number(cashReceived) : null,
+          customer_email: customerEmail.trim(),
+          items: cart.map(line => ({ product_id: line.product.id, quantity: line.quantity }))
+        }), cache: "no-store"
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to record sale.");
+      setReceipt(data.sale as SaleReceipt);
+      setCart([]); setCustomerEmail(""); setCashReceived("");
+      setNotice(data.duplicate ? "This checkout was already recorded. No duplicate sale was created." : "Sale recorded successfully.");
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to record sale."); }
+    finally { setBusy(false); }
+  }
+
   async function signOut() {
     await fetch("/api/bigfoods-staff/session", { method: "DELETE" }).catch(() => undefined);
     router.replace("/staff/login");
