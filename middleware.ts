@@ -36,35 +36,10 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const isAdminStaffRoute = pathname === '/admin/staff' || pathname.startsWith('/admin/staff/');
-  if (isAdminStaffRoute) {
-    const token = req.cookies.get(STAFF_COOKIE)?.value;
-    const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!token || !base || !key) return NextResponse.redirect(new URL(STAFF_LOGIN_PATH, req.url));
-    try {
-      const check = await fetch(`${base}/functions/v1/bigfoods-staff-session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', apikey: key },
-        body: JSON.stringify({ token, action: 'validate' }),
-        cache: 'no-store',
-      });
-      if (!check.ok) return NextResponse.redirect(new URL(STAFF_LOGIN_PATH, req.url));
-      const sessionData = await check.json().catch(() => ({}));
-      const staff = sessionData?.staff;
-      const permissions = staff?.permissions;
-      // Enforce first-login password rotation before allowing the admin staff UI.
-      // The Edge Function independently blocks staff-management API actions too.
-      if (staff?.must_change_password) {
-        return NextResponse.redirect(new URL('/staff/change-password', req.url));
-      }
-      const canManageStaff = staff && staff.is_active !== false &&
-        (['owner', 'admin'].includes(staff.role) || (Array.isArray(permissions) && permissions.includes('staff.manage')));
-      if (!canManageStaff) return NextResponse.redirect(new URL('/staff', req.url));
-      return NextResponse.next();
-    } catch {
-      return NextResponse.redirect(new URL(STAFF_LOGIN_PATH, req.url));
-    }
+  // Staff management lives in the staff workspace, never inside /admin.
+  // A staff cookie alone must not authorize any /admin route.
+  if (pathname === '/admin/staff' || pathname.startsWith('/admin/staff/')) {
+    return NextResponse.redirect(new URL('/staff/manage', req.url));
   }
 
   const isAdminRoute = pathname.startsWith(ADMIN_BASE);
