@@ -145,10 +145,10 @@ Deno.serve(async (req: Request) => {
         if (!/^[0-9a-f-]{36}$/i.test(id) || !Number.isSafeInteger(qty) || qty < 1 || qty > 999) return json({ error: "One or more order quantities are invalid." }, 400);
         quantities.set(id, (quantities.get(id) ?? 0) + qty);
       }
-      const { data: products, error: productError } = await db.from("bigfoods_pos_items").select("id,name,selling_price,is_available").in("id", [...quantities.keys()]);
+      const { data: products, error: productError } = await db.from("bigfoods_pos_items").select("id,name,selling_price,promotional_price,promotion_starts_at,promotion_ends_at,is_available").in("id", [...quantities.keys()]);
       if (productError || !products || products.length !== quantities.size || products.some((p: any) => !p.is_available)) return json({ error: "One or more items are unavailable. Refresh the menu and try again." }, 409);
       const productById = new Map(products.map((p: any) => [p.id, p]));
-      const total = [...quantities.entries()].reduce((sum, [id, qty]) => sum + Number((productById.get(id) as any).selling_price) * qty, 0);
+      const now = Date.now();\n      const salePrice = (p: any) => { const starts = p.promotion_starts_at ? new Date(p.promotion_starts_at).getTime() : null; const ends = p.promotion_ends_at ? new Date(p.promotion_ends_at).getTime() : null; return p.promotional_price != null && (!starts || starts <= now) && (!ends || ends >= now) && Number(p.promotional_price) > 0 && Number(p.promotional_price) < Number(p.selling_price) ? Number(p.promotional_price) : Number(p.selling_price); };\n      const total = [...quantities.entries()].reduce((sum, [id, qty]) => sum + salePrice(productById.get(id)) * qty, 0);
       if (paymentMethod === "cash" && (!Number.isFinite(cashReceived) || cashReceived! < total)) return json({ error: "Cash received must be at least the order total." }, 400);
       const { data: existing } = await db.from("bigfoods_pos_sales").select("id,receipt_number,total_amount,payment_method,status,cash_received,change_due,created_at").eq("idempotency_key", idempotencyKey).maybeSingle();
       if (existing) return json({ sale: existing, duplicate: true });
@@ -163,7 +163,7 @@ Deno.serve(async (req: Request) => {
       if (saleError || !sale) return json({ error: saleError?.code === "23505" ? "This checkout was already submitted. Refresh the sales screen." : "Unable to save this sale. No receipt was issued." }, 409);
       const saleLines = [...quantities.entries()].map(([id, quantity]) => {
         const p = productById.get(id) as any;
-        return { sale_id: sale.id, product_id: id, product_name: p.name, quantity, unit_price: Number(p.selling_price), line_total: Number(p.selling_price) * quantity };
+        return { sale_id: sale.id, product_id: id, product_name: p.name, quantity, unit_price: salePrice(p), line_total: salePrice(p) * quantity };
       });
       const { error: lineError } = await db.from("bigfoods_pos_sale_items").insert(saleLines);
       if (lineError) {
