@@ -126,6 +126,51 @@ Deno.serve(async (req: Request) => {
       if (error) return json({ error: "Unable to load the BigFoods POS catalogue. Apply the POS catalogue migration." }, 503);
       return json({ items: data ?? [] });
     }
+    if (action === "pos_sale_create") {
+      if (!(has(actor, "pos.sell") || ["owner", "admin", "cashier", "pos"].includes(actor.role))) return json({ error: "Your account cannot record POS sales." }, 403);
+      const lines = Array.isArray(body.items) ? body.items : [];
+      const paymentMethod = body.payment_method;
+      const idempotencyKey = String(body.idempotency_key ?? "");
+      const customerEmail = typeof body.customer_email === "string" ? body.customer_email.trim().toLowerCase() : "";
+      const cashReceived = paymentMethod === "cash" ? Number(body.cash_received) : null;
+      if (!lines.length || lines.length > 100 || !/^[0-9a-f-]{36}$/i.test(idempotencyKey)) return json({ error: "Order items or checkout reference are invalid." }, 400);
+      if (!["cash", "moniepoint_pos"].includes(paymentMethod)) return json({ error: "Choose cash or Moniepoint POS terminal." }, 400);
+      if (customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) return json({ error: "Enter a valid customer email." }, 400);
+      const quantities = new Map<string, number>();
+      for (const line of lines) {
+        const id = String(line.product_id ?? "");
+        const qty = Number(line.quantity);
+        if (!/^[0-9a-f-]{36}$/i.test(id) || !Number.isSafeInteger(qty) || qty < 1 || qty > 999) return json({ error: "One or more order quantities are invalid." }, 400);
+        quantities.set(id, (quantities.get(id) ?? 0) + qty);
+      }
+      const { data: products, error: productError } = await db.from("bigfoods_pos_items").select("id,name,selling_price,is_available").in("id", [...quantities.keys()]);
+      if (productError || !products || products.length !== quantities.size || products.some((p: any) => !p.is_available)) return json({ error: "One or more items are unavailable. Refresh the menu and try again." }, 409);
+      const productById = new Map(products.map((p: any) => [p.id, p]));
+      const total = [...quantities.entries()].reduce((sum, [id, qty]) => sum + Number((productById.get(id) as any).selling_price) * qty, 0);
+      if (paymentMethod === "cash" && (!Number.isFinite(cashReceived) || cashReceived! < total)) return json({ error: "Cash received must be at least the order total." }, 400);
+      const { data: existing } = await db.from("bigfoods_pos_sales").select("id,receipt_number,total_amount,payment_method,status,cash_received,change_due,created_at").eq("idempotency_key", idempotencyKey).maybeSingle();
+      if (existing) return json({ sale: existing, duplicate: true });
+      const receiptNumber = "BF-" + new Date().toISOString().slice(0,10).replace(/-/g,"") + "-" + crypto.randomUUID().slice(0,8).toUpperCase();
+      const { data: sale, error: saleError } = await db.from("bigfoods_pos_sales").insert({
+        receipt_number: receiptNumber, idempotency_key: idempotencyKey, cashier_staff_id: actor.id,
+        customer_email: customerEmail || null, payment_method: paymentMethod, status: "paid",
+        subtotal: total, total_amount: total, cash_received: paymentMethod === "cash" ? cashReceived : null,
+        change_due: paymentMethod === "cash" ? cashReceived! - total : 0,
+        payment_note: paymentMethod === "moniepoint_pos" ? "Terminal payment confirmed by cashier" : null
+      }).select("id,receipt_number,total_amount,payment_method,status,cash_received,change_due,created_at").single();
+      if (saleError || !sale) return json({ error: saleError?.code === "23505" ? "This checkout was already submitted. Refresh the sales screen." : "Unable to save this sale. No receipt was issued." }, 409);
+      const saleLines = [...quantities.entries()].map(([id, quantity]) => {
+        const p = productById.get(id) as any;
+        return { sale_id: sale.id, product_id: id, product_name: p.name, quantity, unit_price: Number(p.selling_price), line_total: Number(p.selling_price) * quantity };
+      });
+      const { error: lineError } = await db.from("bigfoods_pos_sale_items").insert(saleLines);
+      if (lineError) {
+        await db.from("bigfoods_pos_sales").update({ status: "needs_review" }).eq("id", sale.id);
+        return json({ error: "Sale was recorded but its items need administrator review. Do not charge the customer again; contact an administrator." }, 503);
+      }
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.sale_recorded", details: { sale_id: sale.id, receipt_number: sale.receipt_number, payment_method: paymentMethod, total_amount: total, item_count: saleLines.length } });
+      return json({ sale, items: saleLines }, 201);
+    }
     if (action === "pos_item_save") {
       if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
       const name = String(body.name ?? "").trim();
