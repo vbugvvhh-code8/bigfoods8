@@ -2,15 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Minus, Trash2, RefreshCw, ShoppingBag, ShieldCheck, LogOut, UtensilsCrossed } from "lucide-react";
-import StaffShell from "@/components/staff/StaffShell";
+import { Search, Plus, Minus, Trash2, RefreshCw, ShoppingBag, LogOut, UtensilsCrossed, LayoutGrid, ClipboardList, Package, Users, ChartNoAxesColumn, Settings, UserRound, Maximize, MoreVertical, Headphones, CheckCircle2 } from "lucide-react";
 
 type Staff = { id: string; email: string; display_name: string; role: string; permissions: unknown; must_change_password: boolean };
-type Product = { id: string; name: string; category: string; subcategory: string | null; selling_price: number; image_url: string | null; image_urls?: string[] | null; is_available: boolean; sku?: string | null; option_groups?: { id: string; name: string; required: boolean; selection_type: "single" | "multiple"; options: { id: string; name: string; price: number }[] }[] };
+type Product = { id: string; name: string; category: string; subcategory: string | null; selling_price: number; image_url: string | null; image_urls?: string[] | null; is_available: boolean; sku?: string | null; promotional_price?: number | null; promotion_starts_at?: string | null; promotion_ends_at?: string | null; complementary_item_ids?: string[] | null };
 type CartLine = { key: string; product: Product; quantity: number };
 type SaleReceipt = { id: string; receipt_number: string; total_amount: number; payment_method: "cash" | "moniepoint_pos"; status: string; cash_received: number | null; change_due: number; created_at: string };
-
 const money = (value: number) => new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(value);
+function activePrice(p: Product) {
+  const now = Date.now();
+  const starts = p.promotion_starts_at ? new Date(p.promotion_starts_at).getTime() : null;
+  const ends = p.promotion_ends_at ? new Date(p.promotion_ends_at).getTime() : null;
+  return p.promotional_price != null && (!starts || starts <= now) && (!ends || ends >= now) ? Number(p.promotional_price) : Number(p.selling_price);
+}
 
 export default function StaffPosPage() {
   const router = useRouter();
@@ -22,13 +26,14 @@ export default function StaffPosPage() {
   const [subcategory, setSubcategory] = useState("All");
   const [customerEmail, setCustomerEmail] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "moniepoint_pos">("cash");
-  const [terminalConfirmed, setTerminalConfirmed] = useState(false);
   const [cashReceived, setCashReceived] = useState("");
+  const [terminalConfirmed, setTerminalConfirmed] = useState(false);
   const [receipt, setReceipt] = useState<SaleReceipt | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [walkIn, setWalkIn] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -42,109 +47,110 @@ export default function StaffPosPage() {
       const allowed = ["owner", "admin", "cashier", "pos"].includes(session.staff.role) ||
         (Array.isArray(permissions) && (permissions.includes("pos.sell") || permissions.includes("pos.view")));
       if (!allowed) { setError("Your staff account does not have permission to use the POS. Ask an administrator to grant POS access."); return; }
-      const res = await fetch("/api/bigfoods-staff/inventory", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "pos_catalogue_overview" }), cache: "no-store"
-      });
+      const res = await fetch("/api/bigfoods-staff/inventory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "pos_catalogue_overview" }), cache: "no-store" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Could not load the BigFoods product catalogue.");
       setProducts((data.items ?? []).filter((p: Product) => p.is_available));
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to load the POS."); }
     finally { setLoading(false); }
   }, [router]);
-
   useEffect(() => { void load(); }, [load]);
 
   const categories = useMemo(() => ["All", ...Array.from(new Set(products.map(p => p.category).filter(Boolean))).sort((a,b)=>a.localeCompare(b))], [products]);
-  const subcategories = useMemo(() => ["All", ...Array.from(new Set(products
-    .filter(p => category === "All" || p.category === category)
-    .map(p => p.subcategory).filter((value): value is string => Boolean(value?.trim()))).sort((a,b)=>a.localeCompare(b))], [products, category]);
-  const visible = useMemo(() => products.filter(p => (category === "All" || p.category === category) &&
-    (subcategory === "All" || p.subcategory === subcategory) &&
+  const subcategories = useMemo(() => ["All", ...Array.from(new Set(products.filter(p => category === "All" || p.category === category).map(p => p.subcategory).filter((x): x is string => Boolean(x)))).sort((a,b)=>a.localeCompare(b))], [products, category]);
+  const visible = useMemo(() => products.filter(p => (category === "All" || p.category === category) && (subcategory === "All" || p.subcategory === subcategory) &&
     [p.name, p.category, p.subcategory ?? "", p.sku ?? ""].join(" ").toLowerCase().includes(search.toLowerCase())), [products, category, subcategory, search]);
-  const total = cart.reduce((sum, line) => sum + Number(line.product.selling_price) * line.quantity, 0);
-  function add(product: Product) {
-    setNotice("");
-    setCart(lines => {
-      const found = lines.find(line => line.product.id === product.id);
-      return found ? lines.map(line => line.product.id === product.id ? { ...line, quantity: line.quantity + 1 } : line)
-        : [...lines, { key: product.id, product, quantity: 1 }];
-    });
-  }
-  function changeQty(id: string, delta: number) {
-    setCart(lines => lines.map(line => line.product.id === id ? { ...line, quantity: line.quantity + delta } : line).filter(line => line.quantity > 0));
-  }
+  const popular = useMemo(() => [...products].sort((a,b)=>Number(b.sort_order ?? 0)-Number(a.sort_order ?? 0)).slice(0,6), [products]);
+  const recommendations = useMemo(() => {
+    const ids = new Set(cart.flatMap(line => line.product.complementary_item_ids ?? []));
+    return products.filter(p => ids.has(p.id) && !cart.some(line => line.product.id === p.id)).slice(0,4);
+  }, [cart, products]);
+  const total = cart.reduce((sum, line) => sum + activePrice(line.product) * line.quantity, 0);
+  const itemCount = cart.reduce((n,line)=>n+line.quantity,0);
+
+  function add(product: Product) { setNotice(""); setReceipt(null); setCart(lines => { const found=lines.find(line=>line.product.id===product.id); return found ? lines.map(line=>line.product.id===product.id?{...line,quantity:line.quantity+1}:line) : [...lines,{key:product.id,product,quantity:1}]; }); }
+  function changeQty(id: string, delta: number) { setCart(lines => lines.map(line=>line.product.id===id?{...line,quantity:line.quantity+delta}:line).filter(line=>line.quantity>0)); }
+  async function signOut() { await fetch("/api/bigfoods-staff/session",{method:"DELETE"}).catch(()=>undefined); router.replace("/staff/login"); }
+
   async function checkout() {
     if (!cart.length || busy) return;
-    if (paymentMethod === "moniepoint_pos" && !terminalConfirmed) { setError("Confirm that the physical Moniepoint terminal shows a successful payment before recording this sale."); return; }
-    if (paymentMethod === "cash" && (!Number.isFinite(Number(cashReceived)) || Number(cashReceived) < total)) { setError("Cash received must be at least the order total."); return; }
+    if (paymentMethod === "moniepoint_pos" && !terminalConfirmed) { setError("Confirm that the physical Moniepoint terminal shows a successful payment."); return; }
     setBusy(true); setError(""); setNotice(""); setReceipt(null);
     try {
-      const response = await fetch("/api/bigfoods-staff/inventory", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "pos_sale_create",
-          idempotency_key: crypto.randomUUID(),
-          payment_method: paymentMethod,
-          cash_received: paymentMethod === "cash" ? Number(cashReceived) : null,
-          terminal_confirmed: paymentMethod === "moniepoint_pos" ? terminalConfirmed : false,
-          customer_email: customerEmail.trim(),
-          items: cart.map(line => ({ product_id: line.product.id, quantity: line.quantity }))
-        }), cache: "no-store"
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Unable to record sale.");
-      setReceipt(data.sale as SaleReceipt);
-      setCart([]); setCustomerEmail(""); setCashReceived(""); setTerminalConfirmed(false);
-      setNotice(data.duplicate ? "This checkout was already recorded. No duplicate sale was created." : "Sale recorded successfully.");
-    } catch (e) { setError(e instanceof Error ? e.message : "Unable to record sale."); }
+      const response = await fetch("/api/bigfoods-staff/inventory", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({
+        action:"pos_sale_create", idempotency_key:crypto.randomUUID(), payment_method:paymentMethod,
+        terminal_confirmed:paymentMethod==="moniepoint_pos" ? terminalConfirmed : false,
+        cash_received:paymentMethod==="cash"?Number(cashReceived):null, customer_email:customerEmail.trim(),
+        items:cart.map(line=>({product_id:line.product.id,quantity:line.quantity}))
+      }), cache:"no-store" });
+      const data=await response.json();
+      if(!response.ok) throw new Error(data.error||"Unable to record sale.");
+      setReceipt(data.sale as SaleReceipt); setCart([]); setCustomerEmail(""); setCashReceived(""); setTerminalConfirmed(false);
+      setNotice(data.duplicate?"This checkout was already recorded. No duplicate sale was created.":"Sale recorded successfully.");
+    } catch(e) { setError(e instanceof Error?e.message:"Unable to record sale."); }
     finally { setBusy(false); }
   }
 
-  async function signOut() {
-    await fetch("/api/bigfoods-staff/session", { method: "DELETE" }).catch(() => undefined);
-    router.replace("/staff/login");
-  }
+  const nav = [
+    { label:"POS", icon:LayoutGrid, active:true, click:()=>{} },
+    { label:"Orders", icon:ClipboardList, click:()=>setNotice("Order history is the next POS module to connect.") },
+    { label:"Menu", icon:UtensilsCrossed, click:()=>router.push("/admin/pos-catalogue") },
+    { label:"Inventory", icon:Package, click:()=>setNotice("Inventory management remains in the admin workspace.") },
+    { label:"Customers", icon:Users, click:()=>setNotice("Customer management is not connected to cashier POS yet.") },
+    { label:"Analytics", icon:ChartNoAxesColumn, click:()=>setNotice("Sales analytics will be added after order history.") },
+    { label:"Settings", icon:Settings, click:()=>setNotice("POS settings are managed by an administrator.") },
+  ];
 
-  return <StaffShell title="Cashier POS" staffName={staff?.display_name ?? "Staff"} subtitle="In-person sales · BigFoods in-house catalogue">
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800"><ShieldCheck size={15}/> Staff session protected</div>
-      <div className="flex gap-2"><button onClick={()=>void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-[#E8E0D8] bg-white px-3 py-2 text-sm font-semibold text-[#47382D]"><RefreshCw size={15} className={loading?"animate-spin":""}/> Refresh menu</button><button onClick={()=>void signOut()} className="inline-flex items-center gap-2 rounded-xl border border-[#E8E0D8] bg-white px-3 py-2 text-sm font-semibold text-[#47382D]"><LogOut size={15}/> Sign out</button></div>
-    </div>
-    {error && <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
-    {notice && <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{notice}</div>}
-    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-      <section className="min-w-0 rounded-2xl border border-[#E8E0D8] bg-white p-4 sm:p-5">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row">
-          <div className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#817367]" size={17}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search food, category or item code" className="w-full rounded-xl border border-[#E8E0D8] bg-white py-3 pl-10 pr-3 text-sm text-[#30261F] outline-none focus:border-orange-500" /></div>
-          <span className="flex items-center text-xs text-[#817367]">{visible.length} products</span>
-        </div>
-        <div className="mb-4 flex gap-2 overflow-x-auto pb-1">{categories.map(c=><button key={c} onClick={()=>{setCategory(c);setSubcategory("All");}} className={"shrink-0 rounded-full px-4 py-2 text-sm font-semibold "+(category===c?"bg-[#E87524] text-white":"border border-[#E8E0D8] bg-white text-[#47382D]")}>{c}</button>)}</div>
-        {subcategories.length > 1 && <><h3 className="mb-2 text-sm font-bold text-[#30261F]">Subcategories</h3><div className="mb-4 flex gap-2 overflow-x-auto pb-1">{subcategories.map(c=><button key={c} onClick={()=>setSubcategory(c)} className={"shrink-0 rounded-full px-4 py-2 text-xs font-semibold "+(subcategory===c?"bg-[#E87524] text-white":"border border-[#E8E0D8] bg-white text-[#47382D]")}>{c}</button>)}</div></>}
-        {loading ? <div className="grid min-h-48 place-items-center text-sm text-[#817367]">Loading BigFoods menu…</div> :
-        visible.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-4">{visible.map(p=><button key={p.id} onClick={()=>add(p)} className="group overflow-hidden rounded-xl border border-[#E8E0D8] bg-white text-left transition hover:border-orange-400 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-300">
-          <div className="aspect-[4/3] overflow-hidden bg-[#FBF7F2]">{(p.image_urls?.[0] || p.image_url) ? <img src={p.image_urls?.[0] || p.image_url || ""} alt={p.name} className="h-full w-full object-cover transition group-hover:scale-[1.02]"/> : <div className="grid h-full place-items-center text-[#B6A89A]"><UtensilsCrossed size={28}/></div>}</div>
-          <div className="p-3"><div className="line-clamp-2 min-h-10 text-sm font-semibold text-[#30261F]">{p.name}</div><div className="mt-1 text-xs text-[#817367]">{p.subcategory || p.category}</div><div className="mt-2 flex items-center justify-between gap-2"><span className="text-sm font-bold text-[#30261F]">{money(Number(p.selling_price))}</span><span className="grid h-7 w-7 place-items-center rounded-lg bg-orange-50 text-orange-700"><Plus size={16}/></span></div></div>
-        </button>)}</div> : <div className="grid min-h-48 place-items-center text-center text-sm text-[#817367]"><div><ShoppingBag size={28} className="mx-auto mb-2"/>{products.length ? "No products match your search." : "No available BigFoods products yet. Ask an admin to publish a product in the POS catalogue."}</div></div>}
-      </section>
-      <aside className="rounded-2xl border border-[#E8E0D8] bg-white p-4 shadow-sm sm:p-5 xl:sticky xl:top-4">
-        <div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold text-[#30261F]">Current order</h2><p className="mt-1 text-xs text-[#817367]">Items and total update as you add food.</p></div><span className="rounded-full bg-[#FBF0E6] px-2.5 py-1 text-xs font-bold text-[#9B4A17]">{cart.reduce((n,l)=>n+l.quantity,0)} items</span></div>
-        {!cart.length ? <div className="my-5 rounded-xl border border-dashed border-[#E8E0D8] px-4 py-8 text-center text-sm text-[#817367]"><ShoppingBag size={25} className="mx-auto mb-2"/>Tap a product to add it to the order.</div> :
-          <div className="my-4 max-h-[42vh] space-y-3 overflow-y-auto">{cart.map(line=><div key={line.key} className="flex gap-3 border-b border-[#F0E8E0] pb-3"><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-[#30261F]">{line.product.name}</p><p className="mt-1 text-xs text-[#817367]">{money(Number(line.product.selling_price))} each</p><div className="mt-2 inline-flex items-center gap-3 rounded-lg border border-[#E8E0D8] p-1"><button onClick={()=>changeQty(line.product.id,-1)} aria-label={"Decrease "+line.product.name} className="grid h-7 w-7 place-items-center rounded-md hover:bg-[#FBF7F2]"><Minus size={14}/></button><span className="min-w-4 text-center text-sm font-semibold">{line.quantity}</span><button onClick={()=>changeQty(line.product.id,1)} aria-label={"Increase "+line.product.name} className="grid h-7 w-7 place-items-center rounded-md hover:bg-[#FBF7F2]"><Plus size={14}/></button></div></div><div className="text-right"><p className="text-sm font-bold text-[#30261F]">{money(Number(line.product.selling_price)*line.quantity)}</p><button onClick={()=>changeQty(line.product.id,-line.quantity)} aria-label={"Remove "+line.product.name} className="mt-2 text-[#A34B37]"><Trash2 size={15}/></button></div></div>)}</div>}
-        <label className="mt-4 block text-xs font-semibold text-[#6E6257]">Customer email<input type="email" value={customerEmail} onChange={e=>setCustomerEmail(e.target.value)} placeholder="customer@example.com" className="mt-1.5 w-full rounded-xl border border-[#E8E0D8] px-3 py-2.5 text-sm text-[#30261F] outline-none focus:border-orange-500"/></label>
-        <div className="mt-4 space-y-2 border-t border-[#E8E0D8] pt-4"><div className="flex justify-between text-sm text-[#6E6257]"><span>Subtotal</span><span>{money(total)}</span></div><div className="flex justify-between text-lg font-bold text-[#30261F]"><span>Total</span><span>{money(total)}</span></div></div>
-        <fieldset className="mt-4 space-y-2"><legend className="mb-2 text-xs font-semibold text-[#6E6257]">Payment method</legend>
-          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#E8E0D8] p-3 text-sm"><input type="radio" name="paymentMethod" checked={paymentMethod === "cash"} onChange={()=>{setPaymentMethod("cash");setTerminalConfirmed(false);}}/> Cash</label>
-          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#E8E0D8] p-3 text-sm"><input type="radio" name="paymentMethod" checked={paymentMethod === "moniepoint_pos"} onChange={()=>{setPaymentMethod("moniepoint_pos");setTerminalConfirmed(false);}}/> Physical Moniepoint POS terminal</label>
-        </fieldset>
-        {paymentMethod === "cash" ? <label className="mt-3 block text-xs font-semibold text-[#6E6257]">Cash received (₦)<input type="number" min={total} step="1" value={cashReceived} onChange={e=>setCashReceived(e.target.value)} placeholder={String(total)} className="mt-1.5 w-full rounded-xl border border-[#E8E0D8] px-3 py-2.5 text-sm outline-none focus:border-orange-500"/></label> :
-          <label className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900"><input className="mt-1" type="checkbox" checked={terminalConfirmed} onChange={e=>setTerminalConfirmed(e.target.checked)}/> I have checked the physical Moniepoint terminal and it shows this payment succeeded.</label>}
-        {paymentMethod === "cash" && Number(cashReceived) >= total && <div className="mt-2 flex justify-between rounded-lg bg-[#F7F4EF] px-3 py-2 text-sm"><span>Change due</span><strong>{money(Number(cashReceived)-total)}</strong></div>}
-        <button disabled={!cart.length || busy || loading || (paymentMethod === "cash" && (!cashReceived || Number(cashReceived) < total)) || (paymentMethod === "moniepoint_pos" && !terminalConfirmed)} onClick={()=>void checkout()} className="mt-4 w-full rounded-xl bg-[#E87524] px-4 py-3.5 text-sm font-bold text-white hover:bg-[#D96417] disabled:cursor-not-allowed disabled:opacity-50">{busy?"Recording sale…":"Confirm payment & record sale"}</button>
-        <button disabled={!cart.length || busy} onClick={()=>{setCart([]);setCustomerEmail("");setCashReceived("");setTerminalConfirmed(false);setNotice("");}} className="mt-2 w-full rounded-xl border border-[#E8E0D8] px-4 py-2.5 text-sm font-semibold text-[#47382D] disabled:opacity-50">Clear order</button>
-        {receipt && <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"><strong>Receipt {receipt.receipt_number}</strong><div className="mt-1">Total: {money(Number(receipt.total_amount))}</div>{receipt.payment_method === "cash" && <div>Change: {money(Number(receipt.change_due))}</div>}</div>}
-        <p className="mt-3 text-[11px] leading-5 text-[#817367]">Cash sales are recorded after validating the amount received. For Moniepoint, use the physical terminal first and confirm only after it reports success. This screen does not process card payments or integrate directly with the terminal.</p>
+  return <main className="min-h-screen bg-[#F6F7F8] text-[#171923]">
+    <div className="flex min-h-screen">
+      <aside className="hidden w-[210px] shrink-0 flex-col border-r border-[#E7E9ED] bg-white lg:flex">
+        <div className="flex h-[76px] items-center gap-2 border-b border-[#EFF0F2] px-6"><span className="text-3xl">🍲</span><span className="text-[23px] font-extrabold tracking-tight">BigFoods</span></div>
+        <nav className="space-y-1 px-3 py-4">{nav.map(({label,icon:Icon,active,click})=><button key={label} onClick={click} className={"flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[13px] font-medium "+(active?"bg-[#FFF0E7] text-[#E96818]":"text-[#5D6470] hover:bg-[#F7F8FA]")}><Icon size={19}/>{label}</button>)}</nav>
+        <div className="mt-auto border-t border-[#EFF0F2] p-4 text-xs text-[#737B87]"><Headphones size={18} className="mb-2"/>Need help?<br/>Contact support</div>
       </aside>
+      <section className="min-w-0 flex-1">
+        <header className="sticky top-0 z-20 flex min-h-[76px] flex-wrap items-center gap-3 border-b border-[#E7E9ED] bg-white/95 px-4 py-3 backdrop-blur md:px-6">
+          <div className="relative min-w-[220px] flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9299A4]" size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search for items (e.g. jollof, burger, coke...)" className="w-full rounded-xl border border-[#E2E5E9] bg-white py-3 pl-10 pr-3 text-sm outline-none focus:border-orange-400"/></div>
+          <button onClick={()=>{setWalkIn(true);setCustomerEmail("");}} className="hidden items-center gap-2 rounded-xl border border-[#E2E5E9] bg-white px-4 py-3 text-sm font-medium sm:flex"><UserRound size={17}/> {walkIn?"Walk-in Customer":"Customer selected"}</button>
+          <button aria-label="Refresh catalogue" onClick={()=>void load()} className="rounded-xl border border-[#E2E5E9] p-3 text-[#5D6470]"><RefreshCw size={17}/></button>
+          <div className="flex items-center gap-2 pl-1"><div className="grid h-10 w-10 place-items-center rounded-full bg-[#E9EDF2] text-[#687383]"><UserRound size={21}/></div><div className="hidden sm:block"><p className="text-sm font-semibold">{staff?.display_name??"Staff"}</p><p className="text-xs text-[#737B87] capitalize">{staff?.role??"Cashier"}</p></div><button onClick={()=>void signOut()} aria-label="Sign out" className="rounded-lg p-2 text-[#737B87]"><LogOut size={17}/></button></div>
+        </header>
+        <div className="grid min-w-0 grid-cols-1 gap-0 xl:grid-cols-[minmax(0,1fr)_minmax(390px,470px)]">
+          <div className="min-w-0 space-y-7 p-4 md:p-6">
+            {error&&<div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
+            {notice&&<div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{notice}</div>}
+            <section>
+              <div className="mb-3 flex items-center justify-between"><h2 className="text-base font-bold">Most Ordered</h2><span className="text-xs text-[#6F7783]">Quick add</span></div>
+              {loading?<p className="py-8 text-sm text-[#737B87]">Loading menu…</p>:<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-6">{popular.map(p=><button key={p.id} onClick={()=>add(p)} className="overflow-hidden rounded-xl border border-[#E6E8EC] bg-white text-left transition hover:border-orange-300 hover:shadow-sm"><div className="relative aspect-[4/3] bg-[#F0F1F3]">{(p.image_urls?.[0]||p.image_url)?<img src={p.image_urls?.[0]||p.image_url||""} alt={p.name} className="h-full w-full object-cover"/>:<div className="grid h-full place-items-center text-[#A6ADB7]"><UtensilsCrossed size={25}/></div>}<span className="absolute bottom-2 right-2 grid h-7 w-7 place-items-center rounded-full bg-[#F47721] text-white shadow"><Plus size={17}/></span></div><div className="p-2"><p className="line-clamp-2 min-h-9 text-xs font-semibold">{p.name}</p><p className="mt-1 text-xs font-bold">{money(activePrice(p))}</p></div></button>)}</div>}
+            </section>
+            <section>
+              <h2 className="mb-3 text-base font-bold">Categories</h2>
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-6">{categories.map((c,i)=><button key={c} onClick={()=>{setCategory(c);setSubcategory("All");}} className={"flex min-h-[72px] flex-col items-center justify-center gap-2 rounded-xl border text-xs font-semibold "+(category===c?"border-[#F47721] bg-[#F47721] text-white":"border-[#E6E8EC] bg-white text-[#59616D] hover:border-orange-300")}><UtensilsCrossed size={20}/>{c}</button>)}</div>
+            </section>
+            <section>
+              <h2 className="mb-3 text-base font-bold">Subcategories</h2>
+              <div className="flex gap-2 overflow-x-auto pb-1">{subcategories.map(c=><button key={c} onClick={()=>setSubcategory(c)} className={"shrink-0 rounded-full px-4 py-2.5 text-xs font-semibold "+(subcategory===c?"bg-[#F47721] text-white":"border border-[#E6E8EC] bg-white text-[#59616D]")}>{c==="All"?"All "+(category==="All"?"items":category):c}</button>)}</div>
+            </section>
+            <section>
+              <div className="mb-3 flex items-center justify-between"><h2 className="text-base font-bold">Menu Items</h2><span className="text-xs text-[#737B87]">{visible.length} items</span></div>
+              {visible.length?<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-4">{visible.map(p=><article key={p.id} className="overflow-hidden rounded-xl border border-[#E6E8EC] bg-white"><div className="aspect-[4/3] bg-[#F0F1F3]">{(p.image_urls?.[0]||p.image_url)?<img src={p.image_urls?.[0]||p.image_url||""} alt={p.name} className="h-full w-full object-cover"/>:<div className="grid h-full place-items-center text-[#A6ADB7]"><UtensilsCrossed size={26}/></div>}</div><div className="p-3"><p className="line-clamp-2 min-h-10 text-sm font-semibold">{p.name}</p><p className="mt-1 text-xs text-[#737B87]">{p.subcategory||p.category}</p><div className="mt-3 flex items-center justify-between gap-2"><div>{p.promotional_price!=null&&activePrice(p)<Number(p.selling_price)&&<p className="text-[10px] text-[#9BA1AA] line-through">{money(Number(p.selling_price))}</p>}<p className="text-sm font-bold">{money(activePrice(p))}</p></div><button onClick={()=>add(p)} className="rounded-lg bg-[#F47721] px-3 py-2 text-xs font-bold text-white hover:bg-[#E96818]">Add</button></div></div></article>)}</div>:<div className="grid min-h-40 place-items-center rounded-xl border border-dashed border-[#DDE1E6] bg-white text-sm text-[#737B87]">{loading?"Loading products…":"No available products match this selection."}</div>}
+            </section>
+          </div>
+          <aside className="border-t border-[#E7E9ED] bg-white p-4 md:p-6 xl:min-h-[calc(100vh-76px)] xl:border-l xl:border-t-0">
+            <div className="flex items-center justify-between"><div><h2 className="text-base font-bold">Current Order ({itemCount} items)</h2><p className="mt-1 text-xs text-[#737B87]">Review quantities before taking payment.</p></div><button onClick={()=>{setCart([]);setCustomerEmail("");setCashReceived("");setTerminalConfirmed(false);setError("");setNotice("");}} disabled={!cart.length||busy} className="inline-flex items-center gap-1.5 rounded-lg bg-[#FFF0F0] px-3 py-2 text-xs font-semibold text-[#C43D3D] disabled:opacity-40"><Trash2 size={14}/> Clear</button></div>
+            {!cart.length?<div className="my-5 rounded-xl border border-dashed border-[#E2E5E9] px-4 py-8 text-center text-sm text-[#737B87]"><ShoppingBag size={25} className="mx-auto mb-2"/>Add a food item to start the order.</div>:<div className="my-4 max-h-[32vh] space-y-3 overflow-y-auto">{cart.map(line=><div key={line.key} className="flex gap-3 border-b border-[#EFF0F2] pb-3"><div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[#F0F1F3]">{(line.product.image_urls?.[0]||line.product.image_url)&&<img src={line.product.image_urls?.[0]||line.product.image_url||""} alt="" className="h-full w-full object-cover"/>}</div><div className="min-w-0 flex-1"><p className="text-xs font-semibold">{line.product.name}</p><div className="mt-2 inline-flex items-center gap-3 rounded-lg border border-[#E2E5E9] p-1"><button onClick={()=>changeQty(line.product.id,-1)} aria-label={"Decrease "+line.product.name} className="grid h-6 w-6 place-items-center"><Minus size={13}/></button><span className="min-w-4 text-center text-xs font-semibold">{line.quantity}</span><button onClick={()=>changeQty(line.product.id,1)} aria-label={"Increase "+line.product.name} className="grid h-6 w-6 place-items-center"><Plus size={13}/></button></div></div><div className="text-right"><p className="text-xs font-bold">{money(activePrice(line.product)*line.quantity)}</p><button onClick={()=>changeQty(line.product.id,-line.quantity)} aria-label={"Remove "+line.product.name} className="mt-2 text-[#C43D3D]"><Trash2 size={14}/></button></div></div>)}</div>}
+            {recommendations.length>0&&<div className="mb-4 rounded-xl bg-[#FFF7F1] p-3"><p className="mb-2 text-xs font-bold">Recommended with this order</p><div className="space-y-2">{recommendations.map(p=><button key={p.id} onClick={()=>add(p)} className="flex w-full items-center justify-between gap-2 text-left text-xs"><span>{p.name}</span><span className="font-bold text-[#E96818]">+ {money(activePrice(p))}</span></button>)}</div></div>}
+            <div className="border-t border-[#E7E9ED] pt-4"><h3 className="text-sm font-bold">Customer Details</h3><label className="mt-2 block text-xs text-[#737B87]">Email address (optional for walk-in)<input type="email" value={customerEmail} onChange={e=>{setCustomerEmail(e.target.value);setWalkIn(!e.target.value);}} placeholder="customer@example.com" className="mt-1.5 w-full rounded-lg border border-[#E2E5E9] px-3 py-2.5 text-sm text-[#171923] outline-none focus:border-orange-400"/></label><button onClick={()=>{setWalkIn(v=>!v);if(!walkIn)setCustomerEmail("");}} className="mt-2 text-xs font-semibold text-[#E96818]">{walkIn?"+ Add customer email":"Use walk-in customer"}</button></div>
+            <div className="mt-4 border-t border-[#E7E9ED] pt-4"><h3 className="text-sm font-bold">Payment Method</h3><div className="mt-2 grid grid-cols-2 gap-2"><button type="button" onClick={()=>{setPaymentMethod("cash");setTerminalConfirmed(false);}} className={"rounded-xl border px-3 py-3 text-xs font-semibold "+(paymentMethod==="cash"?"border-[#F47721] bg-[#FFF3EA] text-[#D95D12]":"border-[#E2E5E9] text-[#59616D]")}>Cash</button><button type="button" onClick={()=>{setPaymentMethod("moniepoint_pos");setTerminalConfirmed(false);}} className={"rounded-xl border px-3 py-3 text-xs font-semibold "+(paymentMethod==="moniepoint_pos"?"border-[#F47721] bg-[#FFF3EA] text-[#D95D12]":"border-[#E2E5E9] text-[#59616D]")}>Moniepoint POS</button></div>
+              {paymentMethod==="cash"?<label className="mt-3 block text-xs text-[#737B87]">Cash received<input type="number" min={total} step="1" value={cashReceived} onChange={e=>setCashReceived(e.target.value)} placeholder={String(total)} className="mt-1.5 w-full rounded-lg border border-[#E2E5E9] px-3 py-2.5 text-sm text-[#171923] outline-none focus:border-orange-400"/></label>:<label className="mt-3 flex items-start gap-2 rounded-lg bg-[#F7F8FA] p-3 text-xs leading-5 text-[#59616D]"><input type="checkbox" checked={terminalConfirmed} onChange={e=>setTerminalConfirmed(e.target.checked)} className="mt-0.5 accent-orange-500"/><span>I have checked the physical Moniepoint terminal and confirmed the payment succeeded.</span></label>}
+              {paymentMethod==="cash"&&Number(cashReceived)>=total&&total>0&&<div className="mt-2 flex justify-between text-xs font-semibold text-emerald-700"><span>Change due</span><span>{money(Number(cashReceived)-total)}</span></div>}
+            </div>
+            <div className="mt-4 space-y-2 border-t border-[#E7E9ED] pt-4"><div className="flex justify-between text-xs text-[#737B87]"><span>Subtotal</span><span>{money(total)}</span></div><div className="flex justify-between rounded-lg bg-[#FFF0E7] px-3 py-3 text-lg font-extrabold text-[#D95D12]"><span>Total</span><span>{money(total)}</span></div></div>
+            <button disabled={!cart.length||busy||loading||(paymentMethod==="cash"&&(!cashReceived||Number(cashReceived)<total))||(paymentMethod==="moniepoint_pos"&&!terminalConfirmed)} onClick={()=>void checkout()} className="mt-4 w-full rounded-xl bg-[#F47721] px-4 py-3.5 text-sm font-bold text-white hover:bg-[#E96818] disabled:cursor-not-allowed disabled:opacity-50">{busy?"Saving sale…":paymentMethod==="cash"?"Complete Cash Sale":"Confirm Moniepoint Payment"}</button>
+            {receipt&&<div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><div className="flex items-center gap-2 font-bold"><CheckCircle2 size={17}/> Receipt {receipt.receipt_number}</div><p className="mt-2">Total: {money(Number(receipt.total_amount))}</p><p>Payment: {receipt.payment_method==="cash"?"Cash":"Moniepoint POS"}</p>{receipt.payment_method==="cash"&&<p>Change: {money(Number(receipt.change_due))}</p>}<p className="mt-2 text-xs">Sale recorded. Receipt email delivery is not connected yet.</p><button onClick={()=>window.print()} className="mt-3 rounded-lg border border-emerald-300 px-3 py-2 text-xs font-semibold">Print receipt</button></div>}
+          </aside>
+        </div>
+      </section>
     </div>
-  </StaffShell>;
+  </main>;
 }
