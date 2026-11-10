@@ -5,7 +5,6 @@ import { Loader2, X, ImagePlus } from 'lucide-react';
 import getBrowserSupabase from '@/lib/supabase/client';
 import { compressImage } from '@/lib/compressImage';
 import { MENU_CATEGORY_PRESETS, MENU_CATEGORY_NAMES } from '@/lib/menuCategoryPresets';
-import { NIGERIAN_MENU_NAME_SUGGESTIONS } from '@/lib/nigerianMenuCatalogue';
 import type { MenuItem, MenuItemOptionGroup } from '@/types/database';
 import type { NewMenuItem, MenuItemUpdate } from '@/hooks/useMenuItems';
 
@@ -117,11 +116,20 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   const [complementaryItemIds, setComplementaryItemIds] = useState<string[]>(existingItem?.complementary_item_ids ?? []);
   const [availableMenuItems, setAvailableMenuItems] = useState<{id:string;name:string}[]>([]);
   const [catalogCategories, setCatalogCategories] = useState<{category_name:string;subcategory_name:string|null}[]>([]);
+  const [catalogItemNames, setCatalogItemNames] = useState<{category_name:string;subcategory_name:string;item_name:string}[]>([]);
   useEffect(() => {
     let active = true;
     void supabase.from('menu_catalog_categories').select('category_name, subcategory_name').then(({data,error}) => {
       if (!active || error) return;
       setCatalogCategories((data ?? []) as {category_name:string;subcategory_name:string|null}[]);
+    });
+    return () => { active = false; };
+  }, [supabase]);
+  useEffect(() => {
+    let active = true;
+    void supabase.from('menu_catalog_item_names').select('category_name, subcategory_name, item_name').order('item_name').then(({data,error}) => {
+      if (!active || error) return;
+      setCatalogItemNames((data ?? []) as {category_name:string;subcategory_name:string;item_name:string}[]);
     });
     return () => { active = false; };
   }, [supabase]);
@@ -158,7 +166,7 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
 
   const categoryOptions = Array.from(new Set([...MENU_CATEGORY_NAMES, ...catalogCategories.map(row => row.category_name.trim().toLowerCase()).filter(Boolean), category.trim().toLowerCase()].filter(Boolean))).sort((a,b)=>a.localeCompare(b));
   const subcategoryOptions = category ? Array.from(new Set([...(MENU_CATEGORY_PRESETS[category.toLowerCase()] ?? []), ...catalogCategories.filter(row => row.category_name.trim().toLowerCase() === category.trim().toLowerCase()).map(row => row.subcategory_name?.trim().toLowerCase()).filter((value): value is string => Boolean(value)), subcategory.trim().toLowerCase()].filter(Boolean))).sort((a,b)=>a.localeCompare(b)) : [];
-  const nameSuggestions = category ? Array.from(new Set(Object.entries(NIGERIAN_MENU_NAME_SUGGESTIONS[category.toLowerCase()] ?? {}).flatMap(([subcat, names]) => !subcategory || subcat === subcategory.toLowerCase() ? names : []))).sort((a,b)=>a.localeCompare(b)) : [];
+  const nameSuggestions = category && subcategory ? Array.from(new Set(catalogItemNames.filter(row => row.category_name.trim().toLowerCase() === category.trim().toLowerCase() && row.subcategory_name.trim().toLowerCase() === subcategory.trim().toLowerCase()).map(row => row.item_name))).sort((a,b)=>a.localeCompare(b)) : [];
   const totalImageCount = existingImageUrls.length + newImages.length;
   const canAddMoreImages = totalImageCount < 3;
   const parsedPrice = Number(price);
