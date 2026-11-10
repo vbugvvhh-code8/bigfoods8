@@ -146,3 +146,4 @@ export default function StaffPosPage() {
     <p className="mt-3 text-center text-[10px] text-gray-400">Receipt email delivery is not connected yet.</p>
     {receipt&&<div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><div className="flex items-center gap-2 font-bold"><CheckCircle2 size={17}/> Receipt {receipt.receipt_number}</div><p className="mt-2">Total: {money(Number(receipt.total_amount))}</p><p>Payment: {receipt.payment_method==="cash"?"Cash":"Moniepoint POS"}</p>{receipt.payment_method==="cash"&&<p>Change: {money(Number(receipt.change_due))}</p>}<button onClick={()=>window.print()} className="mt-3 rounded-lg border border-emerald-300 px-3 py-2 text-xs font-semibold">Print receipt</button></div>}
   </aside></div></section></div></main>;
+}
