@@ -5,6 +5,7 @@ import { Loader2, X, ImagePlus } from 'lucide-react';
 import getBrowserSupabase from '@/lib/supabase/client';
 import { compressImage } from '@/lib/compressImage';
 import { MENU_CATEGORY_PRESETS, MENU_CATEGORY_NAMES } from '@/lib/menuCategoryPresets';
+import { NIGERIAN_MENU_NAME_SUGGESTIONS } from '@/lib/nigerianMenuCatalogue';
 import type { MenuItem, MenuItemOptionGroup } from '@/types/database';
 import type { NewMenuItem, MenuItemUpdate } from '@/hooks/useMenuItems';
 
@@ -84,6 +85,18 @@ export function ChipPicker({
   );
 }
 
+function DropdownPicker({ label, options, value, onChange, placeholder }: { label: string; options: string[]; value: string; onChange: (value: string) => void; placeholder: string }) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-[12px] font-medium" style={{ color: 'var(--ink)' }}>{label}</label>
+      <select value={value} onChange={(event) => onChange(event.target.value)} className="w-full rounded-[9px] px-3 py-3 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }}>
+        <option value="">{placeholder}</option>
+        {options.map((option) => <option key={option} value={option}>{option.replace(/\\b\\w/g, (letter) => letter.toUpperCase())}</option>)}
+      </select>
+    </div>
+  );
+}
+
 export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onUpdate, onDone, onCancel }: MenuItemFormProps) {
   const [supabase] = useState(() => getBrowserSupabase());
   const isEditing = !!existingItem;
@@ -143,8 +156,9 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
   const [scheduleWindows, setScheduleWindows] = useState<AvailabilityWindow[]>(() => Array.isArray((existingItem as any)?.availability_schedule) ? (existingItem as any).availability_schedule : []);
   const [error, setError] = useState<string | null>(null);
 
-  const categoryOptions = Array.from(new Set([...MENU_CATEGORY_NAMES, ...catalogCategories.map(row => row.category_name.trim().toLowerCase()).filter(Boolean)])).sort((a,b)=>a.localeCompare(b));
-  const subcategoryOptions = category ? Array.from(new Set([...(MENU_CATEGORY_PRESETS[category.toLowerCase()] ?? []), ...catalogCategories.filter(row => row.category_name.trim().toLowerCase() === category.trim().toLowerCase()).map(row => row.subcategory_name?.trim().toLowerCase()).filter((value): value is string => Boolean(value))])).sort((a,b)=>a.localeCompare(b)) : [];
+  const categoryOptions = Array.from(new Set([...MENU_CATEGORY_NAMES, ...catalogCategories.map(row => row.category_name.trim().toLowerCase()).filter(Boolean), category.trim().toLowerCase()].filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+  const subcategoryOptions = category ? Array.from(new Set([...(MENU_CATEGORY_PRESETS[category.toLowerCase()] ?? []), ...catalogCategories.filter(row => row.category_name.trim().toLowerCase() === category.trim().toLowerCase()).map(row => row.subcategory_name?.trim().toLowerCase()).filter((value): value is string => Boolean(value)), subcategory.trim().toLowerCase()].filter(Boolean))).sort((a,b)=>a.localeCompare(b)) : [];
+  const nameSuggestions = category ? Array.from(new Set(Object.entries(NIGERIAN_MENU_NAME_SUGGESTIONS[category.toLowerCase()] ?? {}).flatMap(([subcat, names]) => !subcategory || subcat === subcategory.toLowerCase() ? names : []))).sort((a,b)=>a.localeCompare(b)) : [];
   const totalImageCount = existingImageUrls.length + newImages.length;
   const canAddMoreImages = totalImageCount < 3;
   const parsedPrice = Number(price);
@@ -322,15 +336,19 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
       </div>
       <div className="mb-3" style={{ display: step === 1 ? undefined : "none" }}>
         <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
-          Dish name
+          Food or drink name
         </label>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Jollof rice & chicken"
+          placeholder={category.toLowerCase() === 'drinks' ? 'e.g. Zobo' : 'e.g. Jollof rice & chicken'}
+          list="nigerian-menu-name-suggestions"
+          autoComplete="off"
           className="w-full px-3 py-2.5 rounded-[9px] text-[13px] outline-none"
           style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }}
         />
+        {nameSuggestions.length > 0 && <datalist id="nigerian-menu-name-suggestions">{nameSuggestions.map((suggestion) => <option key={suggestion} value={suggestion} />)}</datalist>}
+        <p className="mt-1.5 text-[11px]" style={{ color: 'var(--gray)' }}>Start typing to see Nigerian food and drink suggestions for the selected sub-category. You can still enter another item name.</p>
       </div>
 
       <div className="mb-3" style={{ display: step === 1 ? undefined : "none" }}>
@@ -348,23 +366,29 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
       </div>
 
       <div className="mb-3" style={{ display: step === 1 ? undefined : "none" }}>
-        <ChipPicker
+        <DropdownPicker
           label="Category"
           options={categoryOptions}
-          value={category}
+          value={category.toLowerCase()}
+          placeholder="Select a category"
           onChange={(v) => {
             setCategory(v);
             setSubcategory('');
+            setName('');
           }}
         />
       </div>
 
       <div className="mb-3" style={{ display: step === 1 ? undefined : "none" }}>
-        <ChipPicker
-          label="Sub-category (optional)"
+        <DropdownPicker
+          label="Sub-category"
           options={subcategoryOptions}
-          value={subcategory}
-          onChange={setSubcategory}
+          value={subcategory.toLowerCase()}
+          placeholder={category ? 'Select a sub-category' : 'Select a category first'}
+          onChange={(v) => {
+            setSubcategory(v);
+            setName('');
+          }}
         />
       </div>
 
