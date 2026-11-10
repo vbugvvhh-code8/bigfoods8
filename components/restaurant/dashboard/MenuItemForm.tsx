@@ -91,7 +91,7 @@ function DropdownPicker({ label, options, value, onChange, placeholder }: { labe
       <label className="mb-1.5 block text-[12px] font-medium" style={{ color: 'var(--ink)' }}>{label}</label>
       <select value={value} onChange={(event) => onChange(event.target.value)} className="w-full rounded-[9px] px-3 py-3 text-[13px] outline-none" style={{ border: '1px solid var(--line)', color: 'var(--ink)', background: 'var(--white)' }}>
         <option value="">{placeholder}</option>
-        {options.map((option) => <option key={option} value={option}>{option.replace(/\\b\\w/g, (letter) => letter.toUpperCase())}</option>)}
+        {options.map((option) => <option key={option} value={option}>{option.replace(/\b\w/g, (letter) => letter.toUpperCase())}</option>)}
       </select>
     </div>
   );
@@ -374,7 +374,6 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
           onChange={(v) => {
             setCategory(v);
             setSubcategory('');
-            setName('');
           }}
         />
       </div>
@@ -387,7 +386,6 @@ export default function MenuItemForm({ restaurantId, existingItem, onSubmit, onU
           placeholder={category ? 'Select a sub-category' : 'Select a category first'}
           onChange={(v) => {
             setSubcategory(v);
-            setName('');
           }}
         />
       </div>
