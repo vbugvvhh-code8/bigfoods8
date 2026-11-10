@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import getBrowserSupabase from '@/lib/supabase/client';
+import AuthSplitLayout from '@/components/customer/auth/AuthSplitLayout';
 import { resolveRestaurantEntryPath } from '@/lib/resolveRestaurantEntryPath';
 
 export default function RestaurantLoginPage() {
@@ -59,6 +60,7 @@ export default function RestaurantLoginPage() {
   }
 
   return (
+    <AuthSplitLayout imageUrl="/images/bigfoods-restaurant-login-chef.webp">
     <div className="max-w-[380px] mx-auto px-4 py-14">
       <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--orange)' }}>
         Restaurant Portal
@@ -131,5 +133,6 @@ export default function RestaurantLoginPage() {
         </Link>
       </p>
     </div>
+    </AuthSplitLayout>
   );
 }

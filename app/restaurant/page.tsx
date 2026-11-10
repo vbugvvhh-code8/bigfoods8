@@ -6,8 +6,8 @@ import Footer from '@/components/layout/Footer';
 
 const BASE = 'https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/';
 const LOGO_URL = `${BASE}0.4568313681357089.webp`;
-const CHEF_URL = `${BASE}0.6413335176944374.webp`;
-const MASCOT_URL = `${BASE}0.589270104135831.webp`;
+const CHEF_URL = '/images/bigfoods-chef-hero.webp';
+const MASCOT_URL = '/images/bigfoods-ai-mascot-hq.webp';
 
 const PARTNERS = [
   { id: '0.014563627963848691', name: 'Partner 1' },

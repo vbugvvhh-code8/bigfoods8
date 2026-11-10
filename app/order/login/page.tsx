@@ -6,7 +6,6 @@ import Link from 'next/link';
 import {Loader2} from 'lucide-react';
 import getBrowserSupabase from '@/lib/supabase/client';
 import AuthSplitLayout from '@/components/customer/auth/AuthSplitLayout';
-import {LOGIN_IMAGE} from '@/lib/authImages';
 
 function LoginContent() {
   const router = useRouter();
@@ -59,7 +58,7 @@ function LoginContent() {
   }
 
   return (
-    <AuthSplitLayout imageUrl={LOGIN_IMAGE}>
+    <AuthSplitLayout imageUrl="/images/bigfoods-order-login-chef.webp">
     <div className="w-full max-w-[380px] mx-auto px-4 py-14">
       <h1 className="font-display text-[19px] font-semibold" style={{color: 'var(--ink)'}}>
         Log in
