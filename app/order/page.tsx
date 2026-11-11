@@ -44,6 +44,7 @@ export default function OrderHomePage() {
 
   return (
     <div className="w-full max-w-[380px] lg:max-w-2xl mx-auto px-4 py-6">
+      <PromotedRow restaurants={promoted} />
       <Link href="/subscriptions" className="mb-5 flex items-center justify-between gap-3 rounded-2xl border p-4 transition hover:shadow-sm" style={{borderColor:'#FED7AA',background:'linear-gradient(110deg,#FFF7ED,#FFFFFF)'}}>
         <span className="flex min-w-0 items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{background:'#FFEDD5',color:'#C2410C'}}><CalendarDays className="h-5 w-5"/></span>
@@ -54,7 +55,6 @@ export default function OrderHomePage() {
       <SearchBar onFocus={() => setShowSuggestions(true)} onBlur={() => setTimeout(() => setShowSuggestions(false), 150)} />
       <SearchSuggestions visible={showSuggestions} />
       <CategoryChips categories={categories} active={category} onChange={setCategory} />
-      {category === 'All' && <PromotedRow restaurants={promoted} />}
       <RestaurantList restaurants={restaurants} isLoading={isLoading} error={error} />
       <OrderTray />
     </div>
