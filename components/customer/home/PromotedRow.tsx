@@ -54,12 +54,14 @@ export function PromotedRow({restaurants}: PromotedRowProps) {
       const slides = Array.from(track.querySelectorAll<HTMLElement>('[data-promotion-slide]'));
       if (!slides.length) return;
 
+      const trackRect = track.getBoundingClientRect();
       const center = track.scrollLeft + track.clientWidth / 2;
       let currentIndex = 0;
       let smallestDistance = Number.POSITIVE_INFINITY;
 
       slides.forEach((slide, index) => {
-        const slideCenter = slide.offsetLeft + slide.offsetWidth / 2;
+        const slideRect = slide.getBoundingClientRect();
+        const slideCenter = track.scrollLeft + slideRect.left - trackRect.left + slideRect.width / 2;
         const distance = Math.abs(slideCenter - center);
         if (distance < smallestDistance) {
           smallestDistance = distance;
@@ -68,7 +70,8 @@ export function PromotedRow({restaurants}: PromotedRowProps) {
       });
 
       const next = slides[(currentIndex + 1) % slides.length];
-      const left = next.offsetLeft - (track.clientWidth - next.offsetWidth) / 2;
+      const nextRect = next.getBoundingClientRect();
+      const left = track.scrollLeft + nextRect.left - trackRect.left - (track.clientWidth - nextRect.width) / 2;
       track.scrollTo({left, behavior: 'smooth'});
     };
 
