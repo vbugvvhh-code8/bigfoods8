@@ -34,9 +34,7 @@ export function RestaurantList({restaurants, isLoading, error, title = 'All rest
       )}
 
       {!isLoading && !error && restaurants.length > 0 && (
-        // Lightened from the original full-strength var(--line) — color-mix
-        // works regardless of --line's actual hex value, no guessing needed.
-        <div className="divide-y divide-[#C9B8A8]/45">
+        <div className="divide-y divide-[#E5D8CC]/30">
           {restaurants.map((r) => (
             <RestaurantCard key={r.id} restaurant={r} />
           ))}
