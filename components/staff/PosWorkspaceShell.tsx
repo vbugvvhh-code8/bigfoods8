@@ -39,7 +39,6 @@ export default function PosWorkspaceShell({ children, title, staffName, staffRol
             <Icon size={17} strokeWidth={active ? 2.4 : 1.9} /><span>{label}</span>
           </button>;
         })}
-        <div className="mt-1 flex min-h-11 items-center gap-3 rounded-xl px-3 text-[12.5px] text-[#857970]"><Users size={17}/><span>Customers</span><span className="ml-auto text-[9px]">Soon</span></div>
       </nav>
       <div className="mt-auto border-t border-white/10 px-2 pt-4">
         <p className="truncate text-[11px] font-semibold text-white">{staffName || "Staff account"}</p>
