@@ -2,7 +2,7 @@
 
 import { ReactNode, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { BarChart3, ClipboardList, FileText, LayoutGrid, Menu, Package, Settings, ShoppingCart, Store, Users, X } from "lucide-react";
+import { BarChart3, ClipboardList, FileText, Menu, Package, Settings, ShoppingCart, Store, Users, X } from "lucide-react";
 import SafeImage from "@/components/ui/SafeImage";
 import { LOGO_URL } from "@/lib/brandImages";
 
