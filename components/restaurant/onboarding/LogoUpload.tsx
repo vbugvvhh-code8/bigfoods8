@@ -9,22 +9,27 @@ interface LogoUploadProps {
   onUploaded: (url: string) => void;
 }
 
+type UploadStatus = 'idle' | 'compressing' | 'uploading' | 'error';
+
 const MAX_SIZE_KB = 50;
 const STORAGE_BUCKET = 'restaurant-banners';
 
-export default function LogoUpload({ previewUrl, onUploaded }: LogoUploadProps) {
+export default function LogoUpload(props: LogoUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [status, setStatus] = useState<'idle' | 'compressing' | 'uploading' | 'error'>('idle');
+  const [status, setStatus] = useState('idle' as UploadStatus);
   const [error, setError] = useState<string | null>(null);
   const supabase = getBrowserSupabase();
 
   async function handleFile(file: File) {
-    if (!file.type.startsWith('image/')) {
-      setError('Choose an image file for your logo.');
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      setError('Choose a PNG, JPG or WebP image for your logo.');
+      setStatus('error');
       return;
     }
+
     setError(null);
     setStatus('compressing');
+
     try {
       const imageCompression = (await import('browser-image-compression')).default;
       const compressed = await imageCompression(file, {
@@ -32,29 +37,56 @@ export default function LogoUpload({ previewUrl, onUploaded }: LogoUploadProps) 
         maxWidthOrHeight: 512,
         useWebWorker: true,
       });
+
       setStatus('uploading');
 
-      const { data: userData, error: authError } = await supabase.auth.getUser();
-      if (authError || !userData?.user) {
+      const authResult = await supabase.auth.getUser();
+      if (authResult.error || !authResult.data.user) {
         throw new Error('Please verify your email before uploading your logo.');
       }
 
-      const extension = file.name.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
-      const path = userData.user.id + '/logo-' + Date.now() + '.' + extension;
-      const { error: uploadError } = await supabase.storage.from(STORAGE_BUCKET).upload(path, compressed, {
+      const extensionByType: Record<string, string> = {
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/webp': 'webp',
+      };
+      const extension = extensionByType[compressed.type] || extensionByType[file.type] || 'jpg';
+      const path = authResult.data.user.id + '/logo-' + Date.now() + '.' + extension;
+
+      const uploadResult = await supabase.storage.from(STORAGE_BUCKET).upload(path, compressed, {
         contentType: compressed.type || file.type,
         cacheControl: '3600',
       });
-      if (uploadError) throw uploadError;
 
-      const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-      onUploaded(data.publicUrl);
+      if (uploadResult.error) {
+        throw uploadResult.error;
+      }
+
+      const publicResult = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+      props.onUploaded(publicResult.data.publicUrl);
       setStatus('idle');
-    } catch (e) {
+    } catch (uploadError) {
       setStatus('error');
-      setError(e instanceof Error ? e.message : 'Could not upload your logo. Please try again.');
+      setError(uploadError instanceof Error ? uploadError.message : 'Could not upload your logo. Please try again.');
     }
   }
+
+  function handleInputChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const selectedFile = event.target.files && event.target.files.length > 0
+      ? event.target.files[0]
+      : null;
+
+    event.target.value = '';
+
+    if (selectedFile) {
+      handleFile(selectedFile).catch(() => {
+        setStatus('error');
+        setError('Could not upload your logo. Please try again.');
+      });
+    }
+  }
+
+  const busy = status === 'compressing' || status === 'uploading';
 
   return (
     <div>
@@ -63,37 +95,44 @@ export default function LogoUpload({ previewUrl, onUploaded }: LogoUploadProps) 
         type="file"
         accept="image/png,image/jpeg,image/webp"
         className="hidden"
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (file) void handleFile(file);
-          event.currentTarget.value = '';
-        }}
+        onChange={handleInputChange}
       />
+
       <div className="flex items-center gap-3">
-        <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ border: '1px solid var(--line)', background: 'var(--peach)' }}>
-          {previewUrl ? (
-            <img src={previewUrl} alt="Restaurant logo preview" className="w-full h-full object-cover" />
+        <div
+          className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
+          style={{ border: '1px solid var(--line)', background: 'var(--peach)' }}
+        >
+          {props.previewUrl ? (
+            <img src={props.previewUrl} alt="Restaurant logo preview" className="w-full h-full object-cover" />
           ) : (
             <ImagePlus className="w-6 h-6" style={{ color: 'var(--orange)' }} />
           )}
         </div>
+
         <div className="min-w-0 flex-1">
           <button
             type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={status === 'compressing' || status === 'uploading'}
+            onClick={() => inputRef.current && inputRef.current.click()}
+            disabled={busy}
             className="rounded-[9px] px-3 py-2.5 text-[12px] font-semibold disabled:opacity-50 flex items-center gap-2"
             style={{ background: 'var(--peach)', color: 'var(--ink)', border: '1px solid var(--line)' }}
           >
-            {status === 'compressing' || status === 'uploading' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
-            {status === 'compressing' ? 'Preparing…' : status === 'uploading' ? 'Uploading…' : previewUrl ? 'Change logo' : 'Upload logo'}
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+            {status === 'compressing' ? 'Preparing…' : status === 'uploading' ? 'Uploading…' : props.previewUrl ? 'Change logo' : 'Upload logo'}
           </button>
+
           <p className="text-[10.5px] mt-1.5" style={{ color: 'var(--gray)' }}>
             Square PNG, JPG or WebP. Displayed as a round profile image.
           </p>
         </div>
       </div>
-      {error && <p className="text-[11px] mt-1.5" style={{ color: 'var(--red)' }} role="alert'>{error}</p>}
+
+      {error ? (
+        <p className="text-[11px] mt-1.5" style={{ color: 'var(--red)' }} role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
