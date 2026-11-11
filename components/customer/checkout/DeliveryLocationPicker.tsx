@@ -95,7 +95,7 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
   }
 
   return (
-    <div className="rounded-xl border p-3.5 mt-4" style={{background: 'var(--peach)', borderColor: '#E8CDB8'}}>
+    <div className="rounded-xl border p-3.5 mt-4" style={{background: '#FFF1E6', borderColor: '#E6BFA4'}}>
       <div className="flex items-center gap-2 mb-2.5">
         <MapPin className="w-4 h-4" style={{color: 'var(--orange)'}} />
         <span className="font-semibold text-[12.5px]" style={{color: 'var(--ink)'}}>
