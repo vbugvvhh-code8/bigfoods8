@@ -83,9 +83,9 @@ export default function MenuItemDetailsPage() {
               {item.description && <p className="mt-3 whitespace-pre-line text-sm leading-6" style={{ color: 'var(--ink)' }}>{item.description}</p>}
 
               <div className="mt-5 flex flex-wrap gap-2">
-                {item.preparation_time_minutes && <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs" style={{ background: 'var(--peach)', color: 'var(--ink)' }}><Clock3 className="h-3.5 w-3.5" /> About {item.preparation_time_minutes} min</span>}
+                {item.preparation_time_minutes && <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs" style={{ borderColor: '#E8CDB8', background: 'var(--peach)', color: 'var(--ink)' }}><Clock3 className="h-3.5 w-3.5" /> About {item.preparation_time_minutes} min</span>}
                 {item.serving_size && <span className="rounded-full px-3 py-1.5 text-xs" style={{ background: 'var(--peach)', color: 'var(--ink)' }}>Serving: {item.serving_size}</span>}
-                {(item.dietary_tags ?? []).map((tag) => <span key={tag} className="rounded-full px-3 py-1.5 text-xs font-medium" style={{ background: '#E7F6EC', color: '#207245' }}>{tag}</span>)}
+                {(item.dietary_tags ?? []).map((tag) => <span key={tag} className="rounded-full border px-3 py-1.5 text-xs font-medium" style={{ borderColor: '#B7DFC5', background: '#E7F6EC', color: '#207245' }}>{tag}</span>)}
               </div>
 
               {item.ingredients && <section className="mt-7 pt-2"><h2 className="mb-2 text-sm font-bold" style={{ color: 'var(--ink)' }}>Ingredients</h2><p className="whitespace-pre-line text-sm leading-6" style={{ color: 'var(--gray)' }}>{item.ingredients}</p></section>}
