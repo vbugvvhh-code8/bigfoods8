@@ -7,9 +7,8 @@ import SafeImage from '@/components/ui/SafeImage';
 import {useGeolocation} from '@/hooks/useGeolocation';
 import {useEffect} from 'react';
 import {useRestaurant} from '@/hooks/useRestaurants';
+import { LOGO_URL } from '@/lib/brandImages';
 
-const LOGO_URL =
-  'https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/0.4927238865897102.webp';
 
 const ITEMS = [
   {href: '/order', label: 'Home', icon: Home},
