@@ -19,6 +19,7 @@ const ALLOWED_FIELDS = [
   "name",
   "category",
   "image_url",
+  "logo_url",
   "address",
   "latitude",
   "longitude",
