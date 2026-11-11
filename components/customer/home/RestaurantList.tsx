@@ -38,7 +38,7 @@ export function RestaurantList({restaurants, isLoading, error, title = 'All rest
           {restaurants.map((r, index) => (
             <div
               key={r.id}
-              style={index < restaurants.length - 1 ? {borderBottom: '1px solid rgba(229, 216, 204, 0.3)'} : undefined}
+              style={index < restaurants.length - 1 ? {borderBottom: '1px solid rgba(229, 216, 204, 0.5)'} : undefined}
             >
               <RestaurantCard restaurant={r} />
             </div>
