@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import EmailVerifyField from '@/components/restaurant/onboarding/EmailVerifyField';
 import useOnboardingSession, { stepPath } from '@/hooks/useOnboardingSession';
@@ -9,6 +10,7 @@ import { latestAllowedBirthDate, isAtLeast18 } from '@/lib/age';
 import getBrowserSupabase from '@/lib/supabase/client';
 
 export default function SellerInfoPage() {
+  const router = useRouter();
   const supabase = getBrowserSupabase();
   const { draft, updateDraft, hydrated } = useOnboardingSession();
 
