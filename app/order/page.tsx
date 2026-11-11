@@ -43,7 +43,7 @@ export default function OrderHomePage() {
   );
 
   return (
-    <div className="w-full max-w-[380px] lg:max-w-2xl mx-auto px-4 py-6">
+    <div className="w-full max-w-[440px] lg:max-w-2xl mx-auto px-3 py-6">
       <PromotedRow restaurants={promoted} />
       <Link href="/subscriptions" className="mb-5 flex items-center justify-between gap-3 rounded-2xl border p-4 transition hover:shadow-sm" style={{borderColor:'#FED7AA',background:'linear-gradient(110deg,#FFF7ED,#FFFFFF)'}}>
         <span className="flex min-w-0 items-center gap-3">
