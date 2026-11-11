@@ -22,7 +22,7 @@ export function OrderShellClient({children}: {children: React.ReactNode}) {
   const hideNav = NAV_HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
 
   return (
-    <div className="min-h-screen flex flex-col" style={{background: 'var(--white)'}}>
+    <div className="min-h-screen flex flex-col" style={{background: "radial-gradient(ellipse at top left, rgba(255, 220, 185, 0.32), transparent 42%), linear-gradient(180deg, #FFFCF8 0%, #FFF8F0 100%)"}}>
       <ServiceWorkerRegister />
       {!hideNav && <TopNav />}
       <main className={`flex-1 ${hideNav ? '' : 'pb-24 lg:pb-8'}`}>{children}</main>
