@@ -6,7 +6,7 @@ import { BarChart3, ClipboardList, FileText, Menu, Package, Settings, ShoppingCa
 import SafeImage from "@/components/ui/SafeImage";
 import { LOGO_URL } from "@/lib/brandImages";
 
-type Props = { children: ReactNode; title: string; staffName?: string; staffRole?: string };
+type Props = { children: ReactNode; title: string; staffName?: string; staffRole?: string; toolbar?: ReactNode };
 
 const links = [
   { href: "/staff/pos", label: "Point of Sale", icon: ShoppingCart },
@@ -19,7 +19,7 @@ const links = [
   { href: "/staff/settings", label: "Settings", icon: Settings },
 ];
 
-export default function PosWorkspaceShell({ children, title, staffName, staffRole }: Props) {
+export default function PosWorkspaceShell({ children, title, staffName, staffRole, toolbar }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -51,12 +51,13 @@ export default function PosWorkspaceShell({ children, title, staffName, staffRol
   return <div className="min-h-screen bg-[#F7F4F0] text-[#29221E]">
     <div className="fixed inset-y-0 left-0 z-30 hidden md:flex">{sidebar()}</div>
     <div className="min-h-screen md:pl-[232px]">
-      <header className="sticky top-0 z-20 flex min-h-[66px] items-center justify-between border-b border-[#E8DED6] bg-[#211A17] px-4 text-white shadow-sm sm:px-6">
-        <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-20 flex min-h-[66px] flex-wrap items-center gap-3 border-b border-[#493A32] bg-[#211A17] px-3 py-2.5 text-white shadow-sm sm:px-5">
+        <div className="flex shrink-0 items-center gap-2.5">
           <button onClick={() => setMobileOpen(true)} aria-label="Open POS navigation" className="rounded-lg p-2 text-white hover:bg-white/10 md:hidden"><Menu size={19}/></button>
-          <div><p className="text-[9px] uppercase tracking-[.2em] text-[#B7A99F]">BigFoods / POS</p><h1 className="mt-0.5 text-[15px] font-semibold">{title}</h1></div>
+          <div><p className="text-[9px] uppercase tracking-[.2em] text-[#B7A99F]">BigFoods / POS</p><h1 className="mt-0.5 text-[14px] font-semibold">{title}</h1></div>
         </div>
-        <div className="hidden text-right sm:block"><p className="max-w-[220px] truncate text-[11px] font-semibold">{staffName || "Staff account"}</p><p className="mt-0.5 text-[10px] capitalize text-[#B7A99F]">{(staffRole || "POS staff").replace(/[_-]/g, " ")}</p></div>
+        {toolbar && <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">{toolbar}</div>}
+        <div className="hidden shrink-0 text-right xl:block"><p className="max-w-[150px] truncate text-[11px] font-semibold">{staffName || "Staff account"}</p><p className="mt-0.5 text-[10px] capitalize text-[#B7A99F]">{(staffRole || "POS staff").replace(/[_-]/g, " ")}</p></div>
       </header>
       {children}
     </div>
