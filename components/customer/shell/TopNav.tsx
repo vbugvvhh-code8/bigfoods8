@@ -17,7 +17,7 @@ const ITEMS = [
   {href: '/order/profile', label: 'Profile', icon: User},
 ];
 
-function MobileTopBar({showBack, restaurantName, backHref}: {showBack: boolean; restaurantName?: string; backHref: string}) {
+function MobileTopBar({showBack, restaurantName, backHref, title, useHistoryBack}: {showBack: boolean; restaurantName?: string; backHref: string; title?: string; useHistoryBack?: boolean}) {
   const router = useRouter();
   const {lgaGuess, nigerianState, requestLocation, isLoading} = useGeolocation();
 
@@ -35,7 +35,7 @@ function MobileTopBar({showBack, restaurantName, backHref}: {showBack: boolean; 
         {showBack && (
           <button
             type="button"
-            onClick={() => router.push(backHref)}
+            onClick={() => useHistoryBack ? router.back() : router.push(backHref)}
             aria-label="Back to restaurants"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:bg-orange-50"
             style={{color:'var(--orange)'}}
@@ -44,7 +44,7 @@ function MobileTopBar({showBack, restaurantName, backHref}: {showBack: boolean; 
           </button>
         )}
         {showBack ? (
-          <span className="max-w-[190px] truncate font-display text-[15px] font-semibold" style={{color:'var(--ink)'}}>{restaurantName || 'Restaurant'}</span>
+          <span className="max-w-[190px] truncate font-display text-[15px] font-semibold" style={{color:'var(--ink)'}}>{title || restaurantName || 'Restaurant'}</span>
         ) : (
           <Link href="/order" className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-md overflow-hidden flex-shrink-0" style={{background: 'var(--orange)'}}>
@@ -69,7 +69,8 @@ function MobileTopBar({showBack, restaurantName, backHref}: {showBack: boolean; 
 export function TopNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const showBack = pathname?.startsWith('/order/restaurant/') ?? false;
+  const isCheckout = pathname === '/order/checkout';
+  const showBack = (pathname?.startsWith('/order/restaurant/') ?? false) || isCheckout;
   const isItemDetails = pathname?.includes('/item/') ?? false;
   const restaurantId = showBack ? pathname.split('/')[3] : '';
   const backHref = isItemDetails ? `/order/restaurant/${restaurantId}` : '/order';
@@ -77,7 +78,7 @@ export function TopNav() {
 
   return (
     <>
-      <MobileTopBar showBack={showBack} restaurantName={restaurant?.name} backHref={backHref} />
+      <MobileTopBar showBack={showBack} restaurantName={restaurant?.name} backHref={backHref} title={isCheckout ? 'Checkout' : undefined} useHistoryBack={isCheckout} />
 
       {/* Desktop: unchanged nav bar */}
       <header
@@ -86,12 +87,12 @@ export function TopNav() {
       >
         <div className="flex items-center gap-3">
           {showBack && (
-            <button type="button" onClick={() => router.push(backHref)} aria-label={isItemDetails ? 'Back to restaurant menu' : 'Back to restaurants'} className="flex h-9 w-9 items-center justify-center rounded-full border" style={{color:'var(--orange)',borderColor:'var(--line)'}}>
+            <button type="button" onClick={() => isCheckout ? router.back() : router.push(backHref)} aria-label={isCheckout ? 'Back from checkout' : isItemDetails ? 'Back to restaurant menu' : 'Back to restaurants'} className="flex h-9 w-9 items-center justify-center rounded-full border" style={{color:'var(--orange)',borderColor:'var(--line)'}}>
               <ArrowLeft className="h-4 w-4" />
             </button>
           )}
           {showBack ? (
-            <span className="max-w-[260px] truncate font-display text-base font-semibold" style={{color:'var(--ink)'}}>{restaurant?.name || 'Restaurant'}</span>
+            <span className="max-w-[260px] truncate font-display text-base font-semibold" style={{color:'var(--ink)'}}>{isCheckout ? 'Checkout' : restaurant?.name || 'Restaurant'}</span>
           ) : (
             <Link href="/order" className="flex items-center gap-2.5">
               <div className="h-7 w-7 shrink-0 overflow-hidden rounded-lg" style={{background:'var(--orange)'}}>
