@@ -36,7 +36,7 @@ export default function RestaurantMenuPage() {
   const isLoading = restaurantLoading || menuLoading;
 
   return (
-    <div className={`relative mx-auto w-full max-w-5xl overflow-x-clip px-4 pt-0 ${cartCount > 0 ? "pb-32" : "pb-5"}`} style={{background: "radial-gradient(ellipse at top left, rgba(255, 220, 185, 0.32), transparent 42%), linear-gradient(180deg, #FFFCF8 0%, #FFF8F0 100%)"}}>
+    <div className={`relative mx-auto w-full max-w-5xl overflow-x-clip px-4 pt-0 ${cartCount > 0 ? "pb-56" : "pb-5"}`} style={{background: "radial-gradient(ellipse at top left, rgba(255, 220, 185, 0.32), transparent 42%), linear-gradient(180deg, #FFFCF8 0%, #FFF8F0 100%)"}}>
       {isLoading && (
         <div className="space-y-3" aria-busy="true">
           <div className="h-[110px] rounded-xl animate-pulse" style={{background: 'var(--peach)'}} />
@@ -109,7 +109,7 @@ export default function RestaurantMenuPage() {
           )}
 
           {!menuError && visibleItems.length > 0 && (
-            <div className="relative -mt-1 grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="mt-3 grid grid-cols-2 gap-3 pb-2 sm:gap-4">
               {visibleItems.map((item) => (
                 <MenuItemRow key={item.id} item={item} restaurant={restaurant} relatedItems={menuItems} />
               ))}
