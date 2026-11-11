@@ -64,7 +64,7 @@ export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowPr
     const hour = Math.floor(upcoming.startMinutes / 60);
     const minute = upcoming.startMinutes % 60;
     const time = new Date(2000, 0, 1, hour, minute).toLocaleTimeString('en-NG', { hour: 'numeric', minute: '2-digit', hour12: true });
-    return `Back ${dayName} at ${time}`;
+    return `Available ${dayName} at ${time}`;
   })();
   const now = Date.now();
   const promotionInWindow = item.promotional_price != null && (!item.promotion_starts_at || new Date(item.promotion_starts_at).getTime() <= now) && (!item.promotion_ends_at || new Date(item.promotion_ends_at).getTime() > now);
@@ -99,7 +99,7 @@ export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowPr
       <div className="p-2.5 sm:p-3">
         <h2 className="line-clamp-2 text-sm font-semibold" style={{color:'var(--ink)'}}>{item.name}</h2>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold" style={{color:'var(--orange)'}}>{promotionInWindow ? <><span>₦{displayPrice.toLocaleString()}</span><span className="text-[10px] font-medium line-through" style={{color:'var(--gray)'}}>₦{Number(item.price).toLocaleString()}</span><span className="rounded-full px-2 py-0.5 text-[9px] font-bold" style={{background:'#FCE8E6',color:'#B42318'}}>SALE</span></> : <span>₦{Number(item.price).toLocaleString()}</span>}</div>
-        {!canOrder && <button type="button" disabled className="mt-2 min-h-9 w-full rounded-full px-3 py-2 text-xs font-semibold" style={{background:'#F3E7DC',color:'#8A7666'}}>{item.is_available === false ? 'Unavailable' : !withinSchedule ? nextAvailabilityLabel : 'Orders paused'}</button>}
+        {!canOrder && <button type="button" disabled className="mt-2 min-h-9 w-full whitespace-nowrap rounded-full px-2 py-2 text-[10px] leading-none font-semibold" style={{background:'#F3E7DC',color:'#8A7666'}}>{item.is_available === false ? 'Unavailable' : !withinSchedule ? nextAvailabilityLabel : 'Orders paused'}</button>}
         {canOrder && <div className="mt-3">
           {hasOptions ? (
             <button type="button" onClick={(event) => { event.stopPropagation(); openDetails(); }} className="min-h-9 w-full rounded-full px-3 py-2 text-[12px] font-semibold text-white sm:text-xs" style={{background:'var(--orange)'}}>Choose options</button>
