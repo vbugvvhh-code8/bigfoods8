@@ -11,13 +11,17 @@ export function RestaurantCard({restaurant: r}: RestaurantCardProps) {
   return (
     <Link href={`/order/restaurant/${r.id}`} className="flex gap-3 items-center py-3 w-full text-left">
       <div
-        className="w-14 h-14 rounded-[10px] flex-shrink-0 bg-cover bg-center"
-        style={
-          r.image_url
-            ? {backgroundImage: `url(${r.image_url}), linear-gradient(135deg, #FFE3C7, #FFD9B3)`}
-            : {background: 'linear-gradient(135deg, #FFE3C7, var(--peach))'}
-        }
-      />
+        className="w-14 h-14 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center"
+        style={{ background: 'linear-gradient(135deg, #FFE3C7, var(--peach))', border: '1px solid var(--line)' }}
+      >
+        {r.logo_url ? (
+          <img src={r.logo_url} alt={`${r.name} logo`} className="w-full h-full object-cover" loading="lazy" />
+        ) : r.image_url ? (
+          <img src={r.image_url} alt={r.name} className="w-full h-full object-cover" loading="lazy" />
+        ) : (
+          <span className="text-[10px] font-semibold" style={{ color: 'var(--orange-dark)' }}>BF</span>
+        )}
+      </div>
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-[13px]" style={{color: 'var(--ink)'}}>
           {r.name}
