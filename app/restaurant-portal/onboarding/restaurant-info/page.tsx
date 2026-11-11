@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import BannerUpload from '@/components/restaurant/onboarding/BannerUpload';
+import LogoUpload from '@/components/restaurant/onboarding/LogoUpload';
 import BannerPreview from '@/components/restaurant/onboarding/BannerPreview';
 import useOnboardingSession, { stepPath } from '@/hooks/useOnboardingSession';
 import useRestaurant from '@/hooks/useRestaurant';
@@ -42,6 +43,7 @@ export default function RestaurantInfoPage() {
       name: draft.restaurantName,
       category: draft.category,
       image_url: draft.bannerUrl,
+      logo_url: draft.logoUrl,
       state: draft.state,
       vendor_type: draft.vendorType,
       registration_status: draft.registrationStatus,
@@ -204,6 +206,16 @@ export default function RestaurantInfoPage() {
         </div>
       </div>
 
+      <div className="mb-4">
+        <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
+          Restaurant logo
+        </label>
+        <LogoUpload previewUrl={draft.logoUrl} onUploaded={(url) => updateDraft({ logoUrl: url })} />
+        <p className="text-[10.5px] mt-1.5" style={{ color: 'var(--gray)' }}>
+          Add your restaurant or kitchen logo. This is optional and can be changed later.
+        </p>
+      </div>
+
       <div className="mb-2">
         <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
           Banner photo
@@ -211,7 +223,7 @@ export default function RestaurantInfoPage() {
         <BannerUpload previewUrl={draft.bannerUrl} onUploaded={(url) => updateDraft({ bannerUrl: url })} />
       </div>
 
-      <BannerPreview bannerUrl={draft.bannerUrl} restaurantName={draft.restaurantName} category={draft.category} />
+      <BannerPreview bannerUrl={draft.bannerUrl} logoUrl={draft.logoUrl} restaurantName={draft.restaurantName} category={draft.category} />
 
       {saveError && (
         <p className="text-[11px] mt-2" style={{ color: 'var(--red)' }}>
