@@ -2,7 +2,7 @@
 
 import {useState, useMemo, useEffect} from 'react';
 import {useRouter} from 'next/navigation';
-import {ArrowLeft, Gift, Info, X} from 'lucide-react';
+import {Gift, Info, X} from 'lucide-react';
 import {useCart} from '@/hooks/useCart';
 import {useRestaurant, useRestaurants} from '@/hooks/useRestaurants';
 import {useCheckout} from '@/hooks/useCheckout';
