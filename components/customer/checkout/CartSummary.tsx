@@ -20,14 +20,14 @@ export function CartSummary({restaurantId}: CartSummaryProps) {
         const menuItem = menuItems.find((candidate) => candidate.id === (item.menuItemId ?? item.id));
         const imageUrl = item.imageUrl || menuItem?.image_urls?.[0] || menuItem?.image_url || undefined;
         return (
-        <div key={item.id} className="flex items-center gap-3 border-b py-3 last:border-b-0" style={{borderColor: "var(--line)"}}>
-          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border" style={{borderColor: '#F0DDCC', background: '#FFF0E3'}}>
+        <div key={item.id} className="flex items-center gap-2 border-b py-2 last:border-b-0" style={{borderColor: "var(--line)"}}>
+          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border" style={{borderColor: '#F0DDCC', background: '#FFF0E3'}}>
             {imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={imageUrl} alt={item.name} className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center" style={{color: '#C77A43'}}>
-                <ImageIcon className="h-6 w-6" aria-hidden="true" />
+                <ImageIcon className="h-5 w-5" aria-hidden="true" />
               </div>
             )}
           </div>
