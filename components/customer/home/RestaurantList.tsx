@@ -34,9 +34,14 @@ export function RestaurantList({restaurants, isLoading, error, title = 'All rest
       )}
 
       {!isLoading && !error && restaurants.length > 0 && (
-        <div className="divide-y divide-[#E5D8CC]/30">
-          {restaurants.map((r) => (
-            <RestaurantCard key={r.id} restaurant={r} />
+        <div>
+          {restaurants.map((r, index) => (
+            <div
+              key={r.id}
+              style={index < restaurants.length - 1 ? {borderBottom: '1px solid rgba(229, 216, 204, 0.3)'} : undefined}
+            >
+              <RestaurantCard restaurant={r} />
+            </div>
           ))}
         </div>
       )}
