@@ -34,12 +34,7 @@ export default function RestaurantMenuPage() {
   const isLoading = restaurantLoading || menuLoading;
 
   return (
-    <div className="relative mx-auto min-h-screen w-full max-w-5xl overflow-hidden px-4 py-6" style={{background: "radial-gradient(ellipse at top left, rgba(255, 220, 185, 0.32), transparent 42%), linear-gradient(180deg, #FFFCF8 0%, #FFF8F0 100%)"}}>
-      <button type="button" onClick={() => router.push('/order')} className="mb-4 inline-flex items-center gap-2.5 rounded-full border px-3 py-2 transition-colors hover:bg-orange-50" style={{color: '#A65A28', borderColor: '#F4D7BC', background: 'rgba(255,255,255,0.8)'}}>
-        <ArrowLeft className="w-4 h-4" />
-        <span className="text-[12.5px]">Back to restaurants</span>
-      </button>
-
+    <div className="relative mx-auto min-h-screen w-full max-w-5xl overflow-x-clip px-4 py-6" style={{background: "radial-gradient(ellipse at top left, rgba(255, 220, 185, 0.32), transparent 42%), linear-gradient(180deg, #FFFCF8 0%, #FFF8F0 100%)"}}>
       {isLoading && (
         <div className="space-y-3" aria-busy="true">
           <div className="h-[110px] rounded-xl animate-pulse" style={{background: 'var(--peach)'}} />
@@ -52,6 +47,18 @@ export default function RestaurantMenuPage() {
 
       {!isLoading && restaurant && (
         <>
+          <div className="sticky top-3 z-40 -mb-12 ml-4 h-0">
+            <button
+              type="button"
+              onClick={() => router.push('/order')}
+              className="inline-flex items-center gap-2 rounded-full border px-3.5 py-2.5 text-sm font-semibold shadow-lg backdrop-blur-md transition hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0"
+              style={{color:'#8F451F',borderColor:'rgba(255,255,255,0.8)',background:'rgba(255,255,255,0.94)'}}
+              aria-label="Back to restaurants"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Restaurants</span>
+            </button>
+          </div>
           <section
             className="relative -mx-4 mb-5 h-[210px] overflow-hidden sm:h-[250px]"
             style={
