@@ -170,8 +170,8 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Home, Office"
-                    className="flex-1 rounded-lg px-3 py-2 text-[12px] outline-none bg-white"
-                    style={{color: 'var(--ink)'}}
+                    className="flex-1 rounded-lg border px-3 py-2 text-[12px] outline-none bg-white focus:border-orange-500"
+                    style={{color: 'var(--ink)', borderColor: 'var(--line)'}}
                     autoFocus
                   />
                   <button
@@ -230,8 +230,8 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
               value={landmark}
               onChange={(e) => setLandmark(e.target.value)}
               placeholder="e.g. opposite First Bank"
-              className="w-full px-3 py-2.5 rounded-lg text-[12.5px] outline-none bg-white"
-              style={{color: 'var(--ink)'}}
+              className="w-full px-3 py-2.5 rounded-lg border text-[12.5px] outline-none bg-white focus:border-orange-500"
+              style={{color: 'var(--ink)', borderColor: 'var(--line)'}}
             />
           </div>
 
@@ -246,8 +246,8 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
                 setLga('');
                 setOutsideServiceArea(false);
               }}
-              className="w-full px-3 py-2.5 rounded-lg text-[12.5px] outline-none bg-white"
-              style={{color: 'var(--ink)'}}
+              className="w-full px-3 py-2.5 rounded-lg border text-[12.5px] outline-none bg-white focus:border-orange-500"
+              style={{color: 'var(--ink)', borderColor: 'var(--line)'}}
             >
               <option value="" disabled>Select state</option>
               {NIGERIA_STATES.map((st) => (
@@ -266,8 +266,8 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
                 setLga(e.target.value);
                 setOutsideServiceArea(false);
               }}
-              className="w-full px-3 py-2.5 rounded-lg text-[12.5px] outline-none bg-white"
-              style={{color: 'var(--ink)'}}
+              className="w-full px-3 py-2.5 rounded-lg border text-[12.5px] outline-none bg-white focus:border-orange-500"
+              style={{color: 'var(--ink)', borderColor: 'var(--line)'}}
             >
               <option value="" disabled>Select LGA</option>
               {lgaOptions(chosenState).map((o) => (
