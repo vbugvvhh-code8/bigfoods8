@@ -3,9 +3,8 @@
 import Link from 'next/link';
 import usePricingConfig from '@/hooks/usePricingConfig';
 import Footer from '@/components/layout/Footer';
+import { LOGO_URL } from '@/lib/brandImages';
 
-const LOGO_URL =
-  'https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/0.4568313681357089.webp';
 const RIDER_PHOTO_URL =
   'https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/0.29559022117992917.webp';
 
