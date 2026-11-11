@@ -126,15 +126,7 @@ function CheckoutContent() {
 
   return (
     <div className="w-full max-w-[380px] lg:max-w-2xl mx-auto px-4 py-6 pb-28">
-      <button onClick={() => router.back()} className="flex items-center gap-2.5 mb-4" style={{color: 'var(--gray)'}}>
-        <ArrowLeft className="w-4 h-4" />
-        <span className="text-[12.5px]">Back</span>
-      </button>
-
-      <h1 className="font-display text-[19px] font-semibold" style={{color: 'var(--ink)'}}>
-        Checkout
-      </h1>
-      <p className="text-[12px] mt-0.5" style={{color: 'var(--gray)'}}>
+      <p className="mb-3 text-[12px] font-medium" style={{color: 'var(--gray)'}}>
         {isMultiRestaurant ? `${groups.length} restaurants` : groups[0]?.restaurantName}
       </p>
 
@@ -145,7 +137,7 @@ function CheckoutContent() {
         </div>
       )}
 
-      <div className="mt-4 space-y-3">
+      <section aria-label="Your order" className="mt-4 space-y-3 rounded-2xl border bg-white/60 p-3" style={{borderColor: "var(--line)"}}>
         {groups.map((g) => (
           <div key={g.restaurantId}>
             {isMultiRestaurant && (
@@ -157,6 +149,8 @@ function CheckoutContent() {
           </div>
         ))}
       </div>
+
+      </section>
 
       <DeliveryLocationPicker selected={deliveryPoint} onSelect={setDeliveryPoint} note={note} onNoteChange={setNote} />
 
