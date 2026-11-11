@@ -13,6 +13,7 @@ const links = [
   { href: "/staff/pos/orders", label: "Orders", icon: ClipboardList },
   { href: "/staff/pos-catalogue", label: "Menu & Catalogue", icon: Package },
   { href: "/staff/inventory", label: "Inventory", icon: Store },
+  { href: "#", label: "Customers", icon: Users },
   { href: "/staff/pos/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/staff/pos/reports", label: "Reports", icon: FileText },
   { href: "/staff/settings", label: "Settings", icon: Settings },
@@ -33,10 +34,10 @@ export default function PosWorkspaceShell({ children, title, staffName, staffRol
       <nav className="flex flex-col gap-1">
         {links.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href !== "/staff/pos" && pathname.startsWith(href + "/"));
-          return <button key={href} onClick={() => { router.push(href); if (mobile) setMobileOpen(false); }} aria-current={active ? "page" : undefined}
+          return <button key={label} disabled={href === "#"} onClick={() => { if (href !== "#") router.push(href); if (mobile) setMobileOpen(false); }} aria-current={active ? "page" : undefined}
             className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[12.5px] font-medium transition"
             style={{ background: active ? "rgba(255,106,0,.16)" : "transparent", color: active ? "#FFFFFF" : "#C0B5AC", borderLeft: active ? "3px solid #FF6A00" : "3px solid transparent" }}>
-            <Icon size={17} strokeWidth={active ? 2.4 : 1.9} /><span>{label}</span>
+            <Icon size={17} strokeWidth={active ? 2.4 : 1.9} /><span>{label}</span>{href === "#" && <span className="ml-auto text-[9px] text-[#857970]">Soon</span>}
           </button>;
         })}
       </nav>
