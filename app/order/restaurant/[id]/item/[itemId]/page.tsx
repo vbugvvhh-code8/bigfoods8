@@ -44,17 +44,13 @@ export default function MenuItemDetailsPage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-6 pb-28">
-      <Link href={`/order/restaurant/${id}`} className="mb-4 inline-flex items-center gap-2 text-sm" style={{ color: 'var(--gray)' }}>
-        <ArrowLeft className="h-4 w-4" /> Back to menu
-      </Link>
-
       {isLoading && <div className="h-72 animate-pulse rounded-2xl" style={{ background: 'var(--peach)' }} aria-label="Loading dish details" />}
       {!isLoading && (restaurantError || menuError || !restaurant) && <ErrorState message="Couldn't load this dish. Please return to the restaurant menu and try again." />}
       {!isLoading && restaurant && !menuError && !item && <ErrorState message="This dish could not be found in this restaurant's menu." />}
 
       {!isLoading && restaurant && item && (
         <article>
-          <div className="overflow-hidden rounded-3xl" style={{ background: 'var(--white)' }}>
+          <div className="overflow-hidden rounded-3xl">
             {images.length > 0 ? (
               <div className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
