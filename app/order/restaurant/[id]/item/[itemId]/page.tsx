@@ -50,7 +50,7 @@ export default function MenuItemDetailsPage() {
 
       {!isLoading && restaurant && item && (
         <article>
-          <div className="overflow-hidden rounded-3xl">
+          <div className="overflow-visible">
             {images.length > 0 ? (
               <div className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
