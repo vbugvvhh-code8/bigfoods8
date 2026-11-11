@@ -63,7 +63,6 @@ export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowPr
   const now = Date.now();
   const promotionInWindow = item.promotional_price != null && (!item.promotion_starts_at || new Date(item.promotion_starts_at).getTime() <= now) && (!item.promotion_ends_at || new Date(item.promotion_ends_at).getTime() > now);
   const displayPrice = promotionInWindow ? Number(item.promotional_price) : Number(item.price);
-  const related = (item.complementary_item_ids ?? []).map(id => relatedItems.find(candidate => candidate.id === id)).filter((candidate): candidate is MenuItem => !!candidate && candidate.is_available !== false && !(candidate as any).admin_disabled).slice(0, 3);
   const adminDisabled = Boolean((item as any).admin_disabled);
   const canOrder = !adminDisabled && item.is_available !== false && restaurant.is_accepting_orders !== false && withinSchedule;
   const hasOptions = (item.option_groups ?? []).length > 0;
@@ -92,7 +91,7 @@ export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowPr
             <div className="flex min-h-11 items-center justify-between rounded-full border px-3 py-1.5" style={{borderColor:'var(--orange)'}}>
               <button type="button" onClick={(event) => { event.stopPropagation(); updateQuantity(item.id, quantity - 1); }} className="flex h-9 w-9 items-center justify-center rounded-full" style={{color:'var(--orange)'}} aria-label={`Remove one ${item.name}`}><Minus className="h-4 w-4" /></button>
               <span className="text-sm font-semibold" style={{color:'var(--ink)'}}>{quantity}</span>
-              <button type="button" onClick={(event) => { event.stopPropagation(); updateQuantity(item.id, quantity + 1); }} className="flex h-8 w-8 items-center justify-center" style={{color:'var(--orange)'}} aria-label={`Add one more ${item.name}`}><Plus className="h-4 w-4" /></button>
+              <button type="button" onClick={(event) => { event.stopPropagation(); updateQuantity(item.id, quantity + 1); }} className="flex h-9 w-9 items-center justify-center rounded-full" style={{color:'var(--orange)'}} aria-label={`Add one more ${item.name}`}><Plus className="h-4 w-4" /></button>
             </div>
           )}
         </div>}
