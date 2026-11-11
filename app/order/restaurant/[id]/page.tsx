@@ -34,7 +34,7 @@ export default function RestaurantMenuPage() {
   const isLoading = restaurantLoading || menuLoading;
 
   return (
-    <div className="relative mx-auto min-h-screen w-full max-w-5xl overflow-x-clip px-4 py-6" style={{background: "radial-gradient(ellipse at top left, rgba(255, 220, 185, 0.32), transparent 42%), linear-gradient(180deg, #FFFCF8 0%, #FFF8F0 100%)"}}>
+    <div className="relative mx-auto min-h-screen w-full max-w-5xl overflow-x-clip px-4 pb-6 pt-0" style={{background: "radial-gradient(ellipse at top left, rgba(255, 220, 185, 0.32), transparent 42%), linear-gradient(180deg, #FFFCF8 0%, #FFF8F0 100%)"}}>
       {isLoading && (
         <div className="space-y-3" aria-busy="true">
           <div className="h-[110px] rounded-xl animate-pulse" style={{background: 'var(--peach)'}} />
