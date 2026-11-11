@@ -3,6 +3,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import getBrowserSupabase from "@/lib/supabase/client";
 import StaffShell from "@/components/staff/StaffShell";
+import { canManageStaff } from "@/lib/staff/access";
 import { Users, UserPlus, Search, Pencil, UserCheck, UserX, RefreshCw, ShieldCheck, Clock3 } from "lucide-react";
 
 type StaffRow = { id:string; email:string; display_name:string; role:string; permissions:string[]; is_active:boolean; must_change_password:boolean; phone?:string|null; job_title?:string|null; start_date?:string|null; monthly_salary?:number|null; last_login_at:string|null; created_at:string };
@@ -45,9 +46,7 @@ export default function StaffManagementPage() {
       const session = await sessionRes.json();
       if (!sessionRes.ok) { router.replace("/staff/login"); return; }
       setCurrentStaff(session.staff);
-      const staffRole = session.staff?.role;
-      const permissions = session.staff?.permissions;
-      if (!["owner","admin"].includes(staffRole) && !(Array.isArray(permissions) && permissions.includes("staff.manage"))) {
+      if (!canManageStaff(session.staff)) {
         setError("Your account does not have permission to manage staff."); return;
       }
       setCanManage(true);
@@ -86,7 +85,7 @@ export default function StaffManagementPage() {
   async function toggle(row:StaffRow) {
     setBusy(true); setError(""); setNotice("");
     try { if (row.is_active) await call({action:"deactivate",staff_id:row.id}); else await call({action:"update",staff_id:row.id,is_active:true}); setNotice(row.is_active?"Account deactivated and active sessions revoked.":"Account activated."); await load(); }
-    catch(e) { setError(e instanceof Error ? e.message : "Unable to update account"); }
+    catch(e) { setError(e instanceof Error ? e.message : "Unable to update staff account"); }
     finally { setBusy(false); }
   }
   const filteredRows = rows.filter(row => {
@@ -99,7 +98,6 @@ export default function StaffManagementPage() {
   return <StaffShell title="Staff management" subtitle="Manage team accounts, access roles and employment details." staffName={currentStaff?.display_name} staffRole={currentStaff?.role} staffPermissions={currentStaff?.permissions}><div className="space-y-5">
     {error && <div role="alert" className="rounded-lg border px-4 py-3 text-[12px]" style={{borderColor:"#E8B4A8",background:"#FFF3F0",color:"#9B3020"}}>{error}</div>}
     {notice && <div role="status" className="rounded-lg border px-4 py-3 text-[12px]" style={{borderColor:"#B8D8C2",background:"#F0FAF2",color:"#23643B"}}>{notice}</div>}
-
     {formOpen && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-3 sm:p-6" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)resetForm();}}>
       <section role="dialog" aria-modal="true" aria-labelledby="staff-form-title" className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border bg-white shadow-2xl" style={{borderColor:"var(--line)"}}>
         <header className="flex items-start gap-3 border-b px-5 py-4 sm:px-6" style={{borderColor:"var(--line)"}}>
@@ -127,7 +125,6 @@ export default function StaffManagementPage() {
       <div className="rounded-xl border bg-white p-4 sm:p-5" style={{borderColor:"var(--line)"}}><div className="flex items-center justify-between"><span className="text-[11px] font-medium" style={{color:"var(--gray)"}}>Active accounts</span><UserCheck className="h-4 w-4 text-green-700"/></div><p className="mt-2 text-[26px] font-semibold" style={{fontFamily:"'Space Grotesk', sans-serif"}}>{activeCount}</p><p className="mt-1 text-[10.5px]" style={{color:"var(--gray)"}}>Can access assigned modules</p></div>
       <div className="rounded-xl border bg-white p-4 sm:p-5" style={{borderColor:"var(--line)"}}><div className="flex items-center justify-between"><span className="text-[11px] font-medium" style={{color:"var(--gray)"}}>Inactive accounts</span><UserX className="h-4 w-4" style={{color:"var(--gray)"}}/></div><p className="mt-2 text-[26px] font-semibold" style={{fontFamily:"'Space Grotesk', sans-serif"}}>{inactiveCount}</p><p className="mt-1 text-[10.5px]" style={{color:"var(--gray)"}}>Access disabled</p></div>
     </section>
-
     <section className="overflow-hidden rounded-xl border bg-white" style={{borderColor:"var(--line)"}}>
       <div className="flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between" style={{borderColor:"var(--line)"}}><div><h2 className="text-[14px] font-semibold">Team directory</h2><p className="mt-1 text-[11px]" style={{color:"var(--gray)"}}>Manage BigFoods team accounts, roles and employment details. <span className="mx-1">·</span>{filteredRows.length} {filteredRows.length === 1 ? "staff member" : "staff members"} shown.</p></div><div className="flex flex-wrap items-center gap-2">{canManage&&<><button type="button" onClick={()=>void load()} disabled={loading||busy} className="inline-flex items-center justify-center gap-1.5 rounded-md border bg-white px-3 py-2 text-[11px] disabled:opacity-50" style={{borderColor:"var(--line)",color:"var(--ink)"}}><RefreshCw className={`h-3.5 w-3.5 ${loading?"animate-spin":""}`}/>{loading?"Refreshing…":"Refresh"}</button><button type="button" onClick={()=>{resetForm();setFormOpen(true);}} className="inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[11px] font-semibold text-white shadow-sm hover:opacity-90" style={{background:"var(--orange)"}}><UserPlus className="h-3.5 w-3.5"/> Add staff member</button></>}</div></div>
       <div className="flex flex-col gap-3 border-b p-4 sm:flex-row" style={{borderColor:"var(--line)",background:"#FCFAF7"}}><div className="relative flex-1"><Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{color:"var(--gray)"}}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name, email, role or job title…" className="w-full rounded-md border bg-white py-2.5 pl-9 pr-3 text-[11.5px] outline-none focus:border-orange-400" style={{borderColor:"var(--line)"}}/></div><select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} className="rounded-md border bg-white px-3 py-2.5 text-[11.5px]" style={{borderColor:"var(--line)"}}><option value="all">All statuses</option><option value="active">Active only</option><option value="inactive">Inactive only</option></select></div>

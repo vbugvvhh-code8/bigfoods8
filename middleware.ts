@@ -29,6 +29,14 @@ const ONBOARDING_PATH_ORDER = [
   '/restaurant-portal/onboarding/menu',
 ];
 
+function canManageStaffSession(staff: any): boolean {
+  const role = typeof staff?.role === 'string' ? staff.role.trim().toLowerCase() : '';
+  const permissions = Array.isArray(staff?.permissions)
+    ? staff.permissions.filter((value: unknown): value is string => typeof value === 'string').map((value: string) => value.trim().toLowerCase())
+    : [];
+  return staff?.is_active !== false && (['owner', 'admin'].includes(role) || permissions.includes('staff.manage'));
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -38,12 +46,6 @@ export async function middleware(req: NextRequest) {
 
   // Staff management lives in the staff workspace, never inside /admin.
   // A staff cookie alone must not authorize any /admin route.
-  if (pathname === '/admin/pos-catalogue' || pathname.startsWith('/admin/pos-catalogue/')) {
-    return NextResponse.redirect(new URL('/staff/pos-catalogue', req.url));
-  }
-  if (pathname === '/admin/inventory' || pathname.startsWith('/admin/inventory/')) {
-    return NextResponse.redirect(new URL('/staff/inventory', req.url));
-  }
 
   if (pathname === '/admin/staff' || pathname.startsWith('/admin/staff/')) {
     return NextResponse.redirect(new URL('/staff/manage', req.url));
@@ -76,14 +78,9 @@ export async function middleware(req: NextRequest) {
       if (!mustChangePassword && pathname === '/staff/change-password') {
         return NextResponse.redirect(new URL('/staff', req.url));
       }
-      // Restrict the staff-management screen at the route boundary as well as
-      // inside its API; non-managers should not see the management UI.
       const isStaffManageRoute = pathname === '/staff/manage' || pathname.startsWith('/staff/manage/');
-      if (isStaffManageRoute) {
-        const permissions = staff?.permissions;
-        const canManageStaff = staff && staff.is_active !== false &&
-          (['owner', 'admin'].includes(staff.role) || (Array.isArray(permissions) && permissions.includes('staff.manage')));
-        if (!canManageStaff) return NextResponse.redirect(new URL('/staff', req.url));
+      if (isStaffManageRoute && !canManageStaffSession(staff)) {
+        return NextResponse.redirect(new URL('/staff', req.url));
       }
       return NextResponse.next();
     } catch {
@@ -124,15 +121,10 @@ export async function middleware(req: NextRequest) {
         return NextResponse.redirect(new URL('/restaurant-portal/onboarding/seller-info', req.url));
       }
       if (userError || !user) return response;
-
       const resolved = await resolveRestaurantEntryPath(supabase);
-
-      // Once onboarding is complete, prevent the owner from reopening any
-      // onboarding step (including by typing or bookmarking its URL).
       if (resolved === RESTAURANT_DASHBOARD_BASE) {
         return NextResponse.redirect(new URL(RESTAURANT_DASHBOARD_BASE, req.url));
       }
-
       const resolvedIndex = ONBOARDING_PATH_ORDER.indexOf(resolved);
       const currentIndex = ONBOARDING_PATH_ORDER.indexOf(pathname);
       if (resolvedIndex !== -1 && currentIndex !== -1 && currentIndex > resolvedIndex) {
@@ -143,16 +135,11 @@ export async function middleware(req: NextRequest) {
 
     if (isRestaurantDashboardRoute) {
       if (userError || !user) return NextResponse.redirect(new URL(RESTAURANT_LOGIN_PATH, req.url));
-
       const { data: profile } = await supabase.from('profiles').select('blocked').eq('id', user.id).maybeSingle();
       if (profile?.blocked) {
         await supabase.auth.signOut();
         return NextResponse.redirect(new URL(RESTAURANT_LOGIN_PATH, req.url));
       }
-
-      // The resolver is the source of truth for new and legacy onboarding.
-      // For new sellers it requires a successful onboarding_plan transaction;
-      // pending/failed/cancelled transactions never satisfy that check.
       const nextPath = await resolveRestaurantEntryPath(supabase);
       if (nextPath !== RESTAURANT_DASHBOARD_BASE) {
         return NextResponse.redirect(new URL(nextPath, req.url));
@@ -162,21 +149,13 @@ export async function middleware(req: NextRequest) {
 
     if (isRiderDashboardRoute) {
       if (userError || !user) return NextResponse.redirect(new URL(RIDER_LOGIN_PATH, req.url));
-
       const { data: rider, error: riderError } = await supabase
         .from('riders')
         .select('verification_fee_paid, approval_status')
         .eq('profile_id', user.id)
         .maybeSingle();
-
-      if (riderError || !rider) {
-        return NextResponse.redirect(new URL(RIDER_ONBOARDING_DETAILS_PATH, req.url));
-      }
-      if (!rider.verification_fee_paid) {
-        return NextResponse.redirect(new URL(RIDER_ONBOARDING_PAYMENT_PATH, req.url));
-      }
-      // Paid but not yet approved riders reach a status-only screen from the
-      // dashboard layout; its children are not rendered until approved.
+      if (riderError || !rider) return NextResponse.redirect(new URL(RIDER_ONBOARDING_DETAILS_PATH, req.url));
+      if (!rider.verification_fee_paid) return NextResponse.redirect(new URL(RIDER_ONBOARDING_PAYMENT_PATH, req.url));
       return response;
     }
 
@@ -196,7 +175,6 @@ export const config = {
     '/restaurant-portal/dashboard/:path*',
     '/restaurant-portal/onboarding/:path*',
     '/rider-portal/dashboard/:path*',
-    // Refresh Supabase SSR auth cookies on customer order pages too.
     '/order/:path*',
   ],
 };

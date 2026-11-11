@@ -1,6 +1,7 @@
 "use client";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { canManageStaff } from "@/lib/staff/access";
 export const dynamic = "force-dynamic";
 export default function StaffLoginPage() {
   const router = useRouter();
@@ -14,13 +15,10 @@ export default function StaffLoginPage() {
       const res = await fetch("/api/bigfoods-staff/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Unable to sign in");
-      const permissions = data.staff?.permissions;
-      const canManageStaff = ["owner", "admin"].includes(data.staff?.role) || (Array.isArray(permissions) && permissions.includes("staff.manage"));
-      // Send temporary-password accounts directly to password rotation rather than
-      // relying on middleware to redirect them from their eventual destination.
+      const isStaffManager = canManageStaff(data.staff);
       const destination = data.staff?.must_change_password
         ? "/staff/change-password"
-        : canManageStaff ? "/admin/staff" : "/staff";
+        : isStaffManager ? "/staff/manage" : "/staff";
       router.replace(destination);
       router.refresh();
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to sign in"); }
