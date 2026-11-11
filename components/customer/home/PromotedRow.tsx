@@ -94,7 +94,7 @@ export function PromotedRow({restaurants}: PromotedRowProps) {
 
       <div
         ref={trackRef}
-        className="flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth scrollbar-hide px-[9%] -mx-4"
+        className="flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth scrollbar-hide px-[11%] -mx-4"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
         onTouchStart={() => setPaused(true)}
@@ -109,10 +109,10 @@ export function PromotedRow({restaurants}: PromotedRowProps) {
             data-promotion-impression
             data-restaurant-id={r.id}
             onClick={() => trackRestaurantEvent(r.id, 'card_click')}
-            className="flex-shrink-0 w-[82%] max-w-[320px] snap-center text-left"
+            className="flex-shrink-0 w-[78%] max-w-[280px] snap-center text-left"
           >
             <div
-              className="w-full h-[170px] rounded-2xl relative overflow-hidden mb-2 bg-cover bg-center"
+              className="w-full h-[120px] sm:h-[132px] rounded-xl relative overflow-hidden mb-2 bg-cover bg-center"
               style={
                 r.image_url
                   ? {backgroundImage: `url(${r.image_url}), linear-gradient(135deg, #FFE3C7, #FFD9B3)`}
