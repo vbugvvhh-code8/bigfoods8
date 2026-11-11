@@ -6,6 +6,7 @@ import {Home, ClipboardList, User, MapPin, CalendarDays, ArrowLeft} from 'lucide
 import SafeImage from '@/components/ui/SafeImage';
 import {useGeolocation} from '@/hooks/useGeolocation';
 import {useEffect} from 'react';
+import {useRestaurant} from '@/hooks/useRestaurants';
 
 const LOGO_URL =
   'https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/0.4927238865897102.webp';
@@ -17,7 +18,7 @@ const ITEMS = [
   {href: '/order/profile', label: 'Profile', icon: User},
 ];
 
-function MobileTopBar({showBack}: {showBack: boolean}) {
+function MobileTopBar({showBack, restaurantName}: {showBack: boolean; restaurantName?: string}) {
   const router = useRouter();
   const {lgaGuess, nigerianState, requestLocation, isLoading} = useGeolocation();
 
@@ -42,15 +43,17 @@ function MobileTopBar({showBack}: {showBack: boolean}) {
             <ArrowLeft className="h-5 w-5" />
           </button>
         )}
-        <Link href="/order" className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md overflow-hidden flex-shrink-0" style={{background: 'var(--orange)'}}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <SafeImage src={LOGO_URL} alt="BigFoods" className="w-full h-full object-cover" />
-          </div>
-          <span className="font-display font-semibold text-[15px]" style={{color: 'var(--ink)'}}>
-            BigFoods
-          </span>
-        </Link>
+        {showBack ? (
+          <span className="max-w-[190px] truncate font-display text-[15px] font-semibold" style={{color:'var(--ink)'}}>{restaurantName || 'Restaurant'}</span>
+        ) : (
+          <Link href="/order" className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-md overflow-hidden flex-shrink-0" style={{background: 'var(--orange)'}}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <SafeImage src={LOGO_URL} alt="BigFoods" className="h-full w-full object-cover" />
+            </div>
+            <span className="font-display text-[15px] font-semibold" style={{color:'var(--ink)'}}>BigFoods</span>
+          </Link>
+        )}
       </div>
 
       <div className="flex items-center gap-1 text-[11.5px]" style={{color: 'var(--gray)'}}>
@@ -67,10 +70,12 @@ export function TopNav() {
   const pathname = usePathname();
   const router = useRouter();
   const showBack = pathname?.startsWith('/order/restaurant/') ?? false;
+  const restaurantId = showBack ? pathname.split('/')[3] : '';
+  const {restaurant} = useRestaurant(restaurantId);
 
   return (
     <>
-      <MobileTopBar showBack={showBack} />
+      <MobileTopBar showBack={showBack} restaurantName={restaurant?.name} />
 
       {/* Desktop: unchanged nav bar */}
       <header
@@ -83,15 +88,17 @@ export function TopNav() {
               <ArrowLeft className="h-4 w-4" />
             </button>
           )}
-          <Link href="/order" className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0" style={{background: 'var(--orange)'}}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <SafeImage src={LOGO_URL} alt="BigFoods" className="w-full h-full object-cover" />
-          </div>
-          <span className="font-display font-semibold text-[16px]" style={{color: 'var(--ink)'}}>
-            BigFoods
-          </span>
-          </Link>
+          {showBack ? (
+            <span className="max-w-[260px] truncate font-display text-base font-semibold" style={{color:'var(--ink)'}}>{restaurant?.name || 'Restaurant'}</span>
+          ) : (
+            <Link href="/order" className="flex items-center gap-2.5">
+              <div className="h-7 w-7 shrink-0 overflow-hidden rounded-lg" style={{background:'var(--orange)'}}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <SafeImage src={LOGO_URL} alt="BigFoods" className="h-full w-full object-cover" />
+              </div>
+              <span className="font-display text-base font-semibold" style={{color:'var(--ink)'}}>BigFoods</span>
+            </Link>
+          )}
         </div>
 
         <nav className="flex items-center gap-6">
