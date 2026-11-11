@@ -84,7 +84,7 @@ export default function MenuItemDetailsPage() {
 
               <div className="mt-5 flex flex-wrap gap-2">
                 {item.preparation_time_minutes && <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs" style={{ borderColor: '#E8CDB8', background: 'var(--peach)', color: 'var(--ink)' }}><Clock3 className="h-3.5 w-3.5" /> About {item.preparation_time_minutes} min</span>}
-                {item.serving_size && <span className="rounded-full px-3 py-1.5 text-xs" style={{ background: 'var(--peach)', color: 'var(--ink)' }}>Serving: {item.serving_size}</span>}
+                {item.serving_size && <span className="rounded-full border px-3 py-1.5 text-xs" style={{ borderColor: '#E8CDB8', background: 'var(--peach)', color: 'var(--ink)' }}>Serving: {item.serving_size}</span>}
                 {(item.dietary_tags ?? []).map((tag) => <span key={tag} className="rounded-full border px-3 py-1.5 text-xs font-medium" style={{ borderColor: '#B7DFC5', background: '#E7F6EC', color: '#207245' }}>{tag}</span>)}
               </div>
 
