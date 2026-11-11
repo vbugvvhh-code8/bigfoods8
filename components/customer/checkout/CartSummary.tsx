@@ -1,6 +1,6 @@
 'use client';
 
-import {Plus, Minus, Trash2} from 'lucide-react';
+import {Plus, Minus, Trash2, Image as ImageIcon} from 'lucide-react';
 import {useCart} from '@/hooks/useCart';
 
 interface CartSummaryProps {
@@ -16,7 +16,17 @@ export function CartSummary({restaurantId}: CartSummaryProps) {
     <div className="divide-y" style={{borderColor: 'var(--line)'}}>
       {visibleItems.map((item) => (
         <div key={item.id} className="flex items-center gap-3 border-b py-3 last:border-b-0" style={{borderColor: "var(--line)"}}>
-          <div className="flex-1 min-w-0">
+          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border" style={{borderColor: '#F0DDCC', background: '#FFF0E3'}}>
+            {item.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center" style={{color: '#C77A43'}}>
+                <ImageIcon className="h-6 w-6" aria-hidden="true" />
+              </div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
             <div className="font-semibold text-[12.5px]" style={{color: 'var(--ink)'}}>
               {item.name}
             </div>
@@ -25,7 +35,7 @@ export function CartSummary({restaurantId}: CartSummaryProps) {
               ₦{item.price.toLocaleString()} each
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={() => updateQuantity(item.id, item.quantity - 1)}
