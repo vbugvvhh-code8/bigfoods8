@@ -140,16 +140,7 @@ export function PromotedRow({restaurants}: PromotedRowProps) {
   if (restaurants.length === 0) return null;
 
   return (
-    <section className="mt-1 mb-5" aria-label="Promoted restaurants">
-      <div className="flex items-baseline justify-between px-0 mb-3">
-        <h2 className="font-display text-[15px] font-semibold" style={{color: 'var(--ink)'}}>
-          Promoted near you
-        </h2>
-        {randomized.length > 1 && (
-          <span className="text-[10px]" style={{color: 'var(--gray)'}}>Swipe to explore</span>
-        )}
-      </div>
-
+    <section className="mt-1 mb-5" aria-label="Featured restaurants">
       <div
         ref={trackRef}
         className="flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth scrollbar-hide px-[8%] -mx-4"
@@ -170,26 +161,49 @@ export function PromotedRow({restaurants}: PromotedRowProps) {
             className="flex-shrink-0 w-[84%] max-w-[340px] snap-center text-left"
           >
             <div
-              className="w-full h-[140px] sm:h-[150px] rounded-xl relative overflow-hidden mb-2 bg-cover bg-center"
+              className="w-full h-[140px] sm:h-[150px] rounded-xl relative overflow-hidden bg-cover bg-center"
               style={
                 r.image_url
                   ? {backgroundImage: `url(${r.image_url}), linear-gradient(135deg, #FFE3C7, #FFD9B3)`}
                   : {background: 'linear-gradient(135deg, var(--peach), #FFD9B3)'}
               }
             >
-              <span
-                className="absolute top-3 left-3 text-white text-[10px] font-bold px-2.5 py-1 rounded-full"
-                style={{background: 'var(--orange)'}}
-              >
-                Promoted
-              </span>
-            </div>
-            <div className="font-semibold text-[13px]" style={{color: 'var(--ink)'}}>
-              {r.name}
-            </div>
-            <div className="text-[11px]" style={{color: 'var(--gray)'}}>
-              {r.category}
-              {r.etaMinutes != null ? ` · ~${r.etaMinutes} min` : ''}
+              <div
+                className="absolute inset-0"
+                style={{background: 'linear-gradient(180deg, rgba(0,0,0,0.02) 20%, rgba(0,0,0,0.78) 100%)'}}
+              />
+              <div className="absolute bottom-0 left-0 right-0 flex items-end gap-3 p-3">
+                <div
+                  className="w-11 h-11 shrink-0 overflow-hidden rounded-lg flex items-center justify-center"
+                  style={{background: '#FFFFFF', border: '1px solid rgba(255,255,255,0.8)'}}
+                >
+                  {r.logo_url ? (
+                    <img src={r.logo_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  ) : (
+                    <span className="text-xs font-bold" style={{color: '#C2410C'}}>BF</span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-[14px] leading-tight text-white truncate">
+                    {r.name}
+                  </div>
+                  <div className="mt-1 flex items-center gap-1.5 flex-wrap text-[10.5px] text-white/90">
+                    {r.category && <span>{r.category}</span>}
+                    {r.distanceKm != null && (
+                      <>
+                        {r.category && <span aria-hidden="true">·</span>}
+                        <span>{r.distanceKm.toFixed(1)} km</span>
+                      </>
+                    )}
+                    {r.etaMinutes != null && (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <span>~{r.etaMinutes} min</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </Link>
         ))}
