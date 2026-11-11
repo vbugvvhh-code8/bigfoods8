@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { LOGO_URL } from '@/lib/brandImages';
 
 export default function PortalHome() {
   const states = ['Anambra', 'Delta', 'PH City', 'Lagos', 'Abuja'];
@@ -23,7 +24,7 @@ export default function PortalHome() {
             <div className="logo">
               <div className="logo-badge">
                 <img 
-                  src="https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/0.4927238865897102.webp" 
+                  src={LOGO_URL} 
                   alt="BigFoods Logo" 
                 />
               </div>
