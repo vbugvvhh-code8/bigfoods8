@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import {usePathname} from 'next/navigation';
-import {Home, ClipboardList, User, MapPin, CalendarDays} from 'lucide-react';
+import {usePathname, useRouter} from 'next/navigation';
+import {Home, ClipboardList, User, MapPin, CalendarDays, ArrowLeft} from 'lucide-react';
 import SafeImage from '@/components/ui/SafeImage';
 import {useGeolocation} from '@/hooks/useGeolocation';
 import {useEffect} from 'react';
@@ -17,7 +17,8 @@ const ITEMS = [
   {href: '/order/profile', label: 'Profile', icon: User},
 ];
 
-function MobileTopBar() {
+function MobileTopBar({showBack}: {showBack: boolean}) {
+  const router = useRouter();
   const {lgaGuess, nigerianState, requestLocation, isLoading} = useGeolocation();
 
   useEffect(() => {
@@ -29,15 +30,28 @@ function MobileTopBar() {
     <header
       className="flex lg:hidden sticky top-0 z-40 items-center justify-between px-4 h-14 bg-white"
     >
-      <Link href="/order" className="flex items-center gap-2">
-        <div className="w-6 h-6 rounded-md overflow-hidden flex-shrink-0" style={{background: 'var(--orange)'}}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <SafeImage src={LOGO_URL} alt="BigFoods" className="w-full h-full object-cover" />
-        </div>
-        <span className="font-display font-semibold text-[15px]" style={{color: 'var(--ink)'}}>
-          BigFoods
-        </span>
-      </Link>
+      <div className="flex min-w-0 items-center gap-2">
+        {showBack && (
+          <button
+            type="button"
+            onClick={() => router.push('/order')}
+            aria-label="Back to restaurants"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:bg-orange-50"
+            style={{color:'var(--orange)'}}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        )}
+        <Link href="/order" className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md overflow-hidden flex-shrink-0" style={{background: 'var(--orange)'}}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <SafeImage src={LOGO_URL} alt="BigFoods" className="w-full h-full object-cover" />
+          </div>
+          <span className="font-display font-semibold text-[15px]" style={{color: 'var(--ink)'}}>
+            BigFoods
+          </span>
+        </Link>
+      </div>
 
       <div className="flex items-center gap-1 text-[11.5px]" style={{color: 'var(--gray)'}}>
         <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
@@ -51,17 +65,25 @@ function MobileTopBar() {
 
 export function TopNav() {
   const pathname = usePathname();
+  const router = useRouter();
+  const showBack = pathname?.startsWith('/order/restaurant/') ?? false;
 
   return (
     <>
-      <MobileTopBar />
+      <MobileTopBar showBack={showBack} />
 
       {/* Desktop: unchanged nav bar */}
       <header
         className="hidden lg:flex sticky top-0 z-40 items-center justify-between px-8 h-16 bg-white"
         style={{borderBottom: '1px solid var(--line)'}}
       >
-        <Link href="/order" className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3">
+          {showBack && (
+            <button type="button" onClick={() => router.push('/order')} aria-label="Back to restaurants" className="flex h-9 w-9 items-center justify-center rounded-full border" style={{color:'var(--orange)',borderColor:'var(--line)'}}>
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          )}
+          <Link href="/order" className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0" style={{background: 'var(--orange)'}}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <SafeImage src={LOGO_URL} alt="BigFoods" className="w-full h-full object-cover" />
@@ -69,7 +91,8 @@ export function TopNav() {
           <span className="font-display font-semibold text-[16px]" style={{color: 'var(--ink)'}}>
             BigFoods
           </span>
-        </Link>
+          </Link>
+        </div>
 
         <nav className="flex items-center gap-6">
           {ITEMS.map(({href, label, icon: Icon}) => {
