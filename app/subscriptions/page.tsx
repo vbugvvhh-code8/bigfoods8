@@ -91,7 +91,7 @@ export default function SubscriptionsPage() {
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{ background: '#FFEDD5', color: '#C2410C' }}><CalendarDays className="h-5 w-5" /></span>
           <div><h2 className="font-bold" style={{ color: '#9A3412' }}>Plan your meals ahead</h2><p className="mt-1 text-sm" style={{ color: '#7C5A46' }}>Choose your meals, variants and delivery days, then pay upfront.</p></div>
         </div>
-        <Link href="/subscriptions/new" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white" style={{ background: 'var(--orange)' }}><Plus className="h-4 w-4" />Add meal subscription</Link>
+        <Link href="/order" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white" style={{ background: 'var(--orange)' }}><Plus className="h-4 w-4" />Choose a restaurant</Link>
       </div>
       <section id="your-packages" className="scroll-mt-24 p-0">
         <div className="mb-4 flex items-center justify-between gap-3">
@@ -100,7 +100,7 @@ export default function SubscriptionsPage() {
         </div>
         {subscriptions.length === 0 ? <div className="rounded-xl p-6 text-center" style={{ background: '#F8F6F3' }}>
           <CalendarDays className="mx-auto h-8 w-8 text-gray-400" /><p className="mt-3 font-semibold">No meal packages yet</p><p className="mt-1 text-sm text-gray-500">Create a package to choose meals and set your delivery schedule.</p>
-          <Link href="/subscriptions/new" className="mt-4 inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white" style={{ background: 'var(--orange)' }}><Plus className="h-4 w-4" />Add meal subscription</Link>
+          <Link href="/order" className="mt-4 inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white" style={{ background: 'var(--orange)' }}><Plus className="h-4 w-4" />Choose a restaurant</Link>
         </div> : <div className="grid gap-4 md:grid-cols-2">{subscriptions.map(sub => <article key={sub.id} className="rounded-xl border p-4" style={{ borderColor: 'var(--line)' }}>
           <div className="flex items-start justify-between gap-3"><div><h3 className="font-bold">{sub.restaurant?.name ?? 'Kitchen'}</h3><p className="mt-1 text-xs text-gray-500">{sub.package_weeks} week(s) · {sub.total_deliveries} deliveries · {sub.delivery_time}</p></div>
             <span className="rounded-full px-2.5 py-1 text-xs font-bold capitalize" style={{ background: sub.status === 'active' ? '#E7F6EC' : sub.status === 'paused' ? '#FFF0E5' : '#F1F1F1', color: sub.status === 'active' ? '#207245' : sub.status === 'paused' ? '#B45309' : '#555' }}>{sub.status.replaceAll('_', ' ')}</span>
