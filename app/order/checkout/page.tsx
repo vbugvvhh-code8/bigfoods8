@@ -148,8 +148,6 @@ function CheckoutContent() {
             <CartSummary restaurantId={g.restaurantId} />
           </div>
         ))}
-      </div>
-
       </section>
 
       <DeliveryLocationPicker selected={deliveryPoint} onSelect={setDeliveryPoint} note={note} onNoteChange={setNote} />
