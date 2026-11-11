@@ -4,7 +4,7 @@ import { ReactNode, useState } from 'react';
 import SafeImage from '@/components/ui/SafeImage';
 import { LOGO_URL } from '@/lib/brandImages';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound, CalendarPlus, Repeat2, Users, ClipboardList, Warehouse, ChevronDown, MapPin, Clock3, CalendarCheck, QrCode, ClipboardCheck, HeartPulse, Target, Settings } from 'lucide-react';
+import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound, CalendarPlus, Repeat2, Users, ClipboardList, ChevronDown, MapPin, Clock3, CalendarCheck, QrCode, ClipboardCheck, HeartPulse, Target, Settings } from 'lucide-react';
 
 export default function StaffShell({ children, title, subtitle, staffName, staffRole, staffPermissions }: { children: ReactNode; title: string; subtitle?: string; staffName?: string; staffRole?: string; staffPermissions?: unknown }) {
   const pathname = usePathname();
@@ -22,7 +22,6 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
   const items = [
     { href: '/staff', label: 'Dashboard', icon: <LayoutGrid className="h-4 w-4" /> },
     { href: '/staff/settings', label: 'Settings', icon: <Settings className="h-4 w-4" /> },
-    ...(['owner', 'admin', 'inventory'].includes((staffRole || '').toLowerCase()) || permissions.includes('inventory.manage') || permissions.includes('inventory.view') ? [{ href: '/staff/inventory', label: 'Inventory', icon: <Warehouse className="h-4 w-4" /> }] : []),
     { href: '/staff/attendance', label: 'Attendance & schedule', icon: <CalendarDays className="h-4 w-4" /> },
     ...(['owner', 'admin'].includes((staffRole || '').toLowerCase()) || permissions.includes('staff.manage') ? [
       { href: '/staff/manage', label: 'Staff management', icon: <Users className="h-4 w-4" /> },
