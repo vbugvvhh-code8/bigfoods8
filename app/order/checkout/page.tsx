@@ -131,7 +131,7 @@ function CheckoutContent() {
       </p>
 
       {isMultiRestaurant && (
-        <div className="mt-3 p-3 rounded-xl text-[11.5px]" style={{background: 'var(--peach)', color: 'var(--ink)'}}>
+        <div className="mt-3 rounded-xl border p-3 text-[11.5px] leading-relaxed" style={{background: '#FFF7E8', borderColor: '#F2C46D', color: '#754817'}}>
           Ordering from {groups.length} restaurants means this may arrive as separate deliveries — each rider
           brings their own portion, and you'll get each one's contact info and their own drop-off code.
         </div>
