@@ -126,6 +126,13 @@ export async function middleware(req: NextRequest) {
       if (userError || !user) return response;
 
       const resolved = await resolveRestaurantEntryPath(supabase);
+
+      // Once onboarding is complete, prevent the owner from reopening any
+      // onboarding step (including by typing or bookmarking its URL).
+      if (resolved === RESTAURANT_DASHBOARD_BASE) {
+        return NextResponse.redirect(new URL(RESTAURANT_DASHBOARD_BASE, req.url));
+      }
+
       const resolvedIndex = ONBOARDING_PATH_ORDER.indexOf(resolved);
       const currentIndex = ONBOARDING_PATH_ORDER.indexOf(pathname);
       if (resolvedIndex !== -1 && currentIndex !== -1 && currentIndex > resolvedIndex) {
