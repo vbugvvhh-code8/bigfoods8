@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import NavItem from '@/components/restaurant/dashboard/NavItem';
 import { LayoutGrid, Truck, Wallet, User, MapPin, Menu, X, LogOut, HandHelping } from 'lucide-react';
 import getBrowserSupabase from '@/lib/supabase/client';
+import SafeImage from '@/components/ui/SafeImage';
+import { LOGO_URL } from '@/lib/brandImages';
 
 const NAV_ITEMS = [
   { id: '/rider-portal/dashboard', label: 'Overview', icon: <LayoutGrid className="w-4 h-4" /> },
@@ -18,7 +20,7 @@ const NAV_ITEMS = [
 function BrandBlock() {
   return (
     <div className="flex items-center gap-2 px-1.5">
-      <div className="w-[18px] h-[18px] rounded-[5px] flex-shrink-0" style={{ background: 'var(--orange)' }} />
+      <SafeImage src={LOGO_URL} alt="BigFoods" className="w-[18px] h-[18px] rounded-[5px] flex-shrink-0 object-cover" />
       <span className="font-semibold text-[14px] text-white tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
         BigFoods
       </span>
