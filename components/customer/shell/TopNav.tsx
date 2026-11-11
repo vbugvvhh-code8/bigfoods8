@@ -17,7 +17,7 @@ const ITEMS = [
   {href: '/order/profile', label: 'Profile', icon: User},
 ];
 
-function MobileTopBar({showBack, restaurantName}: {showBack: boolean; restaurantName?: string}) {
+function MobileTopBar({showBack, restaurantName, backHref}: {showBack: boolean; restaurantName?: string; backHref: string}) {
   const router = useRouter();
   const {lgaGuess, nigerianState, requestLocation, isLoading} = useGeolocation();
 
@@ -35,7 +35,7 @@ function MobileTopBar({showBack, restaurantName}: {showBack: boolean; restaurant
         {showBack && (
           <button
             type="button"
-            onClick={() => router.push('/order')}
+            onClick={() => router.push(backHref)}
             aria-label="Back to restaurants"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:bg-orange-50"
             style={{color:'var(--orange)'}}
@@ -70,12 +70,14 @@ export function TopNav() {
   const pathname = usePathname();
   const router = useRouter();
   const showBack = pathname?.startsWith('/order/restaurant/') ?? false;
+  const isItemDetails = pathname?.includes('/item/') ?? false;
   const restaurantId = showBack ? pathname.split('/')[3] : '';
+  const backHref = isItemDetails ? `/order/restaurant/${restaurantId}` : '/order';
   const {restaurant} = useRestaurant(restaurantId);
 
   return (
     <>
-      <MobileTopBar showBack={showBack} restaurantName={restaurant?.name} />
+      <MobileTopBar showBack={showBack} restaurantName={restaurant?.name} backHref={backHref} />
 
       {/* Desktop: unchanged nav bar */}
       <header
@@ -84,7 +86,7 @@ export function TopNav() {
       >
         <div className="flex items-center gap-3">
           {showBack && (
-            <button type="button" onClick={() => router.push('/order')} aria-label="Back to restaurants" className="flex h-9 w-9 items-center justify-center rounded-full border" style={{color:'var(--orange)',borderColor:'var(--line)'}}>
+            <button type="button" onClick={() => router.push(backHref)} aria-label={isItemDetails ? 'Back to restaurant menu' : 'Back to restaurants'} className="flex h-9 w-9 items-center justify-center rounded-full border" style={{color:'var(--orange)',borderColor:'var(--line)'}}>
               <ArrowLeft className="h-4 w-4" />
             </button>
           )}
