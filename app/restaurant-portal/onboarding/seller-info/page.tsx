@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import EmailVerifyField from '@/components/restaurant/onboarding/EmailVerifyField';
 import useOnboardingSession, { stepPath } from '@/hooks/useOnboardingSession';
@@ -10,7 +9,6 @@ import { latestAllowedBirthDate, isAtLeast18 } from '@/lib/age';
 import getBrowserSupabase from '@/lib/supabase/client';
 
 export default function SellerInfoPage() {
-  const router = useRouter();
   const supabase = getBrowserSupabase();
   const { draft, updateDraft, hydrated } = useOnboardingSession();
 
@@ -19,6 +17,8 @@ export default function SellerInfoPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [continuing, setContinuing] = useState(false);
+  const [continueError, setContinueError] = useState<string | null>(null);
 
   // The agreement is its own screen before signup; nobody skips it.
   useEffect(() => {
@@ -69,8 +69,29 @@ export default function SellerInfoPage() {
     }
   }
 
-  function handleContinue() {
-    router.push(stepPath('restaurant-info'));
+  async function handleContinue() {
+    if (!canContinue || continuing) return;
+    setContinuing(true);
+    setContinueError(null);
+    try {
+      // Middleware protects the next onboarding route. Confirm the OTP-created
+      // Supabase session is still valid before leaving this public step, so an
+      // expired/missing session produces a visible message instead of silently
+      // redirecting the seller back to this page.
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      if (!data.user) {
+        throw new Error('Your sign-in session has expired. Please verify your email again to continue.');
+      }
+
+      // Use a full document navigation here: it guarantees the refreshed
+      // Supabase auth cookies reach middleware before the protected next step
+      // is requested (important on mobile browsers immediately after OTP).
+      window.location.assign(stepPath('restaurant-info'));
+    } catch (error: any) {
+      setContinueError(error?.message ?? 'Could not continue. Please try again.');
+      setContinuing(false);
+    }
   }
 
   return (
@@ -287,13 +308,21 @@ export default function SellerInfoPage() {
       </p>
 
 
+      {continueError && (
+        <p className="text-[11.5px] mb-3" style={{ color: 'var(--red)' }} role="alert">
+          {continueError}
+        </p>
+      )}
+
       <button
+        type="button"
         onClick={handleContinue}
-        disabled={!canContinue}
-        className="w-full py-3.5 rounded-[10px] text-[13.5px] font-semibold text-white disabled:opacity-40"
+        disabled={!canContinue || continuing}
+        aria-busy={continuing}
+        className="w-full py-3.5 rounded-[10px] text-[13.5px] font-semibold text-white disabled:opacity-40 flex items-center justify-center gap-2"
         style={{ background: 'var(--orange)' }}
       >
-        Continue
+        {continuing ? <><Loader2 className="w-4 h-4 animate-spin" /> Continuing…</> : 'Continue'}
       </button>
     </>
   );
