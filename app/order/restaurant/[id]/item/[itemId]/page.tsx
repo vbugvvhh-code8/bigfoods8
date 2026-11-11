@@ -43,7 +43,7 @@ export default function MenuItemDetailsPage() {
   const updateOptionQuantity = (groupId: string, optionId: string, nextQuantity: number, selectionType: 'single' | 'multiple') => setOptionQuantities((prev) => { const next = { ...prev }; if (nextQuantity > 0 && selectionType === 'single') item?.option_groups.find((group) => group.id === groupId)?.options.forEach((option) => { next[option.id] = 0; }); next[optionId] = Math.max(0, Math.min(99, nextQuantity)); return next; });
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-6 pb-28">
+    <div className="mx-auto w-full max-w-2xl pb-6">
       {isLoading && <div className="h-72 animate-pulse rounded-2xl" style={{ background: 'var(--peach)' }} aria-label="Loading dish details" />}
       {!isLoading && (restaurantError || menuError || !restaurant) && <ErrorState message="Couldn't load this dish. Please return to the restaurant menu and try again." />}
       {!isLoading && restaurant && !menuError && !item && <ErrorState message="This dish could not be found in this restaurant's menu." />}
@@ -54,8 +54,8 @@ export default function MenuItemDetailsPage() {
             {images.length > 0 ? (
               <div className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={images[Math.min(activeImage, images.length - 1)]} alt={item.name} className="aspect-square w-full rounded-2xl object-cover" />
-                {images.length > 1 && <div className="flex gap-2 overflow-x-auto p-3">
+                <img src={images[Math.min(activeImage, images.length - 1)]} alt={item.name} className="aspect-square w-full rounded-none object-cover" />
+                {images.length > 1 && <div className="flex gap-2 overflow-x-auto px-4 py-3">
                   {images.map((url, index) => (
                     <button key={url} type="button" onClick={() => setActiveImage(index)} aria-label={`Show photo ${index + 1}`} aria-pressed={activeImage === index} className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border-2" style={{ borderColor: activeImage === index ? 'var(--orange)' : 'var(--line)' }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -66,7 +66,7 @@ export default function MenuItemDetailsPage() {
               </div>
             ) : <div className="flex aspect-square items-center justify-center rounded-2xl" style={{ background: 'var(--peach)' }}><UtensilsCrossed className="h-12 w-12" style={{ color: 'var(--gray)' }} /></div>}
 
-            <div className="px-1 py-6 sm:px-2">
+            <div className="px-4 py-5 sm:px-5">
               <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="mb-1 text-xs" style={{ color: 'var(--gray)' }}>
@@ -97,21 +97,21 @@ export default function MenuItemDetailsPage() {
                     {group.required && <span className="rounded-full px-2 py-1 text-[10px] font-semibold" style={{ background: 'var(--peach)', color: 'var(--ink)' }}>Required</span>}
                   </div>
                   <div className="space-y-2">
-                    {group.options.map((option) => { const q = optionQuantities[option.id] ?? 0; const stock = option.stock_quantity == null ? null : Math.max(0, Number(option.stock_quantity) - Number(option.stock_reserved ?? 0)); const unavailable = option.is_available === false || stock === 0; const count = group.options.filter((candidate) => (optionQuantities[candidate.id] ?? 0) > 0).length; const limit = group.selection_type === 'multiple' && q === 0 && count >= (group.max_select ?? group.options.length); return <div key={option.id} className={'flex items-center gap-3 rounded-2xl px-3 py-3.5 ' + (q ? 'bg-orange-50' : 'bg-stone-50')}><div className="min-w-0 flex-1"><p className="text-sm font-semibold" style={{color:'var(--ink)'}}>{option.name}</p><p className="mt-1 text-xs" style={{color:'var(--orange)'}}>{option.price > 0 ? '+₦' + option.price.toLocaleString() + ' each' : 'Included'}</p>{unavailable && <p className="text-[10px]" style={{color:'#B42318'}}>{stock === 0 ? 'Out of stock' : 'Unavailable'}</p>}</div><div className="flex items-center gap-2"><button type="button" aria-label={'Remove one ' + option.name} disabled={q === 0} onClick={() => updateOptionQuantity(group.id, option.id, q - 1, group.selection_type)} className="h-9 w-9 rounded-full bg-white disabled:opacity-30" style={{color:'var(--orange)'}}><Minus className="mx-auto h-4 w-4" /></button><span className="w-5 text-center text-sm font-bold">{q}</span><button type="button" aria-label={'Add one ' + option.name} disabled={!canOrder || unavailable || limit || q >= 99 || (stock != null && q >= stock)} onClick={() => updateOptionQuantity(group.id, option.id, q + 1, group.selection_type)} className="h-9 w-9 rounded-full text-white disabled:opacity-30" style={{background:'var(--orange)'}}><Plus className="mx-auto h-4 w-4" /></button></div></div>; })}
+                    {group.options.map((option) => { const q = optionQuantities[option.id] ?? 0; const stock = option.stock_quantity == null ? null : Math.max(0, Number(option.stock_quantity) - Number(option.stock_reserved ?? 0)); const unavailable = option.is_available === false || stock === 0; const count = group.options.filter((candidate) => (optionQuantities[candidate.id] ?? 0) > 0).length; const limit = group.selection_type === 'multiple' && q === 0 && count >= (group.max_select ?? group.options.length); return <div key={option.id} className={'flex items-center gap-3 rounded-2xl px-3 py-3.5 ' + (q ? 'bg-orange-50' : 'bg-stone-50')}><div className="min-w-0 flex-1"><p className="text-sm font-semibold" style={{color:'var(--ink)'}}>{option.name}</p><p className="mt-1 text-xs" style={{color:'var(--orange)'}}>{option.price > 0 ? '+₦' + option.price.toLocaleString() + ' each' : 'Included'}</p>{unavailable && <p className="text-[10px]" style={{color:'#B42318'}}>{stock === 0 ? 'Out of stock' : 'Unavailable'}</p>}</div><div className="flex items-center gap-2"><button type="button" aria-label={'Remove one ' + option.name} disabled={q === 0} onClick={() => updateOptionQuantity(group.id, option.id, q - 1, group.selection_type)} className="h-9 w-9 rounded-full border border-[#E8CDB8] bg-white disabled:opacity-30" style={{color:'var(--orange)'}}><Minus className="mx-auto h-4 w-4" /></button><span className="w-5 text-center text-sm font-bold">{q}</span><button type="button" aria-label={'Add one ' + option.name} disabled={!canOrder || unavailable || limit || q >= 99 || (stock != null && q >= stock)} onClick={() => updateOptionQuantity(group.id, option.id, q + 1, group.selection_type)} className="h-9 w-9 rounded-full border border-[#E85D04] text-white disabled:opacity-30" style={{background:'var(--orange)'}}><Plus className="mx-auto h-4 w-4" /></button></div></div>; })}
                   </div>
                   {group.selection_type === 'multiple' && group.min_select != null && group.min_select > 0 && <p className="mt-2 text-[10px]" style={{ color: 'var(--gray)' }}>Select at least {group.min_select}.</p>}
                 </section>
               ))}
               {(item.allergens ?? []).length > 0 && <section className="mt-5 rounded-xl border p-4" style={{ borderColor: '#F3C78B', background: '#FFF8EC' }}><h2 className="mb-1 text-sm font-bold" style={{ color: '#8A4B08' }}>Allergen information</h2><p className="text-sm" style={{ color: '#8A4B08' }}>Contains or may contain: {item.allergens.join(', ')}. Please contact the restaurant if you have an allergy or need ingredient confirmation.</p></section>}
 
-              <div className="mt-6 border-t pt-5" style={{ borderColor: 'var(--line)' }}>
+              <div className="mt-6 border-t px-4 pt-5" style={{ borderColor: 'var(--line)' }}>
                 {quantity > 0 ? (
                   <div className="flex items-center justify-between gap-4">
                     <span className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>In your cart</span>
                     <div className="flex items-center gap-4">
-                      <button type="button" onClick={() => updateQuantity(cartKey, quantity - 1)} className="flex h-10 w-10 items-center justify-center rounded-full border" style={{ borderColor: 'var(--orange)', color: 'var(--orange)' }} aria-label="Remove one"><Minus className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => updateQuantity(cartKey, quantity - 1)} className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E8CDB8] bg-[#FFFCF8]" style={{ color: 'var(--orange)' }} aria-label="Remove one"><Minus className="h-4 w-4" /></button>
                       <span className="min-w-4 text-center font-bold">{quantity}</span>
-                      <button type="button" disabled={!canOrder} onClick={() => canOrder && updateQuantity(cartKey, quantity + 1)} className="flex h-10 w-10 items-center justify-center rounded-full text-white disabled:opacity-40" style={{ background: 'var(--orange)' }} aria-label="Add one more"><Plus className="h-4 w-4" /></button>
+                      <button type="button" disabled={!canOrder} onClick={() => canOrder && updateQuantity(cartKey, quantity + 1)} className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E85D04] text-white disabled:opacity-40" style={{ background: 'var(--orange)' }} aria-label="Add one more"><Plus className="h-4 w-4" /></button>
                     </div>
                   </div>
                 ) : (
@@ -119,12 +119,12 @@ export default function MenuItemDetailsPage() {
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>Quantity</span>
                       <div className="flex items-center gap-3">
-                        <button type="button" disabled={requestedQuantity <= 1} onClick={() => setRequestedQuantity((value) => Math.max(1, value - 1))} className="flex h-9 w-9 items-center justify-center rounded-full border disabled:opacity-40" style={{ borderColor: 'var(--orange)', color: 'var(--orange)' }} aria-label="Decrease quantity"><Minus className="h-4 w-4" /></button>
+                        <button type="button" disabled={requestedQuantity <= 1} onClick={() => setRequestedQuantity((value) => Math.max(1, value - 1))} className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E8CDB8] bg-[#FFFCF8] disabled:opacity-40" style={{ color: 'var(--orange)' }} aria-label="Decrease quantity"><Minus className="h-4 w-4" /></button>
                         <span className="min-w-5 text-center font-bold" aria-live="polite">{requestedQuantity}</span>
-                        <button type="button" disabled={requestedQuantity >= 99 || !canOrder} onClick={() => setRequestedQuantity((value) => Math.min(99, value + 1))} className="flex h-9 w-9 items-center justify-center rounded-full border disabled:opacity-40" style={{ borderColor: 'var(--orange)', color: 'var(--orange)' }} aria-label="Increase quantity"><Plus className="h-4 w-4" /></button>
+                        <button type="button" disabled={requestedQuantity >= 99 || !canOrder} onClick={() => setRequestedQuantity((value) => Math.min(99, value + 1))} className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E8CDB8] bg-[#FFFCF8] disabled:opacity-40" style={{ color: 'var(--orange)' }} aria-label="Increase quantity"><Plus className="h-4 w-4" /></button>
                       </div>
                     </div>
-                    <button type="button" disabled={!canOrder || !optionsValid} onClick={() => { if (!canOrder || !optionsValid) return; for (let index = 0; index < requestedQuantity; index += 1) addItem({ id: cartKey, menuItemId: item.id, name: item.name, price: unitPrice, selectedOptions, restaurantId: restaurant.id, restaurantName: restaurant.name }); }} className="w-full rounded-xl px-5 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40" style={{ background: 'var(--orange)' }}>{!canOrder ? 'Not available to order' : !optionsValid ? 'Review required or out-of-stock options' : `Add ${requestedQuantity} to cart · ₦${(unitPrice * requestedQuantity).toLocaleString()}`}</button>
+                    <button type="button" disabled={!canOrder || !optionsValid} onClick={() => { if (!canOrder || !optionsValid) return; for (let index = 0; index < requestedQuantity; index += 1) addItem({ id: cartKey, menuItemId: item.id, name: item.name, price: unitPrice, selectedOptions, restaurantId: restaurant.id, restaurantName: restaurant.name }); }} className="w-full rounded-xl border border-[#E85D04] px-5 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40" style={{ background: 'var(--orange)' }}>{!canOrder ? 'Not available to order' : !optionsValid ? 'Review required or out-of-stock options' : `Add ${requestedQuantity} to cart · ₦${(unitPrice * requestedQuantity).toLocaleString()}`}</button>
                   </div>
                 )}
               </div>
