@@ -11,7 +11,7 @@ export function RestaurantCard({restaurant: r}: RestaurantCardProps) {
   return (
     <Link href={`/order/restaurant/${r.id}`} className="flex gap-3 items-center py-3 w-full text-left">
       <div
-        className="w-14 h-14 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center"
+        className="w-14 h-14 rounded-xl flex-shrink-0 overflow-hidden flex items-center justify-center"
         style={{ background: 'linear-gradient(135deg, #FFE3C7, var(--peach))', border: '1px solid var(--line)' }}
       >
         {r.logo_url ? (
