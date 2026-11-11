@@ -46,7 +46,8 @@ export default function OrderHomePage() {
       <SearchBar onFocus={() => setShowSuggestions(true)} onBlur={() => setTimeout(() => setShowSuggestions(false), 150)} />
       <SearchSuggestions visible={showSuggestions} />
       <CategoryChips categories={categories} active={category} onChange={setCategory} />
-      <RestaurantList restaurants={restaurants} isLoading={isLoading} error={error} />
+      {/* Avoid flashing the unfiltered list while the initial location lookup is pending. */}
+      <RestaurantList restaurants={restaurants} isLoading={isLoading || (!latitude && !longitude && !error)} error={error} />
       <OrderTray />
     </div>
   );
