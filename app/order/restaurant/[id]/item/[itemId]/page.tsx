@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Clock3, Minus, Plus, UtensilsCrossed } from 'lucide-react';
+import { Clock3, Minus, Plus, UtensilsCrossed } from 'lucide-react';
 import { useRestaurant } from '@/hooks/useRestaurants';
 import { useMenuItems } from '@/hooks/useMenuItems';
 import { useCart } from '@/hooks/useCart';
