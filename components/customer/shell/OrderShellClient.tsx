@@ -27,7 +27,7 @@ export function OrderShellClient({children}: {children: React.ReactNode}) {
     <div className="min-h-screen flex flex-col" style={{background: "radial-gradient(ellipse at top left, rgba(255, 220, 185, 0.32), transparent 42%), linear-gradient(180deg, #FFFCF8 0%, #FFF8F0 100%)"}}>
       <ServiceWorkerRegister />
       {!hideNav && <TopNav />}
-      <main className={`${isMenuItemDetails || isRestaurantMenu ? 'flex-none' : 'flex-1'} ${hideNav || isMenuItemDetails || isRestaurantMenu ? '' : 'pb-24 lg:pb-8'}`}>{children}</main>
+      <main className={`${isMenuItemDetails || isRestaurantMenu ? 'flex-none' : 'flex-1'} ${hideNav || isMenuItemDetails || isRestaurantMenu ? '' : 'pb-24 lg:pb-8'}`}><div className="pb-[var(--install-prompt-space,0px)]">{children}</div></main>
       {!hideNav && <BottomNav />}
       <InstallPrompt />
     </div>
