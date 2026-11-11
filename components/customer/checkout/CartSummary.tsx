@@ -15,7 +15,7 @@ export function CartSummary({restaurantId}: CartSummaryProps) {
   return (
     <div className="divide-y" style={{borderColor: 'var(--line)'}}>
       {visibleItems.map((item) => (
-        <div key={item.id} className="flex items-center gap-3 py-3">
+        <div key={item.id} className="flex items-center gap-3 border-b py-3 last:border-b-0" style={{borderColor: "var(--line)"}}>
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-[12.5px]" style={{color: 'var(--ink)'}}>
               {item.name}
