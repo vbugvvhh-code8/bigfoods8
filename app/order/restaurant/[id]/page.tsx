@@ -2,7 +2,7 @@
 
 import {useMemo, useState} from 'react';
 import {useParams, useRouter} from 'next/navigation';
-import {ArrowLeft, CalendarDays, ArrowRight} from 'lucide-react';
+import {CalendarDays, ArrowRight} from 'lucide-react';
 import {useRestaurant} from '@/hooks/useRestaurants';
 import {useMenuItems} from '@/hooks/useMenuItems';
 import {MenuCategoryTabs} from '@/components/customer/menu/MenuCategoryTabs';
@@ -47,18 +47,6 @@ export default function RestaurantMenuPage() {
 
       {!isLoading && restaurant && (
         <>
-          <div className="sticky top-3 z-40 -mb-12 ml-4 h-0">
-            <button
-              type="button"
-              onClick={() => router.push('/order')}
-              className="inline-flex items-center gap-2 rounded-full border px-3.5 py-2.5 text-sm font-semibold shadow-lg backdrop-blur-md transition hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0"
-              style={{color:'#8F451F',borderColor:'rgba(255,255,255,0.8)',background:'rgba(255,255,255,0.94)'}}
-              aria-label="Back to restaurants"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Restaurants</span>
-            </button>
-          </div>
           <section
             className="relative -mx-4 mb-5 h-[210px] overflow-hidden sm:h-[250px]"
             style={
