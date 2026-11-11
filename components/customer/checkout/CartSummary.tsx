@@ -1,7 +1,8 @@
 'use client';
 
-import {Plus, Minus, Trash2} from 'lucide-react';
+import {Plus, Minus, Trash2, Image as ImageIcon} from 'lucide-react';
 import {useCart} from '@/hooks/useCart';
+import {useMenuItems} from '@/hooks/useMenuItems';
 
 interface CartSummaryProps {
   /** When provided, only that restaurant's items are shown -- used by multi-restaurant checkout so each group renders its own items only. Omit to show the whole cart (original single-restaurant behavior). */
@@ -10,13 +11,27 @@ interface CartSummaryProps {
 
 export function CartSummary({restaurantId}: CartSummaryProps) {
   const {items, updateQuantity, removeItem} = useCart();
+  const {menuItems} = useMenuItems(restaurantId);
   const visibleItems = restaurantId ? items.filter((i) => i.restaurantId === restaurantId) : items;
 
   return (
     <div className="divide-y" style={{borderColor: 'var(--line)'}}>
-      {visibleItems.map((item) => (
-        <div key={item.id} className="flex items-center gap-3 py-3">
-          <div className="flex-1 min-w-0">
+      {visibleItems.map((item) => {
+        const menuItem = menuItems.find((candidate) => candidate.id === (item.menuItemId ?? item.id));
+        const imageUrl = item.imageUrl || menuItem?.image_urls?.[0] || menuItem?.image_url || undefined;
+        return (
+        <div key={item.id} className="flex items-center gap-2 border-b py-2 last:border-b-0" style={{borderColor: "var(--line)"}}>
+          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border" style={{borderColor: '#F0DDCC', background: '#FFF0E3'}}>
+            {imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={imageUrl} alt={item.name} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center" style={{color: '#C77A43'}}>
+                <ImageIcon className="h-5 w-5" aria-hidden="true" />
+              </div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
             <div className="font-semibold text-[12.5px]" style={{color: 'var(--ink)'}}>
               {item.name}
             </div>
@@ -25,7 +40,7 @@ export function CartSummary({restaurantId}: CartSummaryProps) {
               ₦{item.price.toLocaleString()} each
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={() => updateQuantity(item.id, item.quantity - 1)}
@@ -58,7 +73,8 @@ export function CartSummary({restaurantId}: CartSummaryProps) {
             </button>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

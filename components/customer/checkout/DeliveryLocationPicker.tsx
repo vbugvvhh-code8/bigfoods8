@@ -95,7 +95,7 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
   }
 
   return (
-    <div className="rounded-xl p-3.5 mt-4" style={{background: 'var(--peach)'}}>
+    <div className="rounded-xl border p-3.5 mt-4" style={{background: '#FFF1E6', borderColor: '#E6BFA4'}}>
       <div className="flex items-center gap-2 mb-2.5">
         <MapPin className="w-4 h-4" style={{color: 'var(--orange)'}} />
         <span className="font-semibold text-[12.5px]" style={{color: 'var(--ink)'}}>
@@ -170,8 +170,8 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Home, Office"
-                    className="flex-1 rounded-lg px-3 py-2 text-[12px] outline-none bg-white"
-                    style={{color: 'var(--ink)'}}
+                    className="flex-1 rounded-lg border px-3 py-2 text-[12px] outline-none bg-white focus:border-orange-500"
+                    style={{color: 'var(--ink)', borderColor: 'var(--line)'}}
                     autoFocus
                   />
                   <button
@@ -217,8 +217,8 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
                 setOutsideServiceArea(false);
               }}
               placeholder="e.g. 12 Zik Avenue"
-              className="w-full px-3 py-2.5 rounded-lg text-[12.5px] outline-none bg-white"
-              style={{color: 'var(--ink)'}}
+              className="w-full px-3 py-2.5 rounded-lg border text-[12.5px] outline-none bg-white focus:border-orange-500"
+              style={{color: 'var(--ink)', borderColor: 'var(--line)'}}
             />
           </div>
 
@@ -230,8 +230,8 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
               value={landmark}
               onChange={(e) => setLandmark(e.target.value)}
               placeholder="e.g. opposite First Bank"
-              className="w-full px-3 py-2.5 rounded-lg text-[12.5px] outline-none bg-white"
-              style={{color: 'var(--ink)'}}
+              className="w-full px-3 py-2.5 rounded-lg border text-[12.5px] outline-none bg-white focus:border-orange-500"
+              style={{color: 'var(--ink)', borderColor: 'var(--line)'}}
             />
           </div>
 
@@ -246,8 +246,8 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
                 setLga('');
                 setOutsideServiceArea(false);
               }}
-              className="w-full px-3 py-2.5 rounded-lg text-[12.5px] outline-none bg-white"
-              style={{color: 'var(--ink)'}}
+              className="w-full px-3 py-2.5 rounded-lg border text-[12.5px] outline-none bg-white focus:border-orange-500"
+              style={{color: 'var(--ink)', borderColor: 'var(--line)'}}
             >
               <option value="" disabled>Select state</option>
               {NIGERIA_STATES.map((st) => (
@@ -266,8 +266,8 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
                 setLga(e.target.value);
                 setOutsideServiceArea(false);
               }}
-              className="w-full px-3 py-2.5 rounded-lg text-[12.5px] outline-none bg-white"
-              style={{color: 'var(--ink)'}}
+              className="w-full px-3 py-2.5 rounded-lg border text-[12.5px] outline-none bg-white focus:border-orange-500"
+              style={{color: 'var(--ink)', borderColor: 'var(--line)'}}
             >
               <option value="" disabled>Select LGA</option>
               {lgaOptions(chosenState).map((o) => (
@@ -312,8 +312,8 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
         value={note}
         onChange={(e) => onNoteChange(e.target.value)}
         placeholder="Add a note for the rider (e.g. gate colour, floor)"
-        className="w-full mt-2.5 bg-white rounded-lg px-3 py-2 text-[12px] outline-none"
-        style={{color: 'var(--ink)'}}
+        className="w-full mt-2.5 bg-white rounded-lg border px-3 py-2 text-[12px] outline-none focus:border-orange-500"
+        style={{color: 'var(--ink)', borderColor: 'var(--line)'}}
       />
     </div>
   );

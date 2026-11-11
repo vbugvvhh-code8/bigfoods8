@@ -10,6 +10,8 @@ export interface CartItem {
   menuItemId?: string;
   name: string;
   price: number;
+  /** Primary menu photo retained with the cart line for checkout display. */
+  imageUrl?: string;
   selectedOptions?: SelectedMenuOption[];
   quantity: number;
   restaurantId: string;
@@ -105,7 +107,15 @@ export function CartProvider({children}: {children: ReactNode}) {
     setItems((prev) => {
       const existing = prev.find((i) => i.id === item.id);
       if (existing) {
-        return prev.map((i) => (i.id === item.id ? {...i, menuItemId: i.menuItemId ?? i.id, selectedOptions: i.selectedOptions ?? [], quantity: i.quantity + 1} : i));
+        return prev.map((i) => (i.id === item.id
+          ? {
+              ...i,
+              menuItemId: i.menuItemId ?? item.menuItemId ?? i.id,
+              imageUrl: i.imageUrl ?? item.imageUrl,
+              selectedOptions: i.selectedOptions ?? item.selectedOptions ?? [],
+              quantity: i.quantity + 1,
+            }
+          : i));
       }
       return [...prev, {...item, menuItemId: item.menuItemId ?? item.id, selectedOptions: item.selectedOptions ?? [], quantity: 1}];
     });

@@ -1,14 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import {usePathname} from 'next/navigation';
-import {Home, ClipboardList, User, MapPin, CalendarDays} from 'lucide-react';
+import {usePathname, useRouter} from 'next/navigation';
+import {Home, ClipboardList, User, MapPin, CalendarDays, ArrowLeft} from 'lucide-react';
 import SafeImage from '@/components/ui/SafeImage';
 import {useGeolocation} from '@/hooks/useGeolocation';
 import {useEffect} from 'react';
+import {useRestaurant} from '@/hooks/useRestaurants';
+import { LOGO_URL } from '@/lib/brandImages';
 
-const LOGO_URL =
-  'https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/0.4927238865897102.webp';
 
 const ITEMS = [
   {href: '/order', label: 'Home', icon: Home},
@@ -17,7 +17,8 @@ const ITEMS = [
   {href: '/order/profile', label: 'Profile', icon: User},
 ];
 
-function MobileTopBar() {
+function MobileTopBar({showBack, restaurantName, backHref, title, useHistoryBack}: {showBack: boolean; restaurantName?: string; backHref: string; title?: string; useHistoryBack?: boolean}) {
+  const router = useRouter();
   const {lgaGuess, nigerianState, requestLocation, isLoading} = useGeolocation();
 
   useEffect(() => {
@@ -28,16 +29,32 @@ function MobileTopBar() {
   return (
     <header
       className="flex lg:hidden sticky top-0 z-40 items-center justify-between px-4 h-14 bg-white"
+      style={{borderBottom: '1px solid var(--line)'}}
     >
-      <Link href="/order" className="flex items-center gap-2">
-        <div className="w-6 h-6 rounded-md overflow-hidden flex-shrink-0" style={{background: 'var(--orange)'}}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <SafeImage src={LOGO_URL} alt="BigFoods" className="w-full h-full object-cover" />
-        </div>
-        <span className="font-display font-semibold text-[15px]" style={{color: 'var(--ink)'}}>
-          BigFoods
-        </span>
-      </Link>
+      <div className="flex min-w-0 items-center gap-2">
+        {showBack && (
+          <button
+            type="button"
+            onClick={() => useHistoryBack ? router.back() : router.push(backHref)}
+            aria-label={useHistoryBack ? "Back from checkout" : "Back to restaurants"}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:bg-orange-50"
+            style={{color:'var(--orange)'}}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        )}
+        {showBack ? (
+          <span className="max-w-[190px] truncate font-display text-[15px] font-semibold" style={{color:'var(--ink)'}}>{title || restaurantName || 'Restaurant'}</span>
+        ) : (
+          <Link href="/order" className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-md overflow-hidden flex-shrink-0" style={{background: 'var(--orange)'}}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <SafeImage src={LOGO_URL} alt="BigFoods" className="h-full w-full object-cover" />
+            </div>
+            <span className="font-display text-[15px] font-semibold" style={{color:'var(--ink)'}}>BigFoods</span>
+          </Link>
+        )}
+      </div>
 
       <div className="flex items-center gap-1 text-[11.5px]" style={{color: 'var(--gray)'}}>
         <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
@@ -51,25 +68,41 @@ function MobileTopBar() {
 
 export function TopNav() {
   const pathname = usePathname();
+  const router = useRouter();
+  const isCheckout = pathname === '/order/checkout';
+  const showBack = (pathname?.startsWith('/order/restaurant/') ?? false) || isCheckout;
+  const isItemDetails = pathname?.includes('/item/') ?? false;
+  const restaurantId = showBack ? pathname.split('/')[3] : '';
+  const backHref = isItemDetails ? `/order/restaurant/${restaurantId}` : '/order';
+  const {restaurant} = useRestaurant(restaurantId);
 
   return (
     <>
-      <MobileTopBar />
+      <MobileTopBar showBack={showBack} restaurantName={restaurant?.name} backHref={backHref} title={isCheckout ? 'Checkout' : undefined} useHistoryBack={isCheckout} />
 
       {/* Desktop: unchanged nav bar */}
       <header
         className="hidden lg:flex sticky top-0 z-40 items-center justify-between px-8 h-16 bg-white"
         style={{borderBottom: '1px solid var(--line)'}}
       >
-        <Link href="/order" className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0" style={{background: 'var(--orange)'}}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <SafeImage src={LOGO_URL} alt="BigFoods" className="w-full h-full object-cover" />
-          </div>
-          <span className="font-display font-semibold text-[16px]" style={{color: 'var(--ink)'}}>
-            BigFoods
-          </span>
-        </Link>
+        <div className="flex items-center gap-3">
+          {showBack && (
+            <button type="button" onClick={() => isCheckout ? router.back() : router.push(backHref)} aria-label={isCheckout ? 'Back from checkout' : isItemDetails ? 'Back to restaurant menu' : 'Back to restaurants'} className="flex h-9 w-9 items-center justify-center rounded-full border" style={{color:'var(--orange)',borderColor:'var(--line)'}}>
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          )}
+          {showBack ? (
+            <span className="max-w-[260px] truncate font-display text-base font-semibold" style={{color:'var(--ink)'}}>{isCheckout ? 'Checkout' : restaurant?.name || 'Restaurant'}</span>
+          ) : (
+            <Link href="/order" className="flex items-center gap-2.5">
+              <div className="h-7 w-7 shrink-0 overflow-hidden rounded-lg" style={{background:'var(--orange)'}}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <SafeImage src={LOGO_URL} alt="BigFoods" className="h-full w-full object-cover" />
+              </div>
+              <span className="font-display text-base font-semibold" style={{color:'var(--ink)'}}>BigFoods</span>
+            </Link>
+          )}
+        </div>
 
         <nav className="flex items-center gap-6">
           {ITEMS.map(({href, label, icon: Icon}) => {

@@ -34,7 +34,7 @@ export function SearchBar({onFocus, onBlur}: SearchBarProps) {
   };
 
   return (
-    <div className="relative flex items-center gap-2 rounded-xl px-3 py-3" style={{background: 'var(--peach)'}}>
+    <div className="relative flex items-center gap-2 rounded-xl border px-3 py-3" style={{background: 'var(--peach)', borderColor: 'rgba(190, 150, 115, 0.38)'}}>
       <Search className="w-4 h-4 flex-shrink-0" style={{color: '#B79C82'}} />
       <div className="relative w-full">
         <input

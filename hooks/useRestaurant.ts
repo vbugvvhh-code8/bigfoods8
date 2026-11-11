@@ -8,6 +8,7 @@ export interface RestaurantSaveFields {
   name?: string;
   category?: string;
   image_url?: string;
+  logo_url?: string;
   address?: string;
   latitude?: number;
   longitude?: number;

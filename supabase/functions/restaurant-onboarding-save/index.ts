@@ -19,6 +19,7 @@ const ALLOWED_FIELDS = [
   "name",
   "category",
   "image_url",
+  "logo_url",
   "address",
   "latitude",
   "longitude",
@@ -144,9 +145,13 @@ Deno.serve(async (req) => {
 
     const { data: existing } = await admin
       .from("restaurants")
-      .select("id")
+      .select("id, logo_url")
       .eq("owner_id", user.id)
       .maybeSingle();
+
+    if (!(typeof patch.logo_url === "string" && patch.logo_url.trim()) && !(typeof existing?.logo_url === "string" && existing.logo_url.trim())) {
+      return json({ error: "Upload your restaurant or kitchen logo to continue" }, 400);
+    }
 
     let result;
     if (existing) {

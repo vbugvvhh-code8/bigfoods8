@@ -5,6 +5,7 @@ import {Download, X} from 'lucide-react';
 
 const DISMISS_KEY = 'bigfoods-install-dismissed-at';
 const DISMISS_DAYS = 14;
+const NOTIFICATION_DURATION = 12_000;
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -57,6 +58,14 @@ export function InstallPrompt() {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
+  // The install prompt is a temporary notification, not a persistent bottom banner.
+  // It dismisses itself after 12 seconds and never covers the cart or page actions.
+  useEffect(() => {
+    if (!visible) return;
+    const timeout = window.setTimeout(() => setVisible(false), NOTIFICATION_DURATION);
+    return () => window.clearTimeout(timeout);
+  }, [visible]);
+
   const dismiss = () => {
     setVisible(false);
     try {
@@ -68,35 +77,48 @@ export function InstallPrompt() {
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
-    await deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-    setDeferredPrompt(null);
-    setVisible(false);
+    try {
+      await deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+    } finally {
+      setDeferredPrompt(null);
+      setVisible(false);
+    }
   };
 
   if (!visible) return null;
 
   return (
-    <div className="sticky top-0 z-40 flex items-center gap-3 px-4 py-3 text-white" style={{background: 'var(--orange)'}}>
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/20">
-        <Download className="w-4 h-4" />
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+4.25rem)] z-[60] mx-auto flex max-w-lg items-center gap-3 rounded-2xl px-4 py-3 text-white shadow-[0_12px_32px_rgba(32,28,26,0.24)] lg:top-20"
+      style={{background: 'var(--orange)', animation: 'install-drop-in 260ms ease-out both'}}
+    >
+      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-white/20">
+        <Download className="h-4 w-4" />
       </div>
 
       {showIOSInstructions ? (
-        <p className="flex-1 text-[11.5px] leading-snug">
+        <p className="min-w-0 flex-1 text-[12px] leading-snug">
           <b className="font-display">Install BigFoods:</b> tap Share, then &quot;Add to Home Screen&quot;.
         </p>
       ) : (
         <>
-          <p className="flex-1 font-display font-semibold text-[13px]">Install BigFoods App</p>
-          <button onClick={handleInstall} className="px-3.5 py-1.5 rounded-full bg-white text-[12px] font-semibold flex-shrink-0" style={{color: 'var(--orange)'}}>
+          <p className="min-w-0 flex-1 font-display text-[13px] font-semibold">Install BigFoods App</p>
+          <button
+            type="button"
+            onClick={handleInstall}
+            className="flex-shrink-0 rounded-full bg-white px-3.5 py-2 text-[12px] font-semibold"
+            style={{color: 'var(--orange)'}}
+          >
             Install Now
           </button>
         </>
       )}
 
-      <button onClick={dismiss} aria-label="Dismiss install prompt" className="flex-shrink-0">
-        <X className="w-4 h-4" />
+      <button type="button" onClick={dismiss} aria-label="Dismiss install notification" className="flex-shrink-0 rounded-full p-1">
+        <X className="h-4 w-4" />
       </button>
     </div>
   );

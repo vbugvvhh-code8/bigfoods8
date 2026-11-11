@@ -2,7 +2,7 @@
 
 import {useState, useMemo, useEffect} from 'react';
 import {useRouter} from 'next/navigation';
-import {ArrowLeft, Gift, Info, X} from 'lucide-react';
+import {Gift, Info, X} from 'lucide-react';
 import {useCart} from '@/hooks/useCart';
 import {useRestaurant, useRestaurants} from '@/hooks/useRestaurants';
 import {useCheckout} from '@/hooks/useCheckout';
@@ -126,26 +126,18 @@ function CheckoutContent() {
 
   return (
     <div className="w-full max-w-[380px] lg:max-w-2xl mx-auto px-4 py-6 pb-28">
-      <button onClick={() => router.back()} className="flex items-center gap-2.5 mb-4" style={{color: 'var(--gray)'}}>
-        <ArrowLeft className="w-4 h-4" />
-        <span className="text-[12.5px]">Back</span>
-      </button>
-
-      <h1 className="font-display text-[19px] font-semibold" style={{color: 'var(--ink)'}}>
-        Checkout
-      </h1>
-      <p className="text-[12px] mt-0.5" style={{color: 'var(--gray)'}}>
+      <p className="mb-3 text-[12px] font-medium" style={{color: '#75665D'}}>
         {isMultiRestaurant ? `${groups.length} restaurants` : groups[0]?.restaurantName}
       </p>
 
       {isMultiRestaurant && (
-        <div className="mt-3 p-3 rounded-xl text-[11.5px]" style={{background: 'var(--peach)', color: 'var(--ink)'}}>
+        <div className="mt-3 rounded-xl border p-3 text-[11.5px] leading-relaxed" style={{background: '#FFF7E8', borderColor: '#F2C46D', color: '#754817'}}>
           Ordering from {groups.length} restaurants means this may arrive as separate deliveries — each rider
           brings their own portion, and you'll get each one's contact info and their own drop-off code.
         </div>
       )}
 
-      <div className="mt-4 space-y-3">
+      <section aria-label="Your order" className="mt-4 space-y-3 rounded-2xl border bg-white/60 p-3" style={{borderColor: "var(--line)"}}>
         {groups.map((g) => (
           <div key={g.restaurantId}>
             {isMultiRestaurant && (
@@ -156,7 +148,7 @@ function CheckoutContent() {
             <CartSummary restaurantId={g.restaurantId} />
           </div>
         ))}
-      </div>
+      </section>
 
       <DeliveryLocationPicker selected={deliveryPoint} onSelect={setDeliveryPoint} note={note} onNoteChange={setNote} />
 
@@ -173,22 +165,22 @@ function CheckoutContent() {
       <button
         onClick={() => { if (paymentLink) setShowPaymentLinkModal(true); else handleCreatePaymentLink(); }}
         disabled={!deliveryPoint || isSubmitting}
-        className="mt-3 w-full flex items-center justify-between gap-2.5 rounded-xl border bg-white px-3 py-3 text-left disabled:opacity-50"
-        style={{borderColor: '#E9E9E9', color: 'var(--ink)'}}
+        className="mt-3 w-full flex items-center justify-between gap-2.5 rounded-xl border bg-white px-3 py-3 text-left disabled:cursor-not-allowed"
+        style={{borderColor: '#E6D7C9', color: 'var(--ink)', background: '#FFFCF8'}}
       >
         <span className="flex min-w-0 items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{background: 'var(--peach)', color: 'var(--orange)'}}>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{background: '#FFF0E5', color: 'var(--orange)'}}>
             <Gift className="h-4 w-4" />
           </span>
           <span className="min-w-0">
             <span className="block text-[13px] font-bold">Ask someone to pay</span>
-            <span className="mt-0.5 block text-[11px] leading-snug" style={{color: 'var(--gray)'}}>Share a link. They pay, you receive.</span>
+            <span className="mt-0.5 block text-[11px] leading-snug" style={{color: '#75665D'}}>Share a link. They pay, you receive.</span>
           </span>
           {hasPaymentLink && <Info className="h-4 w-4 shrink-0" style={{color: 'var(--gray)'}} />}
         </span>
         <span
           className="shrink-0 rounded-lg border-2 px-3 py-2.5 text-[11px] font-bold"
-          style={{borderColor: 'var(--ink)', color: 'var(--ink)'}}
+          style={{borderColor: '#8B7568', color: '#49382F', background: '#FFFFFF'}}
         >
           {isSubmitting ? 'Creating link…' : hasPaymentLink ? 'View link' : 'Get link'}
         </span>

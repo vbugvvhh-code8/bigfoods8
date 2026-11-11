@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { Loader2 } from 'lucide-react';
 import PageHeader from '@/components/admin/layout/PageHeader';
 import BannerUpload from '@/components/restaurant/onboarding/BannerUpload';
+import LogoUpload from '@/components/restaurant/onboarding/LogoUpload';
 import BannerPreview from '@/components/restaurant/onboarding/BannerPreview';
 import KitchenLocationPicker from '@/components/restaurant/onboarding/KitchenLocationPicker';
 import useRestaurant from '@/hooks/useRestaurant';
@@ -22,6 +23,7 @@ export default function SettingsPage() {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
   const [bannerUrl, setBannerUrl] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
   const [address, setAddress] = useState('');
   const [lga, setLga] = useState('');
   const [latitude, setLatitude] = useState<number | undefined>();
@@ -39,6 +41,7 @@ export default function SettingsPage() {
       setName(restaurant.name ?? '');
       setCategory(restaurant.category ?? '');
       setBannerUrl(restaurant.image_url ?? '');
+      setLogoUrl(restaurant.logo_url ?? '');
       setAddress(restaurant.address ?? '');
       setLga(restaurant.zone ?? '');
       setLatitude(restaurant.latitude ?? undefined);
@@ -117,13 +120,19 @@ export default function SettingsPage() {
         </div>
 
         <div>
-          <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>Banner photo</label>
-          <BannerUpload previewUrl={bannerUrl} onUploaded={(url) => setBannerUrl(url)} />
-          <BannerPreview bannerUrl={bannerUrl} restaurantName={name} category={category} />
+          <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>Restaurant logo</label>
+          <LogoUpload previewUrl={logoUrl} onUploaded={(url) => setLogoUrl(url)} />
         </div>
 
+        <div>
+          <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>Banner photo</label>
+          <BannerUpload previewUrl={bannerUrl} onUploaded={(url) => setBannerUrl(url)} />
+        </div>
+
+        <BannerPreview bannerUrl={bannerUrl} logoUrl={logoUrl} restaurantName={name} category={category} />
+
         <button
-          onClick={() => handleSave('business', { name, category, image_url: bannerUrl })}
+          onClick={() => handleSave('business', { name, category, image_url: bannerUrl, logo_url: logoUrl })}
           disabled={saving === 'business'}
           className="w-full py-2.5 rounded-[9px] text-[12.5px] font-semibold text-white disabled:opacity-40 flex items-center justify-center gap-2"
           style={{ background: 'var(--orange)' }}

@@ -80,6 +80,7 @@ export interface Database {
           zone: string | null;
           rating: number | null;
           image_url: string | null;
+          logo_url: string | null;
           is_seed_data: boolean;
           created_at: string | null;
           approval_status: string;

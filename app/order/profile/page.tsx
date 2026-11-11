@@ -2,7 +2,7 @@
 
 import {useEffect, useState} from 'react';
 import {useRouter} from 'next/navigation';
-import {LogOut, User} from 'lucide-react';
+import {LogOut} from 'lucide-react';
 import {useMyProfile} from '@/hooks/useMyProfile';
 import {useCart} from '@/hooks/useCart';
 import {NIGERIA_STATES, lgaOptions, stateOfZone} from '@/lib/nigeriaLocations';
@@ -54,47 +54,56 @@ function ProfileContent() {
     );
   }
 
+  const fieldClass = "w-full rounded-xl border px-3.5 py-3 text-[13px] outline-none mb-4 transition-colors focus:border-orange-400 focus:ring-2 focus:ring-orange-100 disabled:opacity-60";
+  const fieldStyle = {background: 'var(--peach)', color: 'var(--ink)', borderColor: 'var(--line)'};
+
   return (
     <div className="w-full max-w-[380px] lg:max-w-2xl mx-auto px-4 py-6">
       <div className="flex items-center gap-3 mb-6">
         <div
-          className="w-12 h-12 rounded-full flex items-center justify-center"
-          style={{background: 'var(--peach)', color: 'var(--orange)'}}
+          className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0"
+          style={{border: '2px solid var(--line)', background: 'var(--peach)'}}
         >
-          <User className="w-5 h-5" />
+          <img
+            src="/images/customer-profile-avatar.svg"
+            alt="3D profile avatar"
+            className="w-full h-full object-cover"
+          />
         </div>
-        <div>
+        <div className="min-w-0">
           <h1 className="font-display text-[16px] font-semibold" style={{color: 'var(--ink)'}}>
             {profile?.full_name || 'Your profile'}
           </h1>
-          <p className="text-[12px]" style={{color: 'var(--gray)'}}>
+          <p className="text-[12px] break-all" style={{color: 'var(--gray)'}}>
             {email}
           </p>
         </div>
       </div>
 
-      <label className="block text-[11.5px] font-semibold mb-1.5" style={{color: 'var(--gray)'}}>
+      <label htmlFor="profile-full-name" className="block text-[11.5px] font-semibold mb-1.5" style={{color: 'var(--gray)'}}>
         Full name
       </label>
       <input
+        id="profile-full-name"
         type="text"
         value={fullName}
         onChange={(e) => setFullName(e.target.value)}
         placeholder="Your name"
-        className="w-full rounded-xl px-3.5 py-2.5 text-[13px] outline-none mb-4"
-        style={{background: 'var(--peach)', color: 'var(--ink)'}}
+        className={fieldClass}
+        style={fieldStyle}
       />
 
-      <label className="block text-[11.5px] font-semibold mb-1.5" style={{color: 'var(--gray)'}}>
+      <label htmlFor="profile-phone" className="block text-[11.5px] font-semibold mb-1.5" style={{color: 'var(--gray)'}}>
         Phone number
       </label>
       <input
+        id="profile-phone"
         type="tel"
         value={phone}
         onChange={(e) => setPhone(e.target.value)}
         placeholder="080..."
-        className="w-full rounded-xl px-3.5 py-2.5 text-[13px] outline-none mb-4"
-        style={{background: 'var(--peach)', color: 'var(--ink)'}}
+        className={fieldClass}
+        style={fieldStyle}
       />
 
       <label htmlFor="profile-state" className="block text-[11.5px] font-semibold mb-1.5" style={{color: 'var(--gray)'}}>
@@ -107,8 +116,8 @@ function ProfileContent() {
           setStateName(e.target.value);
           setLga('');
         }}
-        className="w-full rounded-xl px-3.5 py-2.5 text-[13px] outline-none mb-4"
-        style={{background: 'var(--peach)', color: 'var(--ink)'}}
+        className={fieldClass}
+        style={fieldStyle}
       >
         <option value="">Select your state</option>
         {NIGERIA_STATES.map((st) => (
@@ -126,8 +135,8 @@ function ProfileContent() {
         value={lga}
         onChange={(e) => setLga(e.target.value)}
         disabled={!stateName}
-        className="w-full rounded-xl px-3.5 py-2.5 text-[13px] outline-none mb-4 disabled:opacity-60"
-        style={{background: 'var(--peach)', color: 'var(--ink)'}}
+        className={fieldClass}
+        style={fieldStyle}
       >
         <option value="">{stateName ? 'Select an area' : 'Choose a state first'}</option>
         {lgaOptions(stateName).map((l) => (

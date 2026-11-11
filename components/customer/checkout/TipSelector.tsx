@@ -22,7 +22,7 @@ export function TipSelector({value, onChange}: TipSelectorProps) {
             style={
               value === amount
                 ? {background: 'var(--peach)', borderColor: 'var(--orange)', color: 'var(--orange-dark)'}
-                : {borderColor: 'var(--line)', color: 'var(--gray)'}
+                : {borderColor: '#E6D7C9', color: '#75665D', background: '#FFFCF8'}
             }
           >
             {amount === 0 ? 'No tip' : `₦${amount}`}

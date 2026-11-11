@@ -6,6 +6,8 @@ import NavItem from './NavItem';
 import { LayoutGrid, Boxes, Monitor, MapPin, Utensils, Bike, Settings, Menu, X, Inbox, AlertTriangle, Wallet, Banknote, Megaphone, Users, LogOut, Route, ShieldCheck, Tags, ClipboardList, CalendarDays, Clock3, CalendarCheck, ArrowLeftRight, WalletCards, HeartPulse } from 'lucide-react';
 import useSession from '@/hooks/useSession';
 import getBrowserSupabase from '@/lib/supabase/client';
+import SafeImage from '@/components/ui/SafeImage';
+import { LOGO_URL } from '@/lib/brandImages';
 
 const NAV_ITEMS = [
   { id: '/admin/dashboard', label: 'Dashboard', icon: <LayoutGrid className="w-4 h-4" /> },
@@ -31,7 +33,7 @@ const NAV_ITEMS = [
 function BrandBlock() {
   return (
     <div className="flex items-center gap-2 px-1.5">
-      <div className="w-[18px] h-[18px] rounded-[5px] flex-shrink-0" style={{ background: 'var(--orange)' }} />
+      <SafeImage src={LOGO_URL} alt="BigFoods" className="w-[18px] h-[18px] rounded-[5px] flex-shrink-0 object-cover" />
       <span className="font-semibold text-[14px] text-white tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
         BigFoods
       </span>

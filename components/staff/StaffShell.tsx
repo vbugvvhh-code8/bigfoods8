@@ -1,6 +1,8 @@
 'use client';
 
 import { ReactNode, useState } from 'react';
+import SafeImage from '@/components/ui/SafeImage';
+import { LOGO_URL } from '@/lib/brandImages';
 import { usePathname, useRouter } from 'next/navigation';
 import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound, CalendarPlus, Repeat2, ShoppingCart, Users, ClipboardList, PackageOpen, Warehouse, ChevronDown, MapPin, Clock3, CalendarCheck, QrCode, ClipboardCheck, HeartPulse, Target, Settings } from 'lucide-react';
 
@@ -67,7 +69,7 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
 
   return <div className="min-h-screen" style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'var(--ink, #28231F)', background: '#F7F4F0' }}>
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-[200px] flex-col px-3.5 py-5 md:flex" style={{ background: 'var(--ink, #211A17)', color: '#D8D2CB' }}>
-      <div className="mb-7"><div className="flex items-center gap-2 px-1.5"><div className="h-[18px] w-[18px] shrink-0 rounded-[5px]" style={{ background: 'var(--orange, #FF6A00)' }} /><span className="text-[14px] font-semibold tracking-tight text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>BigFoods</span></div><p className="mt-2 px-1.5 text-[10px] uppercase tracking-widest text-[#9C948A]">Staff Workspace</p></div>
+      <div className="mb-7"><div className="flex items-center gap-2 px-1.5"><SafeImage src={LOGO_URL} alt="BigFoods" className="h-[18px] w-[18px] shrink-0 rounded-[5px] object-cover" /><span className="text-[14px] font-semibold tracking-tight text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>BigFoods</span></div><p className="mt-2 px-1.5 text-[10px] uppercase tracking-widest text-[#9C948A]">Staff Workspace</p></div>
       {nav()}
       {footer}
     </aside>
@@ -78,6 +80,6 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
       </header>
       <main className="w-full max-w-[1180px] px-4 py-4 sm:px-7 sm:py-6"><div className="mb-4"><h2 className="text-[20px] font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{title}</h2><p className="mt-0.5 text-[11.5px] text-[#81766D]">{subtitle || 'Your staff workspace'}</p></div>{children}</main>
     </div>
-    {open && <div className="fixed inset-0 z-50 flex md:hidden"><button aria-label="Close menu" onClick={() => setOpen(false)} className="absolute inset-0 bg-black/40" /><aside className="relative flex h-full w-[240px] flex-col px-3.5 py-5" style={{ background: 'var(--ink, #211A17)', color: '#D8D2CB' }}><div className="mb-7 flex items-center justify-between px-1.5"><div><div className="flex items-center gap-2"><div className="h-[18px] w-[18px] rounded-[5px]" style={{ background: 'var(--orange, #FF6A00)' }} /><span className="text-[14px] font-semibold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>BigFoods</span></div><p className="mt-2 text-[10px] uppercase tracking-widest text-[#9C948A]">Staff Workspace</p></div><button aria-label="Close menu" onClick={() => setOpen(false)} className="text-white"><X className="h-5 w-5" /></button></div>{nav(true)}{footer}</aside></div>}
+    {open && <div className="fixed inset-0 z-50 flex md:hidden"><button aria-label="Close menu" onClick={() => setOpen(false)} className="absolute inset-0 bg-black/40" /><aside className="relative flex h-full w-[240px] flex-col px-3.5 py-5" style={{ background: 'var(--ink, #211A17)', color: '#D8D2CB' }}><div className="mb-7 flex items-center justify-between px-1.5"><div><div className="flex items-center gap-2"><SafeImage src={LOGO_URL} alt="BigFoods" className="h-[18px] w-[18px] shrink-0 rounded-[5px] object-cover" /><span className="text-[14px] font-semibold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>BigFoods</span></div><p className="mt-2 text-[10px] uppercase tracking-widest text-[#9C948A]">Staff Workspace</p></div><button aria-label="Close menu" onClick={() => setOpen(false)} className="text-white"><X className="h-5 w-5" /></button></div>{nav(true)}{footer}</aside></div>}
   </div>;
 }

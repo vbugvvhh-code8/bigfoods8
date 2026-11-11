@@ -1,8 +1,9 @@
 'use client';
 
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
+import {createPortal} from 'react-dom';
 import {useRouter} from 'next/navigation';
-import {Plus, Minus, Image as ImageIcon, ChevronLeft, ChevronRight, X} from 'lucide-react';
+import {Plus, Minus, X, ChevronLeft, ChevronRight, Image as ImageIcon} from 'lucide-react';
 import {useCart} from '@/hooks/useCart';
 import type {MenuItem, Restaurant} from '@/types/database';
 
@@ -20,6 +21,26 @@ export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowPr
     : item.image_url ? [item.image_url] : [];
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  useEffect(() => {
+    if (!galleryOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setGalleryOpen(false);
+      if (event.key === 'ArrowLeft' && imageUrls.length > 1) {
+        setActiveImageIndex((index) => (index - 1 + imageUrls.length) % imageUrls.length);
+      }
+      if (event.key === 'ArrowRight' && imageUrls.length > 1) {
+        setActiveImageIndex((index) => (index + 1) % imageUrls.length);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [galleryOpen, imageUrls.length]);
   const cartItem = items.find((i) => i.id === item.id);
   const quantity = cartItem?.quantity ?? 0;
   const nowParts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Lagos', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
@@ -64,12 +85,11 @@ export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowPr
     const hour = Math.floor(upcoming.startMinutes / 60);
     const minute = upcoming.startMinutes % 60;
     const time = new Date(2000, 0, 1, hour, minute).toLocaleTimeString('en-NG', { hour: 'numeric', minute: '2-digit', hour12: true });
-    return `Back ${dayName} at ${time}`;
+    return `Available ${dayName} at ${time}`;
   })();
   const now = Date.now();
   const promotionInWindow = item.promotional_price != null && (!item.promotion_starts_at || new Date(item.promotion_starts_at).getTime() <= now) && (!item.promotion_ends_at || new Date(item.promotion_ends_at).getTime() > now);
   const displayPrice = promotionInWindow ? Number(item.promotional_price) : Number(item.price);
-  const related = (item.complementary_item_ids ?? []).map(id => relatedItems.find(candidate => candidate.id === id)).filter((candidate): candidate is MenuItem => !!candidate && candidate.is_available !== false && !(candidate as any).admin_disabled).slice(0, 3);
   const adminDisabled = Boolean((item as any).admin_disabled);
   const canOrder = !adminDisabled && item.is_available !== false && restaurant.is_accepting_orders !== false && withinSchedule;
   const hasOptions = (item.option_groups ?? []).length > 0;
@@ -89,55 +109,72 @@ export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowPr
         type="button"
         onClick={(event) => { event.stopPropagation(); if (imageUrls.length > 0) { setActiveImageIndex(0); setGalleryOpen(true); } }}
         onKeyDown={(event) => event.stopPropagation()}
-        className="relative block aspect-square w-full overflow-hidden text-left"
-        style={imageUrls[0] ? {backgroundImage: `url(${imageUrls[0]})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: '#FFE8D2'} : {background: 'linear-gradient(135deg, #FFE8D2, #FFF2E5)'}}
-        aria-label={imageUrls.length > 1 ? `View ${imageUrls.length} photos of ${item.name}` : `View photo of ${item.name}`}
         disabled={!imageUrls.length}
+        aria-label={imageUrls.length > 1 ? `View ${imageUrls.length} photos of ${item.name}` : `View photo of ${item.name}`}
+        className="relative block aspect-square w-full overflow-hidden text-left disabled:cursor-default"
+        style={imageUrls[0] ? {backgroundImage: `url(${imageUrls[0]})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: '#FFE8D2'} : {background: 'linear-gradient(135deg, #FFE8D2, #FFF2E5)'}}
       >
         {!imageUrls.length && <span className="absolute inset-0 flex items-center justify-center" style={{color:'#D97732'}}><ImageIcon className="h-8 w-8 opacity-50" /></span>}
         {imageUrls.length > 1 && <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-1 text-[10px] font-semibold text-white">{imageUrls.length} photos · View gallery</span>}
-        {!canOrder && <span className={`absolute left-2 top-2 rounded-full border px-2.5 py-1 text-[10px] font-bold shadow-sm ${item.is_available === false ? 'border-rose-200 bg-rose-100 text-rose-800' : !withinSchedule ? 'border-amber-200 bg-amber-100 text-amber-900' : 'border-violet-200 bg-violet-100 text-violet-800'}`}>{item.is_available === false ? 'Unavailable' : !withinSchedule ? 'Opens soon' : 'Orders paused'}</span>}
       </button>
       <div className="p-2.5 sm:p-3">
         <h2 className="line-clamp-2 text-sm font-semibold" style={{color:'var(--ink)'}}>{item.name}</h2>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold" style={{color:'var(--orange)'}}>{promotionInWindow ? <><span>₦{displayPrice.toLocaleString()}</span><span className="text-[10px] font-medium line-through" style={{color:'var(--gray)'}}>₦{Number(item.price).toLocaleString()}</span><span className="rounded-full px-2 py-0.5 text-[9px] font-bold" style={{background:'#FCE8E6',color:'#B42318'}}>SALE</span></> : <span>₦{Number(item.price).toLocaleString()}</span>}</div>
-        {(item.dietary_tags ?? []).length > 0 && <div className="mt-2 flex flex-wrap gap-1">{item.dietary_tags.slice(0,3).map(tag=><span key={tag} className="rounded-full px-2 py-1 text-[9px] font-semibold" style={{background:/spicy|hot/i.test(tag)?'#FCE8E6':'#E7F6EC',color:/spicy|hot/i.test(tag)?'#B42318':'#207245'}}>{tag}</span>)}</div>}
-        {!canOrder && <p className={`mt-1 inline-flex max-w-full rounded-md border px-2.5 py-1.5 text-[11px] font-semibold ${item.is_available === false ? 'border-rose-200 bg-rose-50 text-rose-800' : !withinSchedule ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-violet-200 bg-violet-50 text-violet-800'}`}>{item.is_available === false ? 'Currently unavailable' : !withinSchedule ? nextAvailabilityLabel : 'Restaurant not accepting orders'}</p>}
+        {!canOrder && <button type="button" disabled className="mt-2 min-h-9 w-full whitespace-nowrap rounded-full px-2 py-2 text-[10px] leading-none font-semibold" style={{background:'#F3E7DC',color:'#8A7666'}}>{item.is_available === false ? 'Unavailable' : !withinSchedule ? nextAvailabilityLabel : 'Orders paused'}</button>}
         {canOrder && <div className="mt-3">
           {hasOptions ? (
-            <button type="button" onClick={(event) => { event.stopPropagation(); openDetails(); }} className="min-h-10 w-full rounded-full px-2 py-2 text-[11px] font-semibold text-white sm:text-xs" style={{background:'var(--orange)'}}>Choose options</button>
+            <button type="button" onClick={(event) => { event.stopPropagation(); openDetails(); }} className="min-h-9 w-full rounded-full px-3 py-2 text-[12px] font-semibold text-white sm:text-xs" style={{background:'var(--orange)'}}>Choose options</button>
           ) : quantity === 0 ? (
-            <button type="button" onClick={(event) => { event.stopPropagation(); addItem({id:item.id,name:item.name,price:displayPrice,restaurantId:restaurant.id,restaurantName:restaurant.name}); }} className="flex min-h-10 w-full items-center justify-center gap-2 rounded-full text-xs font-semibold text-white" style={{background:'var(--orange)'}}><Plus className="h-4 w-4" /> Add</button>
+            <button type="button" onClick={(event) => { event.stopPropagation(); addItem({id:item.id,name:item.name,price:displayPrice,imageUrl:imageUrls[0] || undefined,restaurantId:restaurant.id,restaurantName:restaurant.name}); }} className="flex min-h-10 w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-xs font-semibold text-white" style={{background:'var(--orange)'}}><Plus className="h-4 w-4" /> Add</button>
           ) : (
-            <div className="flex min-h-10 items-center justify-between rounded-full border px-2" style={{borderColor:'var(--orange)'}}>
-              <button type="button" onClick={(event) => { event.stopPropagation(); updateQuantity(item.id, quantity - 1); }} className="flex h-8 w-8 items-center justify-center" style={{color:'var(--orange)'}} aria-label={`Remove one ${item.name}`}><Minus className="h-4 w-4" /></button>
-              <span className="text-sm font-semibold" style={{color:'var(--ink)'}}>{quantity}</span>
-              <button type="button" onClick={(event) => { event.stopPropagation(); updateQuantity(item.id, quantity + 1); }} className="flex h-8 w-8 items-center justify-center" style={{color:'var(--orange)'}} aria-label={`Add one more ${item.name}`}><Plus className="h-4 w-4" /></button>
+            <div className="flex h-11 items-center justify-between rounded-full border px-1.5" style={{borderColor:'var(--orange)',background:'#FFFAF5'}}>
+              <button type="button" onClick={(event) => { event.stopPropagation(); updateQuantity(item.id, quantity - 1); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors active:scale-95" style={{background:'#FFF0E3',color:'var(--orange)'}} aria-label={`Remove one ${item.name}`}><Minus className="h-4 w-4" /></button>
+              <span className="min-w-8 text-center text-sm font-bold tabular-nums" style={{color:'var(--ink)'}} aria-live="polite">{quantity}</span>
+              <button type="button" onClick={(event) => { event.stopPropagation(); updateQuantity(item.id, quantity + 1); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors active:scale-95" style={{background:'#FFF0E3',color:'var(--orange)'}} aria-label={`Add one more ${item.name}`}><Plus className="h-4 w-4" /></button>
             </div>
           )}
         </div>}
-        {related.length > 0 && <div className="mt-3 border-t pt-2" style={{borderColor:'var(--line)'}}><p className="mb-1.5 text-[10px] font-bold" style={{color:'var(--gray)'}}>Goes well with</p><div className="flex flex-wrap gap-1">{related.map(candidate=><button key={candidate.id} type="button" onClick={event=>{event.stopPropagation();router.push(`/order/restaurant/${restaurant.id}/item/${candidate.id}`);}} className="rounded-full border px-2 py-1 text-[10px] font-semibold" style={{borderColor:'var(--line)',color:'var(--orange)'}}>{candidate.name}</button>)}</div></div>}
+
       </div>
-      {galleryOpen && imageUrls.length > 0 && (
+      {galleryOpen && imageUrls.length > 0 && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-4"
           role="presentation"
-          onClick={(event) => { event.stopPropagation(); if (event.target === event.currentTarget) setGalleryOpen(false); }}
-          onKeyDown={(event) => event.stopPropagation()}
+          onClick={() => setGalleryOpen(false)}
         >
-          <section role="dialog" aria-modal="true" aria-label={`${item.name} photo gallery`} className="relative w-full max-w-lg rounded-2xl bg-white p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div><h2 className="text-sm font-bold text-gray-900">{item.name}</h2><p className="text-xs text-gray-500">Photo {activeImageIndex + 1} of {imageUrls.length}</p></div>
-              <button type="button" onClick={() => setGalleryOpen(false)} className="flex h-10 w-10 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100" aria-label="Close photo gallery"><X className="h-5 w-5" /></button>
+          <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-label={`${item.name} photo gallery`} onClick={(event) => event.stopPropagation()}>
+            <div className="flex min-h-14 items-center justify-between gap-3 px-4 py-2" style={{background:'#FFFFFF'}}>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold" style={{color:'var(--ink)'}}>{item.name}</p>
+                <p className="text-[11px]" style={{color:'var(--gray)'}}>Photo {activeImageIndex + 1} of {imageUrls.length}</p>
+              </div>
+              <button
+                type="button"
+                onClick={(event) => { event.preventDefault(); event.stopPropagation(); setGalleryOpen(false); }}
+                onPointerDown={(event) => event.stopPropagation()}
+                aria-label="Close gallery"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F3F4F6] text-[#292524] active:bg-[#E7E5E4]"
+              >
+                <X className="h-6 w-6" />
+              </button>
             </div>
-            <div className="aspect-square w-full rounded-xl bg-cover bg-center bg-no-repeat" style={{backgroundImage: `url(${imageUrls[activeImageIndex]}), linear-gradient(135deg, #FFE3C7, #FFD9B3)`}} role="img" aria-label={`${item.name}, photo ${activeImageIndex + 1}`} />
-            {imageUrls.length > 1 && <div className="mt-3 flex items-center justify-between gap-3">
-              <button type="button" onClick={() => setActiveImageIndex((index) => (index - 1 + imageUrls.length) % imageUrls.length)} className="flex min-h-11 items-center gap-1 rounded-lg border px-3 text-sm font-semibold text-gray-800" aria-label="Previous photo"><ChevronLeft className="h-4 w-4" /> Previous</button>
-              <div className="flex gap-1.5">{imageUrls.map((url, index) => <button key={url + index} type="button" onClick={() => setActiveImageIndex(index)} className="h-2.5 w-2.5 rounded-full" style={{background: index === activeImageIndex ? 'var(--orange)' : '#D1D5DB'}} aria-label={`Show photo ${index + 1}`} aria-current={index === activeImageIndex ? 'true' : undefined} />)}</div>
-              <button type="button" onClick={() => setActiveImageIndex((index) => (index + 1) % imageUrls.length)} className="flex min-h-11 items-center gap-1 rounded-lg border px-3 text-sm font-semibold text-gray-800" aria-label="Next photo">Next <ChevronRight className="h-4 w-4" /></button>
-            </div>}
-          </section>
-        </div>
+            <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-black">
+              <img src={imageUrls[activeImageIndex]} alt={`${item.name} photo ${activeImageIndex + 1}`} className="h-full w-full object-contain" />
+              {imageUrls.length > 1 && (
+                <>
+                  <button type="button" aria-label="Previous photo" onClick={() => setActiveImageIndex((index) => (index - 1 + imageUrls.length) % imageUrls.length)} className="absolute left-3 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white">
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+                  <button type="button" aria-label="Next photo" onClick={() => setActiveImageIndex((index) => (index + 1) % imageUrls.length)} className="absolute right-3 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white">
+                    <ChevronRight className="h-6 w-6" />
+                  </button>
+                </>
+              )}
+            </div>
+            {imageUrls.length > 1 && <p className="mt-3 text-center text-xs font-medium text-white">{activeImageIndex + 1} of {imageUrls.length}</p>}
+          </div>
+        </div>,
+        document.body
       )}
     </article>
   );

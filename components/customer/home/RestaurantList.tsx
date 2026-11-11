@@ -34,11 +34,14 @@ export function RestaurantList({restaurants, isLoading, error, title = 'All rest
       )}
 
       {!isLoading && !error && restaurants.length > 0 && (
-        // Lightened from the original full-strength var(--line) — color-mix
-        // works regardless of --line's actual hex value, no guessing needed.
-        <div className="divide-y" style={{borderColor: 'color-mix(in srgb, var(--line) 45%, transparent)'}}>
-          {restaurants.map((r) => (
-            <RestaurantCard key={r.id} restaurant={r} />
+        <div>
+          {restaurants.map((r, index) => (
+            <div
+              key={r.id}
+              style={index < restaurants.length - 1 ? {borderBottom: '1px solid rgba(229, 216, 204, 0.5)'} : undefined}
+            >
+              <RestaurantCard restaurant={r} />
+            </div>
           ))}
         </div>
       )}
