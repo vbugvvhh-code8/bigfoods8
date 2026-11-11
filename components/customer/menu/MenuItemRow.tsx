@@ -1,6 +1,7 @@
 'use client';
 
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
+import {createPortal} from 'react-dom';
 import {useRouter} from 'next/navigation';
 import {Plus, Minus, X, ChevronLeft, ChevronRight, Image as ImageIcon} from 'lucide-react';
 import {useCart} from '@/hooks/useCart';
@@ -20,6 +21,26 @@ export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowPr
     : item.image_url ? [item.image_url] : [];
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  useEffect(() => {
+    if (!galleryOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setGalleryOpen(false);
+      if (event.key === 'ArrowLeft' && imageUrls.length > 1) {
+        setActiveImageIndex((index) => (index - 1 + imageUrls.length) % imageUrls.length);
+      }
+      if (event.key === 'ArrowRight' && imageUrls.length > 1) {
+        setActiveImageIndex((index) => (index + 1) % imageUrls.length);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [galleryOpen, imageUrls.length]);
   const cartItem = items.find((i) => i.id === item.id);
   const quantity = cartItem?.quantity ?? 0;
   const nowParts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Lagos', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
@@ -115,14 +136,14 @@ export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowPr
         </div>}
 
       </div>
-      {galleryOpen && imageUrls.length > 0 && (
+      {galleryOpen && imageUrls.length > 0 && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 p-4"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-4"
           role="presentation"
-          onClick={(event) => { event.stopPropagation(); setGalleryOpen(false); }}
+          onClick={() => setGalleryOpen(false)}
         >
           <div className="relative w-full max-w-lg" role="dialog" aria-modal="true" aria-label={`${item.name} photo gallery`} onClick={(event) => event.stopPropagation()}>
-            <button type="button" onClick={() => setGalleryOpen(false)} aria-label="Close gallery" className="absolute -top-11 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white">
+            <button type="button" onClick={() => setGalleryOpen(false)} aria-label="Close gallery" className="absolute -top-11 right-0 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white">
               <X className="h-5 w-5" />
             </button>
             <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl bg-black">
@@ -140,7 +161,8 @@ export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowPr
             </div>
             {imageUrls.length > 1 && <p className="mt-3 text-center text-xs font-medium text-white">{activeImageIndex + 1} of {imageUrls.length}</p>}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </article>
   );
