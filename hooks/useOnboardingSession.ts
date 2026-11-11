@@ -48,6 +48,7 @@ export interface OnboardingDraft {
   restaurantName?: string;
   category?: string;
   bannerUrl?: string;
+  logoUrl?: string;
   address?: string;
   latitude?: number;
   longitude?: number;
