@@ -36,7 +36,7 @@ function MobileTopBar({showBack, restaurantName, backHref, title, useHistoryBack
           <button
             type="button"
             onClick={() => useHistoryBack ? router.back() : router.push(backHref)}
-            aria-label="Back to restaurants"
+            aria-label={useHistoryBack ? "Back from checkout" : "Back to restaurants"}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:bg-orange-50"
             style={{color:'var(--orange)'}}
           >
