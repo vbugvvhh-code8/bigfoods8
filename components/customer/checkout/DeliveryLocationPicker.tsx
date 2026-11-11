@@ -95,7 +95,7 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
   }
 
   return (
-    <div className="rounded-xl p-3.5 mt-4" style={{background: 'var(--peach)'}}>
+    <div className="rounded-xl border p-3.5 mt-4" style={{background: 'var(--peach)', borderColor: '#E8CDB8'}}>
       <div className="flex items-center gap-2 mb-2.5">
         <MapPin className="w-4 h-4" style={{color: 'var(--orange)'}} />
         <span className="font-semibold text-[12.5px]" style={{color: 'var(--ink)'}}>
@@ -217,8 +217,8 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
                 setOutsideServiceArea(false);
               }}
               placeholder="e.g. 12 Zik Avenue"
-              className="w-full px-3 py-2.5 rounded-lg text-[12.5px] outline-none bg-white"
-              style={{color: 'var(--ink)'}}
+              className="w-full px-3 py-2.5 rounded-lg border text-[12.5px] outline-none bg-white focus:border-orange-500"
+              style={{color: 'var(--ink)', borderColor: 'var(--line)'}}
             />
           </div>
 
@@ -312,8 +312,8 @@ export function DeliveryLocationPicker({selected, onSelect, note, onNoteChange}:
         value={note}
         onChange={(e) => onNoteChange(e.target.value)}
         placeholder="Add a note for the rider (e.g. gate colour, floor)"
-        className="w-full mt-2.5 bg-white rounded-lg px-3 py-2 text-[12px] outline-none"
-        style={{color: 'var(--ink)'}}
+        className="w-full mt-2.5 bg-white rounded-lg border px-3 py-2 text-[12px] outline-none focus:border-orange-500"
+        style={{color: 'var(--ink)', borderColor: 'var(--line)'}}
       />
     </div>
   );
