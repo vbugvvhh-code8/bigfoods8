@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect, useRef, useState} from 'react';
+import {useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import Link from 'next/link';
 import type {RestaurantWithMeta} from '@/lib/customer/types';
 import {trackRestaurantEvent} from '@/hooks/useTrackRestaurantEvent';
@@ -9,9 +9,53 @@ interface PromotedRowProps {
   restaurants: RestaurantWithMeta[];
 }
 
+function shuffle<T,>(items: T[]): T[] {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
 export function PromotedRow({restaurants}: PromotedRowProps) {
   const trackRef = useRef<HTMLDivElement>(null);
+  const rebaseTimer = useRef<number | null>(null);
   const [paused, setPaused] = useState(false);
+  const [randomized, setRandomized] = useState(restaurants);
+  const idSignature = restaurants.map((r) => r.id).join('|');
+
+  useEffect(() => {
+    setRandomized(shuffle(restaurants));
+    // A changed active promotion set gets a fresh random order.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idSignature]);
+
+  const loopedRestaurants = useMemo(
+    () => randomized.length > 1
+      ? [...randomized, ...randomized, ...randomized]
+      : randomized,
+    [randomized]
+  );
+
+  const centerSlide = (slide: HTMLElement, behavior: ScrollBehavior = 'instant') => {
+    const track = trackRef.current;
+    if (!track) return;
+    const trackRect = track.getBoundingClientRect();
+    const slideRect = slide.getBoundingClientRect();
+    const left = track.scrollLeft + slideRect.left - trackRect.left - (track.clientWidth - slideRect.width) / 2;
+    track.scrollTo({left, behavior});
+  };
+
+  // Start on the middle copy so the carousel can travel in either direction
+  // without exposing a beginning or an end.
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    if (!track || randomized.length < 2) return;
+    const slides = track.querySelectorAll<HTMLElement>('[data-promotion-slide]');
+    const firstMiddleSlide = slides[randomized.length];
+    if (firstMiddleSlide) centerSlide(firstMiddleSlide, 'instant');
+  }, [randomized]);
 
   useEffect(() => {
     const cards = trackRef.current?.querySelectorAll<HTMLElement>('[data-promotion-impression]');
@@ -44,11 +88,11 @@ export function PromotedRow({restaurants}: PromotedRowProps) {
 
     cards.forEach((card) => observer.observe(card));
     return () => observer.disconnect();
-  }, [restaurants]);
+  }, [loopedRestaurants]);
 
   useEffect(() => {
     const track = trackRef.current;
-    if (!track || restaurants.length < 2 || paused) return;
+    if (!track || randomized.length < 2 || paused) return;
 
     const advance = () => {
       const slides = Array.from(track.querySelectorAll<HTMLElement>('[data-promotion-slide]'));
@@ -60,8 +104,8 @@ export function PromotedRow({restaurants}: PromotedRowProps) {
       let smallestDistance = Number.POSITIVE_INFINITY;
 
       slides.forEach((slide, index) => {
-        const slideRect = slide.getBoundingClientRect();
-        const slideCenter = track.scrollLeft + slideRect.left - trackRect.left + slideRect.width / 2;
+        const rect = slide.getBoundingClientRect();
+        const slideCenter = track.scrollLeft + rect.left - trackRect.left + rect.width / 2;
         const distance = Math.abs(slideCenter - center);
         if (distance < smallestDistance) {
           smallestDistance = distance;
@@ -69,15 +113,29 @@ export function PromotedRow({restaurants}: PromotedRowProps) {
         }
       });
 
-      const next = slides[(currentIndex + 1) % slides.length];
-      const nextRect = next.getBoundingClientRect();
-      const left = track.scrollLeft + nextRect.left - trackRect.left - (track.clientWidth - nextRect.width) / 2;
-      track.scrollTo({left, behavior: 'smooth'});
+      const count = randomized.length;
+      // When the third copy is reached, jump to the identical card in the
+      // middle copy before advancing. The content and position stay identical,
+      // so the loop never visibly races back to the first banner.
+      if (currentIndex >= count * 2) {
+        const equivalent = slides[currentIndex - count];
+        if (equivalent) {
+          centerSlide(equivalent, 'instant');
+          currentIndex -= count;
+        }
+      }
+
+      const next = slides[currentIndex + 1];
+      if (next) centerSlide(next, 'smooth');
     };
 
-    const interval = window.setInterval(advance, 5000);
+    const interval = window.setInterval(advance, 4500);
     return () => window.clearInterval(interval);
-  }, [restaurants.length, paused]);
+  }, [randomized.length, paused]);
+
+  useEffect(() => () => {
+    if (rebaseTimer.current != null) window.clearTimeout(rebaseTimer.current);
+  }, []);
 
   if (restaurants.length === 0) return null;
 
@@ -87,32 +145,32 @@ export function PromotedRow({restaurants}: PromotedRowProps) {
         <h2 className="font-display text-[15px] font-semibold" style={{color: 'var(--ink)'}}>
           Promoted near you
         </h2>
-        {restaurants.length > 1 && (
+        {randomized.length > 1 && (
           <span className="text-[10px]" style={{color: 'var(--gray)'}}>Swipe to explore</span>
         )}
       </div>
 
       <div
         ref={trackRef}
-        className="flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth scrollbar-hide px-[11%] -mx-4"
+        className="flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth scrollbar-hide px-[8%] -mx-4"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
         onTouchStart={() => setPaused(true)}
         onTouchEnd={() => setPaused(false)}
         style={{scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch'}}
       >
-        {restaurants.map((r) => (
+        {loopedRestaurants.map((r, index) => (
           <Link
-            key={r.id}
+            key={`${r.id}-loop-${index}`}
             href={`/order/restaurant/${r.id}`}
             data-promotion-slide
             data-promotion-impression
             data-restaurant-id={r.id}
             onClick={() => trackRestaurantEvent(r.id, 'card_click')}
-            className="flex-shrink-0 w-[78%] max-w-[280px] snap-center text-left"
+            className="flex-shrink-0 w-[84%] max-w-[340px] snap-center text-left"
           >
             <div
-              className="w-full h-[120px] sm:h-[132px] rounded-xl relative overflow-hidden mb-2 bg-cover bg-center"
+              className="w-full h-[140px] sm:h-[150px] rounded-xl relative overflow-hidden mb-2 bg-cover bg-center"
               style={
                 r.image_url
                   ? {backgroundImage: `url(${r.image_url}), linear-gradient(135deg, #FFE3C7, #FFD9B3)`}
