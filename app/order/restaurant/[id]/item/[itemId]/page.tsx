@@ -54,7 +54,7 @@ export default function MenuItemDetailsPage() {
             {images.length > 0 ? (
               <div className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={images[Math.min(activeImage, images.length - 1)]} alt={item.name} className="aspect-square w-full rounded-2xl object-cover" />
+                <img src={images[Math.min(activeImage, images.length - 1)]} alt={item.name} className="aspect-square w-full rounded-3xl object-cover" />
                 {images.length > 1 && <div className="flex gap-2 overflow-x-auto px-4 py-3 sm:px-3">
                   {images.map((url, index) => (
                     <button key={url} type="button" onClick={() => setActiveImage(index)} aria-label={`Show photo ${index + 1}`} aria-pressed={activeImage === index} className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border-2" style={{ borderColor: activeImage === index ? 'var(--orange)' : 'var(--line)' }}>
@@ -83,9 +83,9 @@ export default function MenuItemDetailsPage() {
               {item.description && <p className="mt-3 whitespace-pre-line text-sm leading-6" style={{ color: 'var(--ink)' }}>{item.description}</p>}
 
               <div className="mt-5 flex flex-wrap gap-2">
-                {item.preparation_time_minutes && <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs" style={{ borderColor: '#E8CDB8', background: 'var(--peach)', color: 'var(--ink)' }}><Clock3 className="h-3.5 w-3.5" /> About {item.preparation_time_minutes} min</span>}
-                {item.serving_size && <span className="rounded-full border px-3 py-1.5 text-xs" style={{ borderColor: '#E8CDB8', background: 'var(--peach)', color: 'var(--ink)' }}>Serving: {item.serving_size}</span>}
-                {(item.dietary_tags ?? []).map((tag) => <span key={tag} className="rounded-full border px-3 py-1.5 text-xs font-medium" style={{ borderColor: '#B7DFC5', background: '#E7F6EC', color: '#207245' }}>{tag}</span>)}
+                {item.preparation_time_minutes && <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs" style={{ border: '1px solid #D9B99D', background: 'var(--peach)', color: 'var(--ink)' }}><Clock3 className="h-3.5 w-3.5" /> About {item.preparation_time_minutes} min</span>}
+                {item.serving_size && <span className="rounded-full border px-3 py-1.5 text-xs" style={{ border: '1px solid #D9B99D', background: 'var(--peach)', color: 'var(--ink)' }}>Serving: {item.serving_size}</span>}
+                {(item.dietary_tags ?? []).map((tag) => <span key={tag} className="rounded-full border px-3 py-1.5 text-xs font-medium" style={{ border: '1px solid #A8D6B8', background: '#E7F6EC', color: '#207245' }}>{tag}</span>)}
               </div>
 
               {item.ingredients && <section className="mt-7 pt-2"><h2 className="mb-2 text-sm font-bold" style={{ color: 'var(--ink)' }}>Ingredients</h2><p className="whitespace-pre-line text-sm leading-6" style={{ color: 'var(--gray)' }}>{item.ingredients}</p></section>}
