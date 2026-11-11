@@ -41,7 +41,6 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
 
   const items = [
     { href: '/staff', label: 'Dashboard', icon: <LayoutGrid className="h-4 w-4" /> },
-    { href: '/staff/settings', label: 'Settings', icon: <Settings className="h-4 w-4" /> },
     { href: '/staff/attendance', label: 'Attendance & schedule', icon: <CalendarDays className="h-4 w-4" /> },
     ...(showStaffManagement ? [{ href: '/staff/manage', label: 'Staff management', icon: <Users className="h-4 w-4" /> }] : []),
     ...(showStaffOperations ? [{ href: '/staff/operations', label: 'Staff operations', icon: <ClipboardList className="h-4 w-4" /> }] : []),
@@ -79,13 +78,15 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
     </nav>
   );
 
+  const settingsLink = <button onClick={() => { router.push('/staff/settings'); setOpen(false); }} className="flex min-h-10 w-full shrink-0 items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[12.5px] leading-5 font-medium transition-all" style={{ background: pathname === '/staff/settings' ? 'rgba(255,106,0,0.12)' : 'transparent', color: pathname === '/staff/settings' ? '#FFFFFF' : '#B8B0A8', borderLeft: pathname === '/staff/settings' ? '2px solid #FF6A00' : '2px solid transparent' }}><span className="flex h-5 w-5 shrink-0 items-center justify-center"><Settings className="h-4 w-4" /></span><span>Settings</span></button>;
+
   const footer = <div className="mt-auto shrink-0 border-t border-white/[.08] pt-3"><button onClick={logout} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-[12.5px] font-medium text-[#B8B0A8] transition hover:bg-white/[.06] hover:text-white"><LogOut className="h-4 w-4" />Log out</button><div className="mt-1 flex items-center gap-2 px-2.5 text-[10.5px] text-[#7A736A]"><UserRound className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{effectiveStaffName || 'Logged in as Staff'}</span></div></div>;
 
   return <div className="min-h-screen" style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'var(--ink, #28231F)', background: '#F7F4F0' }}>
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-[224px] flex-col overflow-y-auto px-3.5 py-5 md:flex" style={{ background: 'var(--ink, #211A17)', color: '#D8D2CB' }}>
       <div className="mb-6 shrink-0"><div className="flex items-center gap-2 px-1.5"><SafeImage src={LOGO_URL} alt="BigFoods" className="h-[18px] w-[18px] shrink-0 rounded-[5px] object-cover" /><span className="text-[14px] font-semibold tracking-tight text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>BigFoods</span></div><p className="mt-2 px-1.5 text-[10px] uppercase tracking-widest text-[#9C948A]">Staff Workspace</p></div>
       {nav()}
-      {footer}
+      <div className="mt-auto shrink-0 pt-3">{settingsLink}{footer}</div>
     </aside>
     <div className="md:pl-[224px]">
       <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 sm:px-7" style={{ background: 'var(--ink, #211A17)' }}>
