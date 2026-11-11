@@ -32,6 +32,7 @@ export function MenuScreen({restaurant, menuItems, onBack}: MenuScreenProps) {
         id: item.id,
         name: item.name,
         price: item.price,
+        imageUrl: (Array.isArray(item.image_urls) && item.image_urls[0]) || item.image_url || undefined,
         restaurantId: restaurant.id,
         restaurantName: restaurant.name,
       });
