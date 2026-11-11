@@ -86,12 +86,8 @@ export default function SubscriptionsPage() {
       <p className="text-sm text-gray-600">Sign in to view or create meal subscriptions.</p>
       <Link href="/login?next=%2Fsubscriptions" className="mt-4 inline-flex rounded-xl px-4 py-3 text-sm font-bold text-white" style={{ background: 'var(--orange)' }}>Sign in</Link>
     </div> : <>
-      <div className="mb-6 flex flex-col gap-4 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" style={{ borderColor: '#EAD8C5', background: 'linear-gradient(110deg,#FFF8F0,#FFFCF8)' }}>
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border" style={{ borderColor: '#F1D8C1', background: '#FFF0E2', color: '#C45A16' }}><CalendarDays className="h-5 w-5" /></span>
-          <div className="min-w-0"><h2 className="font-bold" style={{ color: '#8F3F17' }}>Plan your meals ahead</h2><p className="mt-1 max-w-xl text-sm leading-6" style={{ color: '#75665C' }}>Choose your meals, variants and delivery days, then pay upfront.</p></div>
-        </div>
-        <Link href="/order" className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white sm:w-auto" style={{ background: 'var(--orange)' }}><Plus className="h-4 w-4" />Choose a restaurant</Link>
+      <div className="mb-6">
+        <Link href="/order" className="inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-bold text-white transition-opacity hover:opacity-90" style={{ background: 'var(--orange)' }}><Plus className="h-4 w-4" />Choose a restaurant</Link>
       </div>
       <section id="your-packages" className="scroll-mt-24 p-0">
         <div className="mb-4 flex items-center justify-between gap-3">
