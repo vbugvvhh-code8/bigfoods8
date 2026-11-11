@@ -125,7 +125,7 @@ export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowPr
           {hasOptions ? (
             <button type="button" onClick={(event) => { event.stopPropagation(); openDetails(); }} className="min-h-9 w-full rounded-full px-3 py-2 text-[12px] font-semibold text-white sm:text-xs" style={{background:'var(--orange)'}}>Choose options</button>
           ) : quantity === 0 ? (
-            <button type="button" onClick={(event) => { event.stopPropagation(); addItem({id:item.id,name:item.name,price:displayPrice,restaurantId:restaurant.id,restaurantName:restaurant.name}); }} className="flex min-h-9 w-full items-center justify-center gap-2 rounded-full px-3 py-2 text-xs font-semibold text-white" style={{background:'var(--orange)'}}><Plus className="h-4 w-4" /> Add</button>
+            <button type="button" onClick={(event) => { event.stopPropagation(); addItem({id:item.id,name:item.name,price:displayPrice,restaurantId:restaurant.id,restaurantName:restaurant.name}); }} className="flex min-h-10 w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-xs font-semibold text-white" style={{background:'var(--orange)'}}><Plus className="h-4 w-4" /> Add</button>
           ) : (
             <div className="flex min-h-11 items-center justify-between rounded-full border px-3 py-1.5" style={{borderColor:'var(--orange)'}}>
               <button type="button" onClick={(event) => { event.stopPropagation(); updateQuantity(item.id, quantity - 1); }} className="flex h-9 w-9 items-center justify-center rounded-full" style={{color:'var(--orange)'}} aria-label={`Remove one ${item.name}`}><Minus className="h-4 w-4" /></button>
@@ -142,11 +142,23 @@ export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowPr
           role="presentation"
           onClick={() => setGalleryOpen(false)}
         >
-          <div className="relative w-full max-w-lg" role="dialog" aria-modal="true" aria-label={`${item.name} photo gallery`} onClick={(event) => event.stopPropagation()}>
-            <button type="button" onClick={() => setGalleryOpen(false)} aria-label="Close gallery" className="absolute -top-11 right-0 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white">
-              <X className="h-5 w-5" />
-            </button>
-            <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl bg-black">
+          <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-label={`${item.name} photo gallery`} onClick={(event) => event.stopPropagation()}>
+            <div className="flex min-h-14 items-center justify-between gap-3 px-4 py-2" style={{background:'#FFFFFF'}}>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold" style={{color:'var(--ink)'}}>{item.name}</p>
+                <p className="text-[11px]" style={{color:'var(--gray)'}}>Photo {activeImageIndex + 1} of {imageUrls.length}</p>
+              </div>
+              <button
+                type="button"
+                onClick={(event) => { event.preventDefault(); event.stopPropagation(); setGalleryOpen(false); }}
+                onPointerDown={(event) => event.stopPropagation()}
+                aria-label="Close gallery"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F3F4F6] text-[#292524] active:bg-[#E7E5E4]"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-black">
               <img src={imageUrls[activeImageIndex]} alt={`${item.name} photo ${activeImageIndex + 1}`} className="h-full w-full object-contain" />
               {imageUrls.length > 1 && (
                 <>
