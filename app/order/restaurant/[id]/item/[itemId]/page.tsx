@@ -14,7 +14,7 @@ export default function MenuItemDetailsPage() {
   const { id, itemId } = useParams<{ id: string; itemId: string }>();
   const { restaurant, isLoading: restaurantLoading, error: restaurantError } = useRestaurant(id);
   const { menuItems, isLoading: menuLoading, error: menuError } = useMenuItems(id);
-  const { items, addItem, updateQuantity } = useCart();
+  const { items, addItem, updateQuantity, count: cartCount } = useCart();
   const [activeImage, setActiveImage] = useState(0);
   const [requestedQuantity, setRequestedQuantity] = useState(1);
   const [optionQuantities, setOptionQuantities] = useState<Record<string, number>>({});
@@ -43,7 +43,7 @@ export default function MenuItemDetailsPage() {
   const updateOptionQuantity = (groupId: string, optionId: string, nextQuantity: number, selectionType: 'single' | 'multiple') => setOptionQuantities((prev) => { const next = { ...prev }; if (nextQuantity > 0 && selectionType === 'single') item?.option_groups.find((group) => group.id === groupId)?.options.forEach((option) => { next[option.id] = 0; }); next[optionId] = Math.max(0, Math.min(99, nextQuantity)); return next; });
 
   return (
-    <div className="mx-auto w-full max-w-2xl pb-6">
+    <div className={`mx-auto w-full max-w-2xl ${cartCount > 0 ? "pb-40" : "pb-6"}`}>
       {isLoading && <div className="h-72 animate-pulse rounded-2xl" style={{ background: 'var(--peach)' }} aria-label="Loading dish details" />}
       {!isLoading && (restaurantError || menuError || !restaurant) && <ErrorState message="Couldn't load this dish. Please return to the restaurant menu and try again." />}
       {!isLoading && restaurant && !menuError && !item && <ErrorState message="This dish could not be found in this restaurant's menu." />}
