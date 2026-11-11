@@ -127,10 +127,10 @@ export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowPr
           ) : quantity === 0 ? (
             <button type="button" onClick={(event) => { event.stopPropagation(); addItem({id:item.id,name:item.name,price:displayPrice,restaurantId:restaurant.id,restaurantName:restaurant.name}); }} className="flex min-h-10 w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-xs font-semibold text-white" style={{background:'var(--orange)'}}><Plus className="h-4 w-4" /> Add</button>
           ) : (
-            <div className="flex min-h-11 items-center justify-between rounded-full border px-3 py-1.5" style={{borderColor:'var(--orange)'}}>
-              <button type="button" onClick={(event) => { event.stopPropagation(); updateQuantity(item.id, quantity - 1); }} className="flex h-9 w-9 items-center justify-center rounded-full" style={{color:'var(--orange)'}} aria-label={`Remove one ${item.name}`}><Minus className="h-4 w-4" /></button>
-              <span className="text-sm font-semibold" style={{color:'var(--ink)'}}>{quantity}</span>
-              <button type="button" onClick={(event) => { event.stopPropagation(); updateQuantity(item.id, quantity + 1); }} className="flex h-9 w-9 items-center justify-center rounded-full" style={{color:'var(--orange)'}} aria-label={`Add one more ${item.name}`}><Plus className="h-4 w-4" /></button>
+            <div className="flex h-11 items-center justify-between rounded-full border px-1.5" style={{borderColor:'var(--orange)',background:'#FFFAF5'}}>
+              <button type="button" onClick={(event) => { event.stopPropagation(); updateQuantity(item.id, quantity - 1); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors active:scale-95" style={{background:'#FFF0E3',color:'var(--orange)'}} aria-label={`Remove one ${item.name}`}><Minus className="h-4 w-4" /></button>
+              <span className="min-w-8 text-center text-sm font-bold tabular-nums" style={{color:'var(--ink)'}} aria-live="polite">{quantity}</span>
+              <button type="button" onClick={(event) => { event.stopPropagation(); updateQuantity(item.id, quantity + 1); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors active:scale-95" style={{background:'#FFF0E3',color:'var(--orange)'}} aria-label={`Add one more ${item.name}`}><Plus className="h-4 w-4" /></button>
             </div>
           )}
         </div>}
