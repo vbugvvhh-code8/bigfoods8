@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import SafeImage from '@/components/ui/SafeImage';
 import { LOGO_URL } from '@/lib/brandImages';
 import { usePathname, useRouter } from 'next/navigation';
@@ -11,8 +11,25 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [sessionStaff, setSessionStaff] = useState<{ display_name?: string; role?: string; permissions?: unknown } | null>(null);
+  useEffect(() => {
+    if (staffRole && staffPermissions !== undefined && staffName) return;
+    let active = true;
+    fetch('/api/bigfoods-staff/session', { cache: 'no-store' })
+      .then(async response => {
+        if (!response.ok) return null;
+        const data = await response.json();
+        return data?.staff || null;
+      })
+      .then(staff => { if (active && staff) setSessionStaff(staff); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [staffName, staffRole, staffPermissions]);
   const [operationsOpen, setOperationsOpen] = useState(pathname.startsWith('/staff/operations'));
-  const accessProfile = { role: staffRole, permissions: staffPermissions };
+  const effectiveStaffName = staffName || sessionStaff?.display_name;
+  const effectiveStaffRole = staffRole || sessionStaff?.role;
+  const effectiveStaffPermissions = staffPermissions !== undefined ? staffPermissions : sessionStaff?.permissions;
+  const accessProfile = { role: effectiveStaffRole, permissions: effectiveStaffPermissions };
   const showStaffManagement = canManageStaff(accessProfile);
   const showStaffOperations = canUseStaffOperations(accessProfile);
 
@@ -62,7 +79,7 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
     </nav>
   );
 
-  const footer = <div className="mt-auto border-t border-white/[.08] pt-3"><button onClick={logout} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-[12.5px] font-medium text-[#B8B0A8] transition hover:bg-white/[.06] hover:text-white"><LogOut className="h-4 w-4" />Log out</button><div className="mt-1 flex items-center gap-2 px-2.5 text-[10.5px] text-[#7A736A]"><UserRound className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{staffName || 'Logged in as Staff'}</span></div></div>;
+  const footer = <div className="mt-auto border-t border-white/[.08] pt-3"><button onClick={logout} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-[12.5px] font-medium text-[#B8B0A8] transition hover:bg-white/[.06] hover:text-white"><LogOut className="h-4 w-4" />Log out</button><div className="mt-1 flex items-center gap-2 px-2.5 text-[10.5px] text-[#7A736A]"><UserRound className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{effectiveStaffName || 'Logged in as Staff'}</span></div></div>;
 
   return <div className="min-h-screen" style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'var(--ink, #28231F)', background: '#F7F4F0' }}>
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-[200px] flex-col px-3.5 py-5 md:flex" style={{ background: 'var(--ink, #211A17)', color: '#D8D2CB' }}>
@@ -73,7 +90,7 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
     <div className="md:pl-[200px]">
       <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 sm:px-7" style={{ background: 'var(--ink, #211A17)' }}>
         <div className="flex items-center gap-3"><button onClick={() => setOpen(true)} aria-label="Open menu" className="text-white md:hidden"><Menu className="h-5 w-5" /></button><div><p className="text-[10px] uppercase tracking-widest text-[#9C948A]">BigFoods / Staff</p><h1 className="mt-0.5 text-[15px] font-semibold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{title}</h1></div></div>
-        <div className="flex items-center gap-3"><div className="hidden max-w-[220px] truncate text-[11px] text-[#B8B0A8] sm:block">{staffName || 'Staff account'}</div><button onClick={logout} className="rounded-lg border border-white/15 px-3 py-2 text-[11.5px] font-medium text-[#E4DDD6] transition hover:bg-white/[.06]">Log out</button></div>
+        <div className="flex items-center gap-3"><div className="hidden max-w-[220px] truncate text-[11px] text-[#B8B0A8] sm:block">{effectiveStaffName || 'Staff account'}</div><button onClick={logout} className="rounded-lg border border-white/15 px-3 py-2 text-[11.5px] font-medium text-[#E4DDD6] transition hover:bg-white/[.06]">Log out</button></div>
       </header>
       <main className="w-full max-w-[1180px] px-4 py-4 sm:px-7 sm:py-6"><div className="mb-4"><h2 className="text-[20px] font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{title}</h2><p className="mt-0.5 text-[11.5px] text-[#81766D]">{subtitle || 'Your staff workspace'}</p></div>{children}</main>
     </div>
