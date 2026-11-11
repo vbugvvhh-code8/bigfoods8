@@ -31,6 +31,7 @@ export default function RestaurantInfoPage() {
   const cacValid = /^(RC|BN|IT)?\s?-?\d{4,9}$/i.test((draft.cacNumber ?? '').trim());
   const canContinue = !!(
     draft.restaurantName &&
+    draft.logoUrl &&
     draft.category &&
     draft.vendorType &&
     draft.registrationStatus &&
@@ -208,12 +209,14 @@ export default function RestaurantInfoPage() {
 
       <div className="mb-4">
         <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
-          Restaurant logo
+          Restaurant logo <span style={{ color: 'var(--red)' }}>*</span>
         </label>
         <LogoUpload previewUrl={draft.logoUrl} onUploaded={(url) => updateDraft({ logoUrl: url })} />
-        <p className="text-[10.5px] mt-1.5" style={{ color: 'var(--gray)' }}>
-          Add your restaurant or kitchen logo. This is optional and can be changed later.
-        </p>
+        {!draft.logoUrl && (
+          <p className="text-[10.5px] mt-1.5" style={{ color: 'var(--red)' }} role="status">
+            Upload your restaurant or kitchen logo to continue.
+          </p>
+        )}
       </div>
 
       <div className="mb-2">
