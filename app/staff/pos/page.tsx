@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Plus, Minus, Trash2, RefreshCw, ShoppingBag, LogOut, UtensilsCrossed, LayoutGrid, ClipboardList, Package, Users, ChartNoAxesColumn, FileText, Settings, UserRound, Headphones, CheckCircle2, Grid2X2, List, X, MoreVertical, ScanLine, Percent, Mail, ChevronDown, ChefHat, Soup, GlassWater, Sandwich, PackageOpen, Banknote, CreditCard, UserPlus } from "lucide-react";
+import PosWorkspaceShell from "@/components/staff/PosWorkspaceShell";
 
 type Staff = { id: string; email: string; display_name: string; role: string; permissions: unknown; must_change_password: boolean };
 type Product = { id: string; name: string; sold_count?: number; category: string; subcategory: string | null; selling_price: number; image_url: string | null; image_urls?: string[] | null; is_available: boolean; sku?: string | null; sort_order?: number; promotional_price?: number | null; promotion_starts_at?: string | null; promotion_ends_at?: string | null; complementary_item_ids?: string[] | null };
@@ -110,8 +111,8 @@ export default function StaffPosPage() {
 
   if (!staff || !authorized) return <main className="grid min-h-screen place-items-center bg-[#F7F4F0] p-6"><div className="max-w-md rounded-2xl border border-[#E8E0D8] bg-white p-6 text-center shadow-sm"><h1 className="text-lg font-bold text-[#30261F]">{loading ? "Checking POS access…" : "POS access restricted"}</h1><p className="mt-2 text-sm leading-6 text-[#81766D]">{error || "Verifying your secure staff session…"}</p><button onClick={() => router.replace("/staff")} className="mt-4 rounded-xl bg-[#F47721] px-4 py-2.5 text-sm font-semibold text-white">Return to staff dashboard</button></div></main>;
 
-  return <main className="min-h-screen bg-[#F7F8FA] text-[#151923]"><div className="flex min-h-screen">
-  <aside className="hidden w-[210px] shrink-0 flex-col border-r border-[#E5E7EB] bg-white lg:flex">
+  return <PosWorkspaceShell title="Point of Sale" staffName={staff.display_name} staffRole={staff.role}><main className="min-h-screen bg-[#F7F4F0] text-[#29221E]"><div className="flex min-h-screen">
+  <aside className="hidden">
     <div className="flex h-[76px] items-center border-b border-[#E8EAEE] px-5"><img src="https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/0.4927238865897102.webp" alt="BigFoods logo" className="h-10 w-10 object-contain"/><span className="ml-1 text-[23px] font-extrabold tracking-tight">BigFoods</span></div>
     <nav className="space-y-1 px-3 py-4">{nav.map(({label,icon:Icon,click})=><button key={label} onClick={click} className={"flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] transition "+(label==="POS"?"bg-[#FFF0E7] font-semibold text-[#E9530B]":"text-[#586171] hover:bg-[#F7F8FA]")}><Icon size={19}/>{label}</button>)}</nav>
     <div className="mt-auto border-t border-[#EEF0F3] p-4 text-[#687180]"><div className="flex gap-2"><Headphones size={20}/><span className="text-xs leading-5">Need help?<br/><span className="text-[#9097A2]">Contact support</span></span></div></div>
@@ -145,5 +146,5 @@ export default function StaffPosPage() {
     <button disabled={!cart.length||busy||loading||(paymentMethod==="cash"&&(!cashReceived||Number(cashReceived)<total))||(paymentMethod==="moniepoint_pos"&&!terminalConfirmed)} onClick={()=>void checkout()} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#F47721] px-4 py-3.5 text-[13px] font-bold text-white disabled:opacity-50">{busy?"Saving sale…":<>Complete Payment {money(total)} →</>}</button>
     <p className="mt-3 text-center text-[10px] text-gray-400">Receipt email delivery is not connected yet.</p>
     {receipt&&<div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><div className="flex items-center gap-2 font-bold"><CheckCircle2 size={17}/> Receipt {receipt.receipt_number}</div><p className="mt-2">Total: {money(Number(receipt.total_amount))}</p><p>Payment: {receipt.payment_method==="cash"?"Cash":"Moniepoint POS"}</p>{receipt.payment_method==="cash"&&<p>Change: {money(Number(receipt.change_due))}</p>}<button onClick={()=>window.print()} className="mt-3 rounded-lg border border-emerald-300 px-3 py-2 text-xs font-semibold">Print receipt</button></div>}
-  </aside></div></section></div></main>;
+  </aside></div></section></div></main></PosWorkspaceShell>;
 }
