@@ -56,7 +56,7 @@ export default function PosWorkspaceShell({ children, title, staffName, staffRol
           <button onClick={() => setMobileOpen(true)} aria-label="Open POS navigation" className="rounded-lg p-2 text-white hover:bg-white/10 md:hidden"><Menu size={19}/></button>
           <div><p className="text-[9px] uppercase tracking-[.2em] text-[#B7A99F]">BigFoods / POS</p><h1 className="mt-0.5 text-[14px] font-semibold">{title}</h1></div>
         </div>
-        {toolbar && <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">{toolbar}</div>}
+        {toolbar && <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 text-[#29221E]">{toolbar}</div>}
         <div className="hidden shrink-0 text-right xl:block"><p className="max-w-[150px] truncate text-[11px] font-semibold">{staffName || "Staff account"}</p><p className="mt-0.5 text-[10px] capitalize text-[#B7A99F]">{(staffRole || "POS staff").replace(/[_-]/g, " ")}</p></div>
       </header>
       {children}
