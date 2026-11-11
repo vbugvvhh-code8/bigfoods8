@@ -11,7 +11,7 @@ export function MenuCategoryTabs({categories, active, onChange}: MenuCategoryTab
 
   return (
     <div
-      className="flex gap-4 overflow-x-auto mb-1.5 scrollbar-hide border-b pb-1.5"
+      className="flex gap-4 overflow-x-auto mb-3 scrollbar-hide border-b pb-2"
       style={{borderColor: 'var(--line)'}}
     >
       {tabs.map((tab) => (
