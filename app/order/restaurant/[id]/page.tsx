@@ -2,7 +2,7 @@
 
 import {useMemo, useState} from 'react';
 import {useParams, useRouter} from 'next/navigation';
-import {ArrowLeft} from 'lucide-react';
+import {ArrowLeft, CalendarDays, ArrowRight} from 'lucide-react';
 import {useRestaurant} from '@/hooks/useRestaurants';
 import {useMenuItems} from '@/hooks/useMenuItems';
 import {MenuCategoryTabs} from '@/components/customer/menu/MenuCategoryTabs';
@@ -52,27 +52,52 @@ export default function RestaurantMenuPage() {
 
       {!isLoading && restaurant && (
         <>
-          <div
-            className="h-[110px] rounded-xl mb-3 bg-cover bg-center"
+          <section
+            className="relative -mx-4 mb-5 h-[210px] overflow-hidden sm:h-[250px]"
             style={
               restaurant.image_url
-                ? {backgroundImage: `url(${restaurant.image_url}), linear-gradient(135deg, #FFE3C7, #FFD9B3)`}
-                : {background: 'linear-gradient(135deg, #FFD9B3, var(--peach))'}
+                ? {backgroundImage: `url(${restaurant.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center'}
+                : {background: 'linear-gradient(135deg, #FFD9B3, #F97316)'}
             }
-          />
-
-          <div className="mb-4">
-            <h1 className="font-display text-[19px] font-semibold" style={{color: 'var(--ink)'}}>
-              {restaurant.name}
-            </h1>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11.5px]" style={{color: '#865F47'}}>
-              {restaurant.rating != null && `${restaurant.rating} ★ · `}
-              {restaurant.category}
-              {restaurant.etaMinutes != null && ` · ~${restaurant.etaMinutes} min`}
-              {restaurant.zone && ` · ${restaurant.zone}`}
-              {!restaurant.isOpenNow && <span className="font-semibold" style={{color: 'var(--red, #C1453A)'}}> · Closed</span>}
+            aria-label={`${restaurant.name} restaurant banner`}
+          >
+            <div className="absolute inset-0" style={{background:'linear-gradient(180deg, rgba(0,0,0,0.02) 15%, rgba(0,0,0,0.72) 100%)'}} />
+            <div className="absolute bottom-0 left-0 right-0 flex items-end gap-3 p-4 sm:p-5">
+              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 border-white bg-white shadow-lg sm:h-[72px] sm:w-[72px]">
+                {restaurant.logo_url ? (
+                  <img src={restaurant.logo_url} alt={`${restaurant.name} logo`} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xl font-bold" style={{color:'#C2410C'}}>BF</div>
+                )}
+              </div>
+              <div className="min-w-0 pb-1 text-white">
+                <h1 className="truncate font-display text-xl font-bold sm:text-2xl">{restaurant.name}</h1>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11.5px] text-white/90">
+                  {restaurant.rating != null && <span>{restaurant.rating} ★</span>}
+                  {restaurant.category && <><span>·</span><span>{restaurant.category}</span></>}
+                  {restaurant.etaMinutes != null && <><span>·</span><span>~{restaurant.etaMinutes} min</span></>}
+                  {restaurant.zone && <><span>·</span><span>{restaurant.zone}</span></>}
+                  {!restaurant.isOpenNow && <span className="font-semibold text-orange-100">· Closed</span>}
+                </div>
+              </div>
             </div>
-          </div>
+          </section>
+
+          <button
+            type="button"
+            onClick={() => router.push(`/subscriptions/new?restaurantId=${encodeURIComponent(restaurant.id)}`)}
+            className="mb-5 flex w-full items-center justify-between gap-3 rounded-2xl border p-3.5 text-left transition hover:shadow-sm sm:p-4"
+            style={{borderColor:'#FED7AA',background:'linear-gradient(110deg,#FFF7ED,#FFFFFF)'}}
+          >
+            <span className="flex min-w-0 items-center gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{background:'#FFEDD5',color:'#C2410C'}}><CalendarDays className="h-5 w-5"/></span>
+              <span className="min-w-0">
+                <span className="block text-sm font-bold" style={{color:'#9A3412'}}>Subscribe to meals</span>
+                <span className="mt-0.5 block text-xs" style={{color:'#7C5A46'}}>Choose meals from {restaurant.name} and schedule your deliveries.</span>
+              </span>
+            </span>
+            <ArrowRight className="h-5 w-5 shrink-0" style={{color:'#C2410C'}}/>
+          </button>
 
           <MenuCategoryTabs categories={categories} active={activeCategory} onChange={setActiveCategory} />
 
