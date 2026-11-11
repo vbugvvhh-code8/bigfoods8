@@ -52,10 +52,10 @@ export default function MenuItemDetailsPage() {
         <article>
           <div className="overflow-visible">
             {images.length > 0 ? (
-              <div className="relative">
+              <div className="relative px-4 pt-4">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={images[Math.min(activeImage, images.length - 1)]} alt={item.name} className="aspect-square w-full rounded-3xl object-cover" />
-                {images.length > 1 && <div className="flex gap-2 overflow-x-auto px-4 py-3 sm:px-3">
+                {images.length > 1 && <div className="flex gap-2 overflow-x-auto px-0 py-3">
                   {images.map((url, index) => (
                     <button key={url} type="button" onClick={() => setActiveImage(index)} aria-label={`Show photo ${index + 1}`} aria-pressed={activeImage === index} className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border-2" style={{ borderColor: activeImage === index ? 'var(--orange)' : 'var(--line)' }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
