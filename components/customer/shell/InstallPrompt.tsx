@@ -77,7 +77,7 @@ export function InstallPrompt() {
   if (!visible) return null;
 
   return (
-    <div className="sticky top-0 z-40 flex items-center gap-3 px-4 py-3 text-white" style={{background: 'var(--orange)'}}>
+    <div className="fixed inset-x-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[10001] flex items-center gap-3 px-4 py-3 text-white shadow-[0_-6px_24px_rgba(32,28,26,0.16)] lg:bottom-4" style={{background: 'var(--orange)'}}>
       <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/20">
         <Download className="w-4 h-4" />
       </div>
