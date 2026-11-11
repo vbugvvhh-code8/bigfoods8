@@ -1,7 +1,8 @@
 'use client';
 
+import {useState} from 'react';
 import {useRouter} from 'next/navigation';
-import {Plus, Minus} from 'lucide-react';
+import {Plus, Minus, X, ChevronLeft, ChevronRight, Image as ImageIcon} from 'lucide-react';
 import {useCart} from '@/hooks/useCart';
 import type {MenuItem, Restaurant} from '@/types/database';
 
@@ -14,6 +15,11 @@ interface MenuItemRowProps {
 export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowProps) {
   const router = useRouter();
   const {items, addItem, updateQuantity} = useCart();
+  const imageUrls = Array.isArray((item as any).image_urls) && (item as any).image_urls.length > 0
+    ? (item as any).image_urls as string[]
+    : item.image_url ? [item.image_url] : [];
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const cartItem = items.find((i) => i.id === item.id);
   const quantity = cartItem?.quantity ?? 0;
   const nowParts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Lagos', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
@@ -78,15 +84,27 @@ export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowPr
       style={{border: `1px solid ${canOrder ? '#F4D7BC' : '#F2C6A5'}`, background: canOrder ? 'linear-gradient(160deg, #FFFFFF 0%, #FFFAF4 100%)' : 'linear-gradient(160deg, #FFF7ED 0%, #FFF0E0 100%)', boxShadow: canOrder ? '0 2px 10px rgba(124, 65, 22, 0.045)' : '0 2px 8px rgba(180, 83, 9, 0.06)'}}
       aria-label={canOrder ? `View ${item.name} details` : `${item.name} unavailable`}
     >
+      <button
+        type="button"
+        onClick={(event) => { event.stopPropagation(); if (imageUrls.length > 0) { setActiveImageIndex(0); setGalleryOpen(true); } }}
+        onKeyDown={(event) => event.stopPropagation()}
+        disabled={!imageUrls.length}
+        aria-label={imageUrls.length > 1 ? `View ${imageUrls.length} photos of ${item.name}` : `View photo of ${item.name}`}
+        className="relative block aspect-square w-full overflow-hidden text-left disabled:cursor-default"
+        style={imageUrls[0] ? {backgroundImage: `url(${imageUrls[0]})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: '#FFE8D2'} : {background: 'linear-gradient(135deg, #FFE8D2, #FFF2E5)'}}
+      >
+        {!imageUrls.length && <span className="absolute inset-0 flex items-center justify-center" style={{color:'#D97732'}}><ImageIcon className="h-8 w-8 opacity-50" /></span>}
+        {imageUrls.length > 1 && <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-1 text-[10px] font-semibold text-white">{imageUrls.length} photos · View gallery</span>}
+      </button>
       <div className="p-2.5 sm:p-3">
         <h2 className="line-clamp-2 text-sm font-semibold" style={{color:'var(--ink)'}}>{item.name}</h2>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold" style={{color:'var(--orange)'}}>{promotionInWindow ? <><span>₦{displayPrice.toLocaleString()}</span><span className="text-[10px] font-medium line-through" style={{color:'var(--gray)'}}>₦{Number(item.price).toLocaleString()}</span><span className="rounded-full px-2 py-0.5 text-[9px] font-bold" style={{background:'#FCE8E6',color:'#B42318'}}>SALE</span></> : <span>₦{Number(item.price).toLocaleString()}</span>}</div>
-        {!canOrder && <button type="button" disabled className="mt-3 min-h-11 w-full rounded-full px-4 py-3 text-xs font-semibold" style={{background:'#F3E7DC',color:'#8A7666'}}>{item.is_available === false ? 'Unavailable' : !withinSchedule ? nextAvailabilityLabel : 'Orders paused'}</button>}
+        {!canOrder && <button type="button" disabled className="mt-2 min-h-9 w-full rounded-full px-3 py-2 text-xs font-semibold" style={{background:'#F3E7DC',color:'#8A7666'}}>{item.is_available === false ? 'Unavailable' : !withinSchedule ? nextAvailabilityLabel : 'Orders paused'}</button>}
         {canOrder && <div className="mt-3">
           {hasOptions ? (
-            <button type="button" onClick={(event) => { event.stopPropagation(); openDetails(); }} className="min-h-11 w-full rounded-full px-5 py-3 text-[12px] font-semibold text-white sm:text-xs" style={{background:'var(--orange)'}}>Choose options</button>
+            <button type="button" onClick={(event) => { event.stopPropagation(); openDetails(); }} className="min-h-9 w-full rounded-full px-3 py-2 text-[12px] font-semibold text-white sm:text-xs" style={{background:'var(--orange)'}}>Choose options</button>
           ) : quantity === 0 ? (
-            <button type="button" onClick={(event) => { event.stopPropagation(); addItem({id:item.id,name:item.name,price:displayPrice,restaurantId:restaurant.id,restaurantName:restaurant.name}); }} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-xs font-semibold text-white" style={{background:'var(--orange)'}}><Plus className="h-4 w-4" /> Add</button>
+            <button type="button" onClick={(event) => { event.stopPropagation(); addItem({id:item.id,name:item.name,price:displayPrice,restaurantId:restaurant.id,restaurantName:restaurant.name}); }} className="flex min-h-9 w-full items-center justify-center gap-2 rounded-full px-3 py-2 text-xs font-semibold text-white" style={{background:'var(--orange)'}}><Plus className="h-4 w-4" /> Add</button>
           ) : (
             <div className="flex min-h-11 items-center justify-between rounded-full border px-3 py-1.5" style={{borderColor:'var(--orange)'}}>
               <button type="button" onClick={(event) => { event.stopPropagation(); updateQuantity(item.id, quantity - 1); }} className="flex h-9 w-9 items-center justify-center rounded-full" style={{color:'var(--orange)'}} aria-label={`Remove one ${item.name}`}><Minus className="h-4 w-4" /></button>
@@ -97,7 +115,33 @@ export function MenuItemRow({item, restaurant, relatedItems = []}: MenuItemRowPr
         </div>}
 
       </div>
-
+      {galleryOpen && imageUrls.length > 0 && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 p-4"
+          role="presentation"
+          onClick={(event) => { event.stopPropagation(); setGalleryOpen(false); }}
+        >
+          <div className="relative w-full max-w-lg" role="dialog" aria-modal="true" aria-label={`${item.name} photo gallery`} onClick={(event) => event.stopPropagation()}>
+            <button type="button" onClick={() => setGalleryOpen(false)} aria-label="Close gallery" className="absolute -top-11 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white">
+              <X className="h-5 w-5" />
+            </button>
+            <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl bg-black">
+              <img src={imageUrls[activeImageIndex]} alt={`${item.name} photo ${activeImageIndex + 1}`} className="h-full w-full object-contain" />
+              {imageUrls.length > 1 && (
+                <>
+                  <button type="button" aria-label="Previous photo" onClick={() => setActiveImageIndex((index) => (index - 1 + imageUrls.length) % imageUrls.length)} className="absolute left-3 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white">
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+                  <button type="button" aria-label="Next photo" onClick={() => setActiveImageIndex((index) => (index + 1) % imageUrls.length)} className="absolute right-3 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white">
+                    <ChevronRight className="h-6 w-6" />
+                  </button>
+                </>
+              )}
+            </div>
+            {imageUrls.length > 1 && <p className="mt-3 text-center text-xs font-medium text-white">{activeImageIndex + 1} of {imageUrls.length}</p>}
+          </div>
+        </div>
+      )}
     </article>
   );
 }
