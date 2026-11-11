@@ -109,7 +109,7 @@ export default function RestaurantMenuPage() {
           )}
 
           {!menuError && visibleItems.length > 0 && (
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="relative -mt-1 grid grid-cols-2 gap-3 sm:gap-4">
               {visibleItems.map((item) => (
                 <MenuItemRow key={item.id} item={item} restaurant={restaurant} relatedItems={menuItems} />
               ))}
