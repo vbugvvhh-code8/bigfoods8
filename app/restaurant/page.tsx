@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Footer from '@/components/layout/Footer';
+import { LOGO_URL } from '@/lib/brandImages';
 
 const BASE = 'https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/';
-const LOGO_URL = `${BASE}0.4568313681357089.webp`;
 const CHEF_URL = '/images/bigfoods-chef-hero.webp';
 const MASCOT_URL = '/images/bigfoods-ai-mascot-hq.webp';
 
