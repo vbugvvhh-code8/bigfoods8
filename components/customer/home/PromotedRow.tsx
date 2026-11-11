@@ -143,7 +143,7 @@ export function PromotedRow({restaurants}: PromotedRowProps) {
     <section className="mt-1 mb-5" aria-label="Featured restaurants">
       <div
         ref={trackRef}
-        className="flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth scrollbar-hide px-[8%] -mx-4"
+        className="flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth scrollbar-hide px-[8%] mx-0"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
         onTouchStart={() => setPaused(true)}
