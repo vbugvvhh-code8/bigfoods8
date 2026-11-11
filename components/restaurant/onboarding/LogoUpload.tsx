@@ -98,34 +98,21 @@ export default function LogoUpload(props: LogoUploadProps) {
         onChange={handleInputChange}
       />
 
-      <div className="flex items-center gap-3">
-        <div
-          className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-          style={{ border: '1px solid var(--line)', background: 'var(--peach)' }}
+      <div className="flex flex-col items-start gap-1.5">
+        <button
+          type="button"
+          onClick={() => inputRef.current && inputRef.current.click()}
+          disabled={busy}
+          className="rounded-[9px] px-3 py-2.5 text-[12px] font-semibold disabled:opacity-50 flex items-center gap-2"
+          style={{ background: 'var(--peach)', color: 'var(--ink)', border: '1px solid var(--line)' }}
         >
-          {props.previewUrl ? (
-            <img src={props.previewUrl} alt="Restaurant logo preview" className="w-full h-full object-cover" />
-          ) : (
-            <ImagePlus className="w-6 h-6" style={{ color: 'var(--orange)' }} />
-          )}
-        </div>
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+          {status === 'compressing' ? 'Preparing…' : status === 'uploading' ? 'Uploading…' : props.previewUrl ? 'Change logo' : 'Upload logo'}
+        </button>
 
-        <div className="min-w-0 flex-1">
-          <button
-            type="button"
-            onClick={() => inputRef.current && inputRef.current.click()}
-            disabled={busy}
-            className="rounded-[9px] px-3 py-2.5 text-[12px] font-semibold disabled:opacity-50 flex items-center gap-2"
-            style={{ background: 'var(--peach)', color: 'var(--ink)', border: '1px solid var(--line)' }}
-          >
-            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
-            {status === 'compressing' ? 'Preparing…' : status === 'uploading' ? 'Uploading…' : props.previewUrl ? 'Change logo' : 'Upload logo'}
-          </button>
-
-          <p className="text-[10.5px] mt-1.5" style={{ color: 'var(--gray)' }}>
-            Square PNG, JPG or WebP. Displayed as a round profile image.
-          </p>
-        </div>
+        <p className="text-[10.5px]" style={{ color: 'var(--gray)' }}>
+          Square PNG, JPG or WebP.
+        </p>
       </div>
 
       {error ? (
