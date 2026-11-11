@@ -30,6 +30,7 @@ function MobileTopBar({showBack, restaurantName}: {showBack: boolean; restaurant
   return (
     <header
       className="flex lg:hidden sticky top-0 z-40 items-center justify-between px-4 h-14 bg-white"
+      style={{borderBottom: '1px solid var(--line)'}}
     >
       <div className="flex min-w-0 items-center gap-2">
         {showBack && (
