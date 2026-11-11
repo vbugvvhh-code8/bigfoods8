@@ -126,7 +126,7 @@ function CheckoutContent() {
 
   return (
     <div className="w-full max-w-[380px] lg:max-w-2xl mx-auto px-4 py-6 pb-28">
-      <p className="mb-3 text-[12px] font-medium" style={{color: 'var(--gray)'}}>
+      <p className="mb-3 text-[12px] font-medium" style={{color: '#75665D'}}>
         {isMultiRestaurant ? `${groups.length} restaurants` : groups[0]?.restaurantName}
       </p>
 
@@ -165,22 +165,22 @@ function CheckoutContent() {
       <button
         onClick={() => { if (paymentLink) setShowPaymentLinkModal(true); else handleCreatePaymentLink(); }}
         disabled={!deliveryPoint || isSubmitting}
-        className="mt-3 w-full flex items-center justify-between gap-2.5 rounded-xl border bg-white px-3 py-3 text-left disabled:opacity-50"
-        style={{borderColor: '#E9E9E9', color: 'var(--ink)'}}
+        className="mt-3 w-full flex items-center justify-between gap-2.5 rounded-xl border bg-white px-3 py-3 text-left disabled:cursor-not-allowed"
+        style={{borderColor: '#E6D7C9', color: 'var(--ink)', background: '#FFFCF8'}}
       >
         <span className="flex min-w-0 items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{background: 'var(--peach)', color: 'var(--orange)'}}>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{background: '#FFF0E5', color: 'var(--orange)'}}>
             <Gift className="h-4 w-4" />
           </span>
           <span className="min-w-0">
             <span className="block text-[13px] font-bold">Ask someone to pay</span>
-            <span className="mt-0.5 block text-[11px] leading-snug" style={{color: 'var(--gray)'}}>Share a link. They pay, you receive.</span>
+            <span className="mt-0.5 block text-[11px] leading-snug" style={{color: '#75665D'}}>Share a link. They pay, you receive.</span>
           </span>
           {hasPaymentLink && <Info className="h-4 w-4 shrink-0" style={{color: 'var(--gray)'}} />}
         </span>
         <span
           className="shrink-0 rounded-lg border-2 px-3 py-2.5 text-[11px] font-bold"
-          style={{borderColor: 'var(--ink)', color: 'var(--ink)'}}
+          style={{borderColor: '#8B7568', color: '#49382F', background: '#FFFFFF'}}
         >
           {isSubmitting ? 'Creating link…' : hasPaymentLink ? 'View link' : 'Get link'}
         </span>
