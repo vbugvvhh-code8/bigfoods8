@@ -86,21 +86,23 @@ export default function SubscriptionsPage() {
       <p className="text-sm text-gray-600">Sign in to view or create meal subscriptions.</p>
       <Link href="/login?next=%2Fsubscriptions" className="mt-4 inline-flex rounded-xl px-4 py-3 text-sm font-bold text-white" style={{ background: 'var(--orange)' }}>Sign in</Link>
     </div> : <>
-      <div className="mb-5 flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" style={{ borderColor: '#FED7AA', background: 'linear-gradient(110deg,#FFF7ED,#FFFFFF)' }}>
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{ background: '#FFEDD5', color: '#C2410C' }}><CalendarDays className="h-5 w-5" /></span>
-          <div><h2 className="font-bold" style={{ color: '#9A3412' }}>Plan your meals ahead</h2><p className="mt-1 text-sm" style={{ color: '#7C5A46' }}>Choose your meals, variants and delivery days, then pay upfront.</p></div>
+      <div className="mb-6 flex flex-col gap-4 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" style={{ borderColor: '#EAD8C5', background: 'linear-gradient(110deg,#FFF8F0,#FFFCF8)' }}>
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border" style={{ borderColor: '#F1D8C1', background: '#FFF0E2', color: '#C45A16' }}><CalendarDays className="h-5 w-5" /></span>
+          <div className="min-w-0"><h2 className="font-bold" style={{ color: '#8F3F17' }}>Plan your meals ahead</h2><p className="mt-1 max-w-xl text-sm leading-6" style={{ color: '#75665C' }}>Choose your meals, variants and delivery days, then pay upfront.</p></div>
         </div>
-        <Link href="/order" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white" style={{ background: 'var(--orange)' }}><Plus className="h-4 w-4" />Choose a restaurant</Link>
+        <Link href="/order" className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white sm:w-auto" style={{ background: 'var(--orange)' }}><Plus className="h-4 w-4" />Choose a restaurant</Link>
       </div>
       <section id="your-packages" className="scroll-mt-24 p-0">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div><h2 className="text-lg font-bold">Your meal packages</h2><p className="mt-1 text-sm text-gray-500">Review package details and manage upcoming schedules.</p></div>
           <button type="button" onClick={() => void loadSubscriptions()} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold" style={{ borderColor: 'var(--line)' }}><RefreshCw className="h-3.5 w-3.5" />Refresh</button>
         </div>
-        {subscriptions.length === 0 ? <div className="rounded-xl p-6 text-center" style={{ background: '#F8F6F3' }}>
-          <CalendarDays className="mx-auto h-8 w-8 text-gray-400" /><p className="mt-3 font-semibold">No meal packages yet</p><p className="mt-1 text-sm text-gray-500">Create a package to choose meals and set your delivery schedule.</p>
-          <Link href="/order" className="mt-4 inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white" style={{ background: 'var(--orange)' }}><Plus className="h-4 w-4" />Choose a restaurant</Link>
+        {subscriptions.length === 0 ? <div className="rounded-2xl border p-6 text-center sm:p-8" style={{ borderColor: '#E7D8C8', background: 'linear-gradient(145deg,#FFFCF8 0%,#FFF8F0 100%)', boxShadow: '0 1px 2px rgba(75,45,20,0.04)' }}>
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border" style={{ borderColor: '#F0DDCB', background: '#FFF0E2', color: '#B95A20' }}><CalendarDays className="h-7 w-7" /></span>
+          <p className="mt-4 text-base font-bold" style={{ color: 'var(--ink)' }}>No meal packages yet</p>
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-6" style={{ color: '#75665C' }}>Create a package to choose meals and set your delivery schedule.</p>
+          <Link href="/order" className="mt-5 inline-flex w-full max-w-xs items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-bold text-white transition-opacity hover:opacity-90" style={{ background: 'var(--orange)' }}><Plus className="h-4 w-4" />Choose a restaurant</Link>
         </div> : <div className="grid gap-4 md:grid-cols-2">{subscriptions.map(sub => <article key={sub.id} className="rounded-xl border p-4" style={{ borderColor: 'var(--line)' }}>
           <div className="flex items-start justify-between gap-3"><div><h3 className="font-bold">{sub.restaurant?.name ?? 'Kitchen'}</h3><p className="mt-1 text-xs text-gray-500">{sub.package_weeks} week(s) · {sub.total_deliveries} deliveries · {sub.delivery_time}</p></div>
             <span className="rounded-full px-2.5 py-1 text-xs font-bold capitalize" style={{ background: sub.status === 'active' ? '#E7F6EC' : sub.status === 'paused' ? '#FFF0E5' : '#F1F1F1', color: sub.status === 'active' ? '#207245' : sub.status === 'paused' ? '#B45309' : '#555' }}>{sub.status.replaceAll('_', ' ')}</span>
