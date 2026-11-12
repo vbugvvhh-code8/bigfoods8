@@ -111,27 +111,6 @@ create table if not exists public.bigfoods_pos_payments (
 create index if not exists bigfoods_pos_payments_sale_idx
   on public.bigfoods_pos_payments(sale_id,created_at);
 
-create table if not exists public.bigfoods_pos_register_shifts (
-  id uuid primary key default gen_random_uuid(),
-  cashier_staff_id uuid not null references public.bigfoods_staff(id) on delete restrict,
-  shift_number text not null unique,
-  opening_cash numeric(14,2) not null default 0 check (opening_cash >= 0),
-  expected_cash numeric(14,2) not null default 0 check (expected_cash >= 0),
-  counted_cash numeric(14,2) check (counted_cash is null or counted_cash >= 0),
-  variance numeric(14,2),
-  status text not null default 'open' check (status in ('open','closed','review_required')),
-  opened_at timestamptz not null default now(),
-  closed_at timestamptz,
-  closed_by_staff_id uuid references public.bigfoods_staff(id) on delete restrict,
-  closing_note text,
-  created_at timestamptz not null default now(),
-  constraint bigfoods_pos_register_shift_close check (
-    (status='open' and closed_at is null) or (status<>'open' and closed_at is not null)
-  )
-);
-create unique index if not exists bigfoods_pos_one_open_register_shift_per_cashier
-  on public.bigfoods_pos_register_shifts(cashier_staff_id) where status='open';
-
 -- All POS operational tables are server-mediated. No browser table policies.
 alter table public.bigfoods_pos_items enable row level security;
 alter table public.bigfoods_pos_sales enable row level security;
@@ -142,11 +121,9 @@ alter table public.bigfoods_pos_table_sessions enable row level security;
 alter table public.bigfoods_pos_kitchen_tickets enable row level security;
 alter table public.bigfoods_pos_kitchen_ticket_items enable row level security;
 alter table public.bigfoods_pos_payments enable row level security;
-alter table public.bigfoods_pos_register_shifts enable row level security;
 
 comment on table public.bigfoods_pos_dining_areas is 'Independent in-house POS dining areas; not restaurant portal data.';
 comment on table public.bigfoods_pos_tables is 'Physical tables managed by the BigFoods in-house POS.';
 comment on table public.bigfoods_pos_table_sessions is 'Dine-in, takeaway and counter service sessions opened by POS staff.';
 comment on table public.bigfoods_pos_kitchen_tickets is 'In-house kitchen production tickets created by POS sessions.';
 comment on table public.bigfoods_pos_payments is 'Tender-level payment records for in-house POS sales.';
-comment on table public.bigfoods_pos_register_shifts is 'Cashier register opening, closing and cash reconciliation.';
