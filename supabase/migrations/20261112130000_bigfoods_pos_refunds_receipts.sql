@@ -93,7 +93,7 @@ begin
   select coalesce(sum(amount),0) into v_refunded from public.bigfoods_pos_refunds where sale_id=p_sale_id and status='completed';
   update public.bigfoods_pos_sales set status=case when v_refunded>=total_amount then 'refunded' else 'partially_refunded' end where id=p_sale_id;
   insert into public.bigfoods_pos_sale_audit_events(sale_id,actor_staff_id,action,amount,reason,details)
-  values(p_sale_id,p_actor_staff_id,'refund_created',p_amount,trim(p_reason),jsonb_build_object('refund_id',v_refund_id,'refund_number',v_number,'method',p_refund_method,'reference',p_reference,'remaining_balance',v_sale.total_amount-v_refunded));
+  values(p_sale_id,p_actor_staff_id,'refund_created',p_amount,trim(p_reason),jsonb_build_object('refund_id',v_refund_id,'refund_number',v_number,'method',p_refund_method,'reference',p_reference,'remaining_balance',v_sale.total_amount-v_refunded,'stock_restoration','not_applicable_inventory_deduction_deferred'));
   return jsonb_build_object('refund_id',v_refund_id,'refund_number',v_number,'sale_id',p_sale_id,'amount',p_amount,'status','completed','remaining_balance',v_sale.total_amount-v_refunded);
 end;
 $$;
@@ -155,4 +155,4 @@ $$;
 revoke all on function public.bigfoods_pos_reverse_payment(uuid,uuid,text,text) from public,anon,authenticated;
 grant execute on function public.bigfoods_pos_reverse_payment(uuid,uuid,text,text) to service_role;
 
--- Receipt query is intentionally read-only and returns the immutable sold line snapshots.
+-- Receipt query is intentionally read-only and returns the immutable sold line snapshots.\n-- Refunds/reversals never mutate inventory: POS sale-to-stock deduction is deferred.\n-- Once inventory deduction is implemented, refunds must restore only the exact deducted recipe quantities,\n-- keyed by refund_id for idempotency, and refund reversals must compensate that restoration exactly once.
