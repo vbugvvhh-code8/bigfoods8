@@ -29,18 +29,19 @@ Deno.serve(async (req: Request) => {
 
     if (action === "overview") {
       if (!allowed(actor, "pos.view") && !allowed(actor, "pos.sell")) return json({ error: "Forbidden" }, 403);
-      const [catalogue, areas, tables, sessions, tickets, shifts, sales] = await Promise.all([
+      const [catalogue, areas, tables, sessions, tickets, shifts, sales, payments] = await Promise.all([
         db.from("bigfoods_pos_items").select("id,name,sku,category,subcategory,selling_price,is_available,image_url").order("category").order("name").limit(500),
         db.from("bigfoods_pos_dining_areas").select("id,name,sort_order,is_active").eq("is_active", true).order("sort_order").order("name"),
         db.from("bigfoods_pos_tables").select("id,dining_area_id,table_number,display_name,capacity,status,is_active").eq("is_active", true).order("sort_order").order("table_number"),
         db.from("bigfoods_pos_table_sessions").select("id,session_number,table_id,service_type,status,guest_count,customer_name,opened_at").in("status", ["open","awaiting_payment"]).order("opened_at", { ascending: false }).limit(100),
         db.from("bigfoods_pos_kitchen_tickets").select("id,ticket_number,session_id,status,priority,created_at").in("status", ["queued","preparing","ready"]).order("created_at").limit(100),
         db.from("bigfoods_staff_attendance").select("id,shift_assignment_id,checked_in_at,bigfoods_staff_shift_assignments(id,shift_date,starts_at,ends_at,status,bigfoods_staff_shift_templates(name))").eq("staff_id", actor.id).is("checked_out_at", null).limit(1),
-        db.from("bigfoods_pos_sales").select("id,total_amount,payment_method,status,created_at").eq("cashier_staff_id", actor.id).gte("created_at", new Date(new Date().setHours(0,0,0,0)).toISOString()).order("created_at", { ascending: false }).limit(100)
+        db.from("bigfoods_pos_sales").select("id,total_amount,payment_method,status,created_at").eq("cashier_staff_id", actor.id).gte("created_at", new Date(new Date().setHours(0,0,0,0)).toISOString()).order("created_at", { ascending: false }).limit(100),
+        db.from("bigfoods_pos_payments").select("id,sale_id,payment_method,amount,status,reference,created_at,bigfoods_pos_sales(receipt_number,cashier_staff_id)").eq("status", "pending").order("created_at", { ascending: true }).limit(100)
       ]);
-      const errors = [catalogue,areas,tables,sessions,tickets,shifts,sales].filter(x => x.error);
+      const errors = [catalogue,areas,tables,sessions,tickets,shifts,sales,payments].filter(x => x.error);
       if (errors.length) return json({ error: "POS database is not ready. Apply the independent POS migrations first." }, 503);
-      return json({ catalogue: catalogue.data ?? [], dining_areas: areas.data ?? [], tables: tables.data ?? [], sessions: sessions.data ?? [], kitchen_tickets: tickets.data ?? [], current_attendance: shifts.data?.[0] ?? null, today_sales: sales.data ?? [] });
+      return json({ catalogue: catalogue.data ?? [], dining_areas: areas.data ?? [], tables: tables.data ?? [], sessions: sessions.data ?? [], kitchen_tickets: tickets.data ?? [], current_attendance: shifts.data?.[0] ?? null, today_sales: sales.data ?? [], pending_payments: (payments.data ?? []).filter((p: any) => p.bigfoods_pos_sales?.cashier_staff_id === actor.id || ["owner","admin"].includes(actor.role)) });
     }
 
     if (action === "catalogue_create") {
