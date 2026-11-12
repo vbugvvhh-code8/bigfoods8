@@ -44,17 +44,34 @@ Deno.serve(async (req: Request) => {
       return json({ catalogue: catalogue.data ?? [], categories: categories.data ?? [], dining_areas: areas.data ?? [], tables: tables.data ?? [], sessions: sessions.data ?? [], current_attendance: shifts.data?.[0] ?? null, today_sales: sales.data ?? [], pending_payments: (payments.data ?? []).filter((p: any) => p.bigfoods_pos_sales?.cashier_staff_id === actor.id || ["owner","admin"].includes(actor.role)) });
     }
 
-    if (action === "catalogue_create") {
+    if (action === "catalogue_create" || action === "catalogue_update" || action === "catalogue_delete") {
       if (!allowed(actor, "pos.manage_catalogue")) return json({ error: "Forbidden" }, 403);
+      if (action === "catalogue_delete") {
+        if (typeof body.id !== "string") return json({ error: "Select a menu item to delete." }, 400);
+        const { data: existing } = await db.from("bigfoods_pos_items").select("id,name").eq("id", body.id).maybeSingle();
+        if (!existing) return json({ error: "Menu item not found." }, 404);
+        const { error } = await db.from("bigfoods_pos_items").delete().eq("id", body.id);
+        if (error) return json({ error: "This item cannot be deleted because it is referenced by existing POS records. Mark it unavailable instead." }, 409);
+        await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.catalogue_item_deleted", details: { product_id: existing.id, name: existing.name } });
+        return json({ success: true });
+      }
       const name = typeof body.name === "string" ? body.name.trim() : "";
       const category = typeof body.category === "string" ? body.category.trim() : "";
       const subcategory = typeof body.subcategory === "string" ? body.subcategory.trim() : "";
       const price = Number(body.selling_price);
+      const sku = typeof body.sku === "string" ? body.sku.trim() || null : null;
+      const description = typeof body.description === "string" ? body.description.trim().slice(0,1000) || null : null;
+      const image_url = typeof body.image_url === "string" ? body.image_url.trim().slice(0,2000) || null : null;
       if (!name || name.length > 160 || !category || category.length > 80 || !money(price)) return json({ error: "Enter a product name, category and valid selling price." }, 400);
-      const { data, error } = await db.from("bigfoods_pos_items").insert({ name, category, subcategory: subcategory || null, selling_price: price, sku: typeof body.sku === "string" ? body.sku.trim() || null : null, is_available: true, created_by_staff_id: actor.id, updated_by_staff_id: actor.id }).select("id,name,sku,category,subcategory,selling_price,is_available").single();
-      if (error) return json({ error: error.code === "23505" ? "That SKU is already in use." : "Unable to create POS product." }, 400);
-      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.catalogue_item_created", details: { product_id: data.id, name } });
-      return json({ item: data }, 201);
+      const values = { name, category, subcategory: subcategory || null, selling_price: price, sku, description, image_url, is_available: body.is_available !== false, updated_by_staff_id: actor.id };
+      const query = action === "catalogue_create"
+        ? db.from("bigfoods_pos_items").insert({ ...values, created_by_staff_id: actor.id })
+        : db.from("bigfoods_pos_items").update(values).eq("id", body.id);
+      if (action === "catalogue_update" && typeof body.id !== "string") return json({ error: "Menu item ID is required." }, 400);
+      const { data, error } = await query.select("id,name,sku,description,category,subcategory,selling_price,image_url,is_available").single();
+      if (error) return json({ error: error.code === "23505" ? "That SKU is already in use." : "Unable to save POS menu item." }, 400);
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: action === "catalogue_create" ? "pos.catalogue_item_created" : "pos.catalogue_item_updated", details: { product_id: data.id, name } });
+      return json({ item: data }, action === "catalogue_create" ? 201 : 200);
     }
 
     if (action === "dining_area_save") {
