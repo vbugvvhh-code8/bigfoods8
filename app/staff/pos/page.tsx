@@ -38,7 +38,7 @@ export default function BigFoodsPosPage(){
  const subtotal=lines.reduce((sum,line)=>sum+Number(line.product!.selling_price)*line.quantity,0);
  const totalItems=basket.reduce((n,x)=>n+x.quantity,0);
  const pricing=data?.pricing_settings;
- const discountAllowed=!!pricing?.discount_enabled&&!!staff&&(isAdmin||(pricing.discount_allowed_roles||[]).includes(staff.role.toLowerCase()));
+ const discountAllowed=!!pricing?.discount_enabled&&!!staff&&(pricing.discount_allowed_roles||[]).includes(staff.role.toLowerCase());
  const appliedDiscount=Math.min(subtotal,discountAllowed?discountAmount:0);
  const taxAmount=pricing?.tax_enabled?Math.round((subtotal-appliedDiscount)*Number(pricing.tax_rate||0))/100:0;
  const total=Math.max(0,subtotal-appliedDiscount+taxAmount);
