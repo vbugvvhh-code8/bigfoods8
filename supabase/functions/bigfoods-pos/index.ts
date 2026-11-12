@@ -82,12 +82,15 @@ Deno.serve(async (req: Request) => {
       const service = body.service_type;
       if (!["dine_in","takeaway","counter"].includes(service)) return json({ error: "Choose dine-in, takeaway or counter service." }, 400);
       if (service === "dine_in" && !body.table_id) return json({ error: "Select a table for dine-in service." }, 400);
-      const { data: table } = service === "dine_in" ? await db.from("bigfoods_pos_tables").select("id,status,is_active").eq("id", body.table_id).maybeSingle() : { data: null };
-      if (service === "dine_in" && (!table || !table.is_active || table.status !== "available")) return json({ error: "That table is no longer available." }, 409);
-      const sessionNumber = "S-" + new Date().toISOString().replace(/[-:TZ.]/g,"").slice(0,14) + "-" + crypto.randomUUID().slice(0,6).toUpperCase();
-      const { data, error } = await db.from("bigfoods_pos_table_sessions").insert({ session_number: sessionNumber, service_type: service, table_id: service === "dine_in" ? body.table_id : null, guest_count: Math.max(1, Math.min(50, Number(body.guest_count) || 1)), customer_name: typeof body.customer_name === "string" ? body.customer_name.trim() || null : null, opened_by_staff_id: actor.id, notes: typeof body.notes === "string" ? body.notes.trim() || null : null }).select("*").single();
-      if (error) return json({ error: error.code === "23505" ? "This table already has an open session." : "Unable to open service session." }, 409);
-      if (service === "dine_in") await db.from("bigfoods_pos_tables").update({ status: "occupied", updated_at: new Date().toISOString() }).eq("id", body.table_id);
+      const { data, error } = await db.rpc("bigfoods_pos_open_session", {
+        p_actor_staff_id: actor.id,
+        p_service_type: service,
+        p_table_id: service === "dine_in" ? body.table_id : null,
+        p_guest_count: Math.max(1, Math.min(50, Number(body.guest_count) || 1)),
+        p_customer_name: typeof body.customer_name === "string" ? body.customer_name.trim() || null : null,
+        p_notes: typeof body.notes === "string" ? body.notes.trim() || null : null
+      });
+      if (error || !data) return json({ error: error?.message || "Unable to open service session." }, 409);
       await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.session_opened", details: { session_id: data.id, service_type: service, table_id: data.table_id } });
       return json({ session: data }, 201);
     }
@@ -132,6 +135,20 @@ Deno.serve(async (req: Request) => {
       if (error) return json({ error: error.message || "Unable to complete POS checkout." }, 400);
       await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.sale_completed", details: { sale_id: data.sale_id, receipt_number: data.receipt_number, total_amount: data.total_amount, payment_method: method } });
       return json({ sale: data }, 201);
+    }
+
+    if (action === "payment_confirm") {
+      if (!allowed(actor, "pos.payments")) return json({ error: "Forbidden" }, 403);
+      if (typeof body.payment_id !== "string") return json({ error: "Select a payment to verify." }, 400);
+      const reference = typeof body.reference === "string" ? body.reference.trim().slice(0,120) || null : null;
+      const { data, error } = await db.rpc("bigfoods_pos_confirm_payment", {
+        p_payment_id: body.payment_id,
+        p_actor_staff_id: actor.id,
+        p_reference: reference
+      });
+      if (error) return json({ error: error.message || "Unable to confirm payment." }, 400);
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.payment_confirmed", details: { payment_id: data.payment_id, sale_id: data.sale_id, receipt_number: data.receipt_number } });
+      return json({ payment: data });
     }
 
     if (action === "kitchen_update") {
