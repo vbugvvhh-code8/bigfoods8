@@ -30,7 +30,7 @@ Deno.serve(async (req: Request) => {
     if (action === "overview") {
       if (!allowed(actor, "pos.view") && !allowed(actor, "pos.sell")) return json({ error: "Forbidden" }, 403);
       const [catalogue, categories, areas, tables, sessions, shifts, sales, payments] = await Promise.all([
-        db.from("bigfoods_pos_items").select("id,name,sku,category,subcategory,selling_price,is_available,image_url").order("category").order("name").limit(500),
+        db.from("bigfoods_pos_items").select("id,name,sku,description,category,subcategory,selling_price,is_available,image_url").order("category").order("name").limit(500),
         db.from("menu_catalog_categories").select("id,category_name,subcategory_name").order("category_name").order("subcategory_name"),
         db.from("bigfoods_pos_dining_areas").select("id,name,sort_order,is_active").eq("is_active", true).order("sort_order").order("name"),
         db.from("bigfoods_pos_tables").select("id,dining_area_id,table_number,display_name,capacity,status,is_active").eq("is_active", true).order("sort_order").order("table_number"),
