@@ -1,4 +1,4 @@
--- Atomic POS checkout. Prices are always re-read from the independent POS catalogue.
+-- Atomic POS checkout. Prices are always re-read from the independent POS catalogue.\nalter table public.bigfoods_pos_sales add column if not exists cashier_attendance_id uuid references public.bigfoods_staff_attendance(id) on delete set null;\ncreate index if not exists bigfoods_pos_sales_attendance_idx on public.bigfoods_pos_sales(cashier_attendance_id);
 alter table public.bigfoods_pos_payments drop constraint if exists bigfoods_pos_payments_payment_method_check;
 alter table public.bigfoods_pos_payments add constraint bigfoods_pos_payments_payment_method_check
   check (payment_method in ('cash','moniepoint_pos','bank_transfer'));
