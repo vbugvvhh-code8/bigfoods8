@@ -177,8 +177,20 @@ Deno.serve(async (req: Request) => {
         p_actor_role: actor.role
       });
       if (error) return json({ error: error.message || "Unable to complete POS checkout." }, 400);
+      let confirmedPayment = null;
+      if (method === "bank_transfer" && body.transfer_confirmed === true) {
+        const reference = typeof body.payment_reference === "string" ? body.payment_reference.trim().slice(0,120) : "";
+        if (!reference) return json({ error: "Enter the verified bank transfer reference." }, 400);
+        if (!allowed(actor, "pos.payments")) return json({ error: "You do not have permission to confirm external payments." }, 403);
+        const { data: paymentRow, error: paymentLookupError } = await db.from("bigfoods_pos_payments").select("id").eq("sale_id", data.sale_id).eq("status", "pending").single();
+        if (paymentLookupError || !paymentRow) return json({ error: "Sale was recorded, but its transfer confirmation could not be found. Check pending payments before retrying." }, 409);
+        const { data: confirmation, error: confirmationError } = await db.rpc("bigfoods_pos_confirm_payment", { p_payment_id: paymentRow.id, p_actor_staff_id: actor.id, p_reference: reference });
+        if (confirmationError) return json({ error: "Sale was recorded, but transfer confirmation failed: " + confirmationError.message }, 409);
+        confirmedPayment = confirmation;
+        await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.payment_confirmed", details: { payment_id: confirmation.payment_id, sale_id: confirmation.sale_id, receipt_number: confirmation.receipt_number, confirmation_source: "cashier_checkout_transfer_checkbox" } });
+      }
       await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.sale_completed", details: { sale_id: data.sale_id, receipt_number: data.receipt_number, total_amount: data.total_amount, payment_method: method } });
-      return json({ sale: data }, 201);
+      return json({ sale: data, confirmed_payment: confirmedPayment }, 201);
     }
 
     if (action === "receipt_get") {
