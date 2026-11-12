@@ -1,7 +1,7 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Search, ShoppingCart, Plus, Minus, X, RefreshCw, UserRound, CreditCard, Banknote, Landmark, ReceiptText, Grid2X2, List, Clock3, CheckCircle2, Maximize, Minimize, Utensils, Coffee, Sandwich, Cookie, LayoutGrid } from "lucide-react";
+import { AlertCircle, Search, ShoppingCart, Plus, Minus, X, RefreshCw, UserRound, CreditCard, Banknote, Landmark, ReceiptText, Grid2X2, List, Clock3, CheckCircle2, Maximize, Minimize, Utensils, Coffee, Sandwich, Cookie, LayoutGrid, GlassWater, CakeSlice, Soup, Drumstick, Wheat, Pizza, CupSoda, Croissant } from "lucide-react";
 import StaffShell from "@/components/staff/StaffShell";
 import { canAccessPos, hasPosPermission } from "@/lib/staff/access";
 
@@ -30,7 +30,7 @@ export default function BigFoodsPosPage(){
  const canSell=isAdmin||!!staff&&hasPosPermission({role:staff.role,permissions:staff.permissions},"pos.sell");
  const canPay=isAdmin||!!staff&&hasPosPermission({role:staff.role,permissions:staff.permissions},"pos.payments");
  const canRefund=isAdmin||!!staff&&hasPosPermission({role:staff.role,permissions:staff.permissions},"pos.refund");
- const typeOptions=[{id:"All",label:"All",icon:LayoutGrid},{id:"Meal",label:"Meals",icon:Utensils},{id:"Side",label:"Sides",icon:Sandwich},{id:"Drink",label:"Drinks",icon:Coffee},{id:"Snack",label:"Snacks",icon:Cookie},{id:"Combo",label:"Combos",icon:ShoppingCart}];
+ const typeOptions=[{id:"All",label:"All",icon:LayoutGrid},{id:"Meal",label:"Meals",icon:Soup},{id:"Side",label:"Sides",icon:Sandwich},{id:"Drink",label:"Drinks",icon:GlassWater},{id:"Snack",label:"Snacks",icon:Croissant},{id:"Combo",label:"Combos",icon:Utensils}];
  const subcategories=useMemo(()=>{const names=new Map<string,string>();(data?.catalogue||[]).filter(p=>category==="All"||p.item_type?.toLowerCase()===category.toLowerCase()).forEach(p=>{const value=(p.category||"").trim();if(value&&!names.has(value.toLowerCase()))names.set(value.toLowerCase(),value)});return ["All",...Array.from(names.values()).sort((a,b)=>a.localeCompare(b))];},[data,category]);
  const products=useMemo(()=>(data?.catalogue||[]).filter(p=>(category==="All"||p.item_type?.trim().toLowerCase()===category.toLowerCase())&&(subcategory==="All"||p.category?.trim().toLowerCase()===subcategory.toLowerCase())&&[p.name,p.category,p.subcategory,p.sku,p.item_type].filter(Boolean).join(" ").toLowerCase().includes(search.toLowerCase())),[data,category,subcategory,search]);
  const lines=basket.map(line=>({...line,product:data?.catalogue.find(p=>p.id===line.product_id)})).filter(x=>x.product);
