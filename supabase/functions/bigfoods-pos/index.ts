@@ -112,6 +112,28 @@ Deno.serve(async (req: Request) => {
       return json({ ticket }, 201);
     }
 
+    if (action === "checkout") {
+      if (!allowed(actor, "pos.sell") || !allowed(actor, "pos.payments")) return json({ error: "Forbidden" }, 403);
+      if (typeof body.session_id !== "string" || !Array.isArray(body.items) || !body.items.length || body.items.length > 100) return json({ error: "Add items to the basket before checkout." }, 400);
+      if (typeof body.idempotency_key !== "string" || !/^[0-9a-f-]{36}$/i.test(body.idempotency_key)) return json({ error: "Invalid checkout request. Refresh and try again." }, 400);
+      const method = body.payment_method;
+      if (!["cash","moniepoint_pos","bank_transfer"].includes(method)) return json({ error: "Choose a supported payment method." }, 400);
+      const valid = body.items.every((item: any) => item && typeof item.product_id === "string" && Number.isInteger(Number(item.quantity)) && Number(item.quantity) > 0 && Number(item.quantity) <= 99);
+      if (!valid) return json({ error: "Each basket line needs a valid product and quantity." }, 400);
+      const { data, error } = await db.rpc("bigfoods_pos_checkout", {
+        p_session_id: body.session_id,
+        p_cashier_staff_id: actor.id,
+        p_idempotency_key: body.idempotency_key,
+        p_payment_method: method,
+        p_items: body.items.map((item: any) => ({ product_id: item.product_id, quantity: Number(item.quantity) })),
+        p_cash_received: method === "cash" ? Number(body.cash_received) : null,
+        p_payment_reference: typeof body.payment_reference === "string" ? body.payment_reference.trim().slice(0,120) || null : null
+      });
+      if (error) return json({ error: error.message || "Unable to complete POS checkout." }, 400);
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.sale_completed", details: { sale_id: data.sale_id, receipt_number: data.receipt_number, total_amount: data.total_amount, payment_method: method } });
+      return json({ sale: data }, 201);
+    }
+
     if (action === "kitchen_update") {
       if (!allowed(actor, "pos.kitchen")) return json({ error: "Forbidden" }, 403);
       const next = body.status;
