@@ -80,3 +80,13 @@ POS reuses the existing BigFoods Staff Operations system. It reads the current `
 - All refund and reversal actions are written to the POS sale audit ledger and the existing staff audit events.
 - Receipts are loaded from the saved sale and line-item snapshots, including tender and refund history. They use the shared 72mm thermal receipt print stylesheet.
 - **Inventory boundary:** POS checkout does not currently deduct stock, so refunds and reversals do not restore stock. When inventory deduction is implemented later, stock restoration must be limited to quantities actually deducted, idempotent per refund, and compensated exactly once if that refund is reversed.
+
+
+## POS pricing and physical tenders
+
+- POS tax and discount settings are stored in the singleton `bigfoods_pos_settings` row. Owners and administrators can enable/disable VAT, set the VAT rate, enable/disable discounts, set a maximum discount percentage, and select permitted staff roles.
+- Discount authority is checked again by the priced checkout RPC against the authenticated actor role and current settings. Browser-calculated discounts and totals are never trusted.
+- The priced checkout RPC calculates the subtotal from current POS catalogue prices, applies an authorised discount, calculates VAT on the discounted subtotal, and saves subtotal, discount, tax, final total and optional customer email to the sale snapshot.
+- Cash is settled immediately and change is calculated against the final total. Card uses the physical Moniepoint or other available terminal; bank transfer is checked against the business bank account. Both are pending until authorised staff verify the external payment and record a reference.
+- No Paystack or online card gateway is used by this in-house POS flow. External terminal/bank settlement is not automatically verified by the application.
+- Receipts show subtotal, discount, VAT, total and optional customer email.
