@@ -162,6 +162,7 @@ Deno.serve(async (req: Request) => {
       if (typeof body.idempotency_key !== "string" || !/^[0-9a-f-]{36}$/i.test(body.idempotency_key)) return json({ error: "Invalid checkout request. Refresh and try again." }, 400);
       const method = body.payment_method;
       if (!["cash","moniepoint_pos","bank_transfer"].includes(method)) return json({ error: "Choose a supported payment method." }, 400);
+      if (method === "bank_transfer" && body.transfer_confirmed === true && (typeof body.payment_reference !== "string" || !body.payment_reference.trim())) return json({ error: "Enter the verified bank transfer reference." }, 400);
       const valid = body.items.every((item: any) => item && typeof item.product_id === "string" && Number.isInteger(Number(item.quantity)) && Number(item.quantity) > 0 && Number(item.quantity) <= 99);
       if (!valid) return json({ error: "Each basket line needs a valid product and quantity." }, 400);
       const { data, error } = await db.rpc("bigfoods_pos_checkout_priced", {
@@ -180,8 +181,6 @@ Deno.serve(async (req: Request) => {
       let confirmedPayment = null;
       if (method === "bank_transfer" && body.transfer_confirmed === true) {
         const reference = typeof body.payment_reference === "string" ? body.payment_reference.trim().slice(0,120) : "";
-        if (!reference) return json({ error: "Enter the verified bank transfer reference." }, 400);
-        if (!allowed(actor, "pos.payments")) return json({ error: "You do not have permission to confirm external payments." }, 403);
         const { data: paymentRow, error: paymentLookupError } = await db.from("bigfoods_pos_payments").select("id").eq("sale_id", data.sale_id).eq("status", "pending").single();
         if (paymentLookupError || !paymentRow) return json({ error: "Sale was recorded, but its transfer confirmation could not be found. Check pending payments before retrying." }, 409);
         const { data: confirmation, error: confirmationError } = await db.rpc("bigfoods_pos_confirm_payment", { p_payment_id: paymentRow.id, p_actor_staff_id: actor.id, p_reference: reference });
