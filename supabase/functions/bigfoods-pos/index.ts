@@ -27,9 +27,29 @@ Deno.serve(async (req: Request) => {
     if (actor.must_change_password) return json({ error: "Change your temporary password first" }, 403);
     const action = String(body.action || "");
 
+    if (action === "settings_get") {
+      if (!allowed(actor, "pos.view") && !allowed(actor, "pos.sell")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.from("bigfoods_pos_settings").select("tax_enabled,tax_rate,discount_enabled,discount_allowed_roles,discount_max_percent").eq("id", true).single();
+      if (error) return json({ error: "Unable to load POS settings." }, 503);
+      return json({ settings: data });
+    }
+
+    if (action === "settings_save") {
+      if (!["owner","admin"].includes(actor.role)) return json({ error: "Only an owner or administrator can change POS pricing settings." }, 403);
+      const taxRate = Number(body.tax_rate), maxDiscount = Number(body.discount_max_percent);
+      const validRoles = ["owner","admin","manager","supervisor","cashier"];
+      const roles = Array.isArray(body.discount_allowed_roles) ? body.discount_allowed_roles.filter((x: unknown) => typeof x === "string" && validRoles.includes(x)) : [];
+      if (!Number.isFinite(taxRate) || taxRate < 0 || taxRate > 30 || !Number.isFinite(maxDiscount) || maxDiscount < 0 || maxDiscount > 100 || !roles.length) return json({ error: "Check the tax rate, discount limit and at least one permitted role." }, 400);
+      const values = { tax_enabled: body.tax_enabled === true, tax_rate: taxRate, discount_enabled: body.discount_enabled === true, discount_allowed_roles: [...new Set(roles)], discount_max_percent: maxDiscount, updated_by_staff_id: actor.id, updated_at: new Date().toISOString() };
+      const { data, error } = await db.from("bigfoods_pos_settings").upsert({ id: true, ...values }, { onConflict: "id" }).select("tax_enabled,tax_rate,discount_enabled,discount_allowed_roles,discount_max_percent").single();
+      if (error) return json({ error: "Unable to save POS settings." }, 400);
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.pricing_settings_updated", details: values });
+      return json({ settings: data });
+    }
+
     if (action === "overview") {
       if (!allowed(actor, "pos.view") && !allowed(actor, "pos.sell") && !allowed(actor, "pos.manage_catalogue")) return json({ error: "Forbidden" }, 403);
-      const [catalogue, categories, areas, tables, sessions, shifts, sales, payments] = await Promise.all([
+      const [catalogue, categories, areas, tables, sessions, shifts, sales, payments, pricing] = await Promise.all([
         db.from("bigfoods_pos_items").select("id,name,sku,description,category,subcategory,selling_price,is_available,image_url,item_type,is_featured,track_stock,stock_quantity,low_stock_alert").order("category").order("name").limit(500),
         db.from("menu_catalog_categories").select("id,category_name,subcategory_name").order("category_name").order("subcategory_name"),
         db.from("bigfoods_pos_dining_areas").select("id,name,sort_order,is_active").eq("is_active", true).order("sort_order").order("name"),
@@ -37,11 +57,12 @@ Deno.serve(async (req: Request) => {
         db.from("bigfoods_pos_table_sessions").select("id,session_number,table_id,service_type,status,guest_count,customer_name,opened_at").in("status", ["open","awaiting_payment"]).order("opened_at", { ascending: false }).limit(100),
         db.from("bigfoods_staff_attendance").select("id,shift_assignment_id,checked_in_at,bigfoods_staff_shift_assignments(id,shift_date,starts_at,ends_at,status,bigfoods_staff_shift_templates(name))").eq("staff_id", actor.id).is("checked_out_at", null).limit(1),
         db.from("bigfoods_pos_sales").select("id,receipt_number,total_amount,payment_method,status,created_at,cashier_staff_id").eq("cashier_staff_id", actor.id).order("created_at", { ascending: false }).limit(100),
-        db.from("bigfoods_pos_payments").select("id,sale_id,payment_method,amount,status,reference,created_at,bigfoods_pos_sales(receipt_number,cashier_staff_id)").eq("status", "pending").order("created_at", { ascending: true }).limit(100)
+        db.from("bigfoods_pos_payments").select("id,sale_id,payment_method,amount,status,reference,created_at,bigfoods_pos_sales(receipt_number,cashier_staff_id)").eq("status", "pending").order("created_at", { ascending: true }).limit(100),
+        db.from("bigfoods_pos_settings").select("tax_enabled,tax_rate,discount_enabled,discount_allowed_roles,discount_max_percent").eq("id", true).single()
       ]);
-      const errors = [catalogue,categories,areas,tables,sessions,shifts,sales,payments].filter(x => x.error);
+      const errors = [catalogue,categories,areas,tables,sessions,shifts,sales,payments,pricing].filter(x => x.error);
       if (errors.length) return json({ error: "POS database is not ready. Apply the independent POS migrations first." }, 503);
-      return json({ catalogue: catalogue.data ?? [], categories: categories.data ?? [], dining_areas: areas.data ?? [], tables: tables.data ?? [], sessions: sessions.data ?? [], current_attendance: shifts.data?.[0] ?? null, today_sales: sales.data ?? [], pending_payments: (payments.data ?? []).filter((p: any) => p.bigfoods_pos_sales?.cashier_staff_id === actor.id || ["owner","admin"].includes(actor.role)) });
+      return json({ catalogue: catalogue.data ?? [], categories: categories.data ?? [], dining_areas: areas.data ?? [], tables: tables.data ?? [], sessions: sessions.data ?? [], current_attendance: shifts.data?.[0] ?? null, today_sales: sales.data ?? [], pending_payments: (payments.data ?? []).filter((p: any) => p.bigfoods_pos_sales?.cashier_staff_id === actor.id || ["owner","admin"].includes(actor.role)), pricing_settings: pricing.data });
     }
 
     if (action === "catalogue_create" || action === "catalogue_update" || action === "catalogue_delete") {
@@ -143,14 +164,17 @@ Deno.serve(async (req: Request) => {
       if (!["cash","moniepoint_pos","bank_transfer"].includes(method)) return json({ error: "Choose a supported payment method." }, 400);
       const valid = body.items.every((item: any) => item && typeof item.product_id === "string" && Number.isInteger(Number(item.quantity)) && Number(item.quantity) > 0 && Number(item.quantity) <= 99);
       if (!valid) return json({ error: "Each basket line needs a valid product and quantity." }, 400);
-      const { data, error } = await db.rpc("bigfoods_pos_checkout", {
+      const { data, error } = await db.rpc("bigfoods_pos_checkout_priced", {
         p_session_id: body.session_id,
         p_cashier_staff_id: actor.id,
         p_idempotency_key: body.idempotency_key,
         p_payment_method: method,
         p_items: body.items.map((item: any) => ({ product_id: item.product_id, quantity: Number(item.quantity) })),
         p_cash_received: method === "cash" ? Number(body.cash_received) : null,
-        p_payment_reference: typeof body.payment_reference === "string" ? body.payment_reference.trim().slice(0,120) || null : null
+        p_payment_reference: typeof body.payment_reference === "string" ? body.payment_reference.trim().slice(0,120) || null : null,
+        p_discount_amount: Number(body.discount_amount || 0),
+        p_customer_email: typeof body.customer_email === "string" ? body.customer_email.trim().slice(0,254) || null : null,
+        p_actor_role: actor.role
       });
       if (error) return json({ error: error.message || "Unable to complete POS checkout." }, 400);
       await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.sale_completed", details: { sale_id: data.sale_id, receipt_number: data.receipt_number, total_amount: data.total_amount, payment_method: method } });
@@ -160,7 +184,7 @@ Deno.serve(async (req: Request) => {
     if (action === "receipt_get") {
       if (!allowed(actor, "pos.view") && !allowed(actor, "pos.sell")) return json({ error: "Forbidden" }, 403);
       if (typeof body.sale_id !== "string") return json({ error: "Select a sale." }, 400);
-      const { data: sale, error: saleError } = await db.from("bigfoods_pos_sales").select("id,receipt_number,cashier_staff_id,created_at,payment_method,status,subtotal,total_amount,cash_received,change_due,payment_note,session_id,cashier_attendance_id").eq("id", body.sale_id).single();
+      const { data: sale, error: saleError } = await db.from("bigfoods_pos_sales").select("id,receipt_number,cashier_staff_id,created_at,payment_method,status,subtotal,discount_amount,tax_amount,total_amount,customer_email,cash_received,change_due,payment_note,session_id,cashier_attendance_id").eq("id", body.sale_id).single();
       if (saleError || !sale || (sale.cashier_staff_id !== actor.id && !["owner","admin"].includes(actor.role) && !allowed(actor,"pos.reports"))) return json({ error: "Receipt not found or access denied." }, 404);
       const [lines, payments, refunds] = await Promise.all([
         db.from("bigfoods_pos_sale_items").select("id,product_name,quantity,unit_price,line_total").eq("sale_id",sale.id).order("created_at"),
