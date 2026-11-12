@@ -1,7 +1,7 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Search, ShoppingCart, Plus, Minus, X, RefreshCw, UserRound, CreditCard, Banknote, Landmark, ReceiptText, Grid2X2, List, Clock3, CheckCircle2, Maximize, Minimize, Utensils, Coffee, Sandwich, Cookie, LayoutGrid, GlassWater, CakeSlice, Soup, Drumstick, Wheat, Pizza, CupSoda, Croissant } from "lucide-react";
+import { AlertCircle, Search, ShoppingCart, Plus, Minus, X, RefreshCw, UserRound, CreditCard, Banknote, Landmark, ReceiptText, Grid2X2, List, Clock3, CheckCircle2, Maximize, Minimize, LayoutGrid, ConciergeBell, Salad, CupSoda, Popcorn, Package } from "lucide-react";
 import StaffShell from "@/components/staff/StaffShell";
 import { canAccessPos, hasPosPermission } from "@/lib/staff/access";
 
