@@ -138,6 +138,49 @@ Deno.serve(async (req: Request) => {
       return json({ sale: data }, 201);
     }
 
+    if (action === "receipt_get") {
+      if (!allowed(actor, "pos.view") && !allowed(actor, "pos.sell")) return json({ error: "Forbidden" }, 403);
+      if (typeof body.sale_id !== "string") return json({ error: "Select a sale." }, 400);
+      const { data: sale, error: saleError } = await db.from("bigfoods_pos_sales").select("id,receipt_number,cashier_staff_id,created_at,payment_method,status,subtotal,total_amount,cash_received,change_due,payment_note,session_id,cashier_attendance_id").eq("id", body.sale_id).single();
+      if (saleError || !sale || (sale.cashier_staff_id !== actor.id && !["owner","admin"].includes(actor.role) && !allowed(actor,"pos.reports"))) return json({ error: "Receipt not found or access denied." }, 404);
+      const [lines, payments, refunds] = await Promise.all([
+        db.from("bigfoods_pos_sale_items").select("id,product_name,quantity,unit_price,line_total").eq("sale_id",sale.id).order("created_at"),
+        db.from("bigfoods_pos_payments").select("id,payment_method,amount,status,reference,confirmed_at").eq("sale_id",sale.id).order("created_at"),
+        db.from("bigfoods_pos_refunds").select("id,refund_number,amount,refund_method,reason,reference,status,created_at").eq("sale_id",sale.id).order("created_at")
+      ]);
+      if (lines.error || payments.error || refunds.error) return json({ error: "Unable to load complete receipt details." }, 503);
+      return json({ sale, items: lines.data ?? [], payments: payments.data ?? [], refunds: refunds.data ?? [] });
+    }
+
+    if (action === "refund_create") {
+      if (!allowed(actor, "pos.refund")) return json({ error: "Forbidden" }, 403);
+      if (typeof body.sale_id !== "string" || typeof body.reason !== "string" || typeof body.refund_method !== "string") return json({ error: "Refund details are incomplete." }, 400);
+      const amount = Number(body.amount);
+      if (!Number.isFinite(amount) || amount <= 0) return json({ error: "Enter a valid refund amount." }, 400);
+      const { data, error } = await db.rpc("bigfoods_pos_create_refund", { p_sale_id: body.sale_id, p_actor_staff_id: actor.id, p_amount: amount, p_refund_method: body.refund_method, p_reason: body.reason.trim(), p_reference: typeof body.reference === "string" ? body.reference.trim() : null });
+      if (error) return json({ error: error.message || "Unable to process refund." }, 400);
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.refund_created", details: { ...data, reason: body.reason.trim() } });
+      return json({ refund: data }, 201);
+    }
+
+    if (action === "refund_reverse") {
+      if (!allowed(actor, "pos.refund")) return json({ error: "Forbidden" }, 403);
+      if (typeof body.refund_id !== "string" || typeof body.reason !== "string") return json({ error: "Refund reversal details are incomplete." }, 400);
+      const { data, error } = await db.rpc("bigfoods_pos_reverse_refund", { p_refund_id: body.refund_id, p_actor_staff_id: actor.id, p_reason: body.reason.trim() });
+      if (error) return json({ error: error.message || "Unable to reverse refund." }, 400);
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.refund_reversed", details: { ...data, reason: body.reason.trim() } });
+      return json({ refund: data });
+    }
+
+    if (action === "payment_reverse") {
+      if (!allowed(actor, "pos.refund")) return json({ error: "Forbidden" }, 403);
+      if (typeof body.payment_id !== "string" || typeof body.reason !== "string") return json({ error: "Payment reversal details are incomplete." }, 400);
+      const { data, error } = await db.rpc("bigfoods_pos_reverse_payment", { p_payment_id: body.payment_id, p_actor_staff_id: actor.id, p_reason: body.reason.trim(), p_reference: typeof body.reference === "string" ? body.reference.trim() : null });
+      if (error) return json({ error: error.message || "Unable to reverse payment." }, 400);
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.payment_reversed", details: { ...data, reason: body.reason.trim() } });
+      return json({ reversal: data });
+    }
+
     if (action === "payment_confirm") {
       if (!allowed(actor, "pos.payments")) return json({ error: "Forbidden" }, 403);
       if (typeof body.payment_id !== "string") return json({ error: "Select a payment to verify." }, 400);
