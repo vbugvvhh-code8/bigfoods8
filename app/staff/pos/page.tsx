@@ -8,7 +8,8 @@ import { canAccessPos, hasPosPermission } from "@/lib/staff/access";
 type Staff={id:string;display_name:string;role:string;permissions:unknown;must_change_password:boolean};
 type Product={id:string;name:string;sku:string|null;item_type:string;category:string;subcategory:string|null;selling_price:number;is_available:boolean;image_url?:string|null;is_featured?:boolean;track_stock?:boolean;stock_quantity?:number};
 type Category={id:string;category_name:string;subcategory_name:string|null};
-type Data={catalogue:Product[];categories:Category[];current_attendance:any;today_sales:any[];pending_payments:any[]};
+type PricingSettings={tax_enabled:boolean;tax_rate:number;discount_enabled:boolean;discount_allowed_roles:string[];discount_max_percent:number};
+type Data={catalogue:Product[];categories:Category[];current_attendance:any;today_sales:any[];pending_payments:any[];pricing_settings:PricingSettings};
 type Receipt={sale:any;items:any[];payments:any[];refunds:any[]};
 type BasketLine={product_id:string;quantity:number};
 const money=(n:number)=>new Intl.NumberFormat("en-NG",{style:"currency",currency:"NGN",maximumFractionDigits:0}).format(Number(n||0));
@@ -20,7 +21,7 @@ export default function BigFoodsPosPage(){
  const [staff,setStaff]=useState<Staff|null>(null),[data,setData]=useState<Data|null>(null);
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const [search,setSearch]=useState(""),[category,setCategory]=useState("All"),[subcategory,setSubcategory]=useState("All"),[view,setView]=useState<"grid"|"list">("grid");
- const [basket,setBasket]=useState<BasketLine[]>([]),[customer,setCustomer]=useState(""),[fullscreen,setFullscreen]=useState(false),[paymentMethod,setPaymentMethod]=useState("moniepoint_pos"),[cashReceived,setCashReceived]=useState(""),[paymentReference,setPaymentReference]=useState("");
+ const [basket,setBasket]=useState<BasketLine[]>([]),[customer,setCustomer]=useState(""),[customerEmail,setCustomerEmail]=useState(""),[discountInput,setDiscountInput]=useState(""),[discountAmount,setDiscountAmount]=useState(0),[fullscreen,setFullscreen]=useState(false),[paymentMethod,setPaymentMethod]=useState("moniepoint_pos"),[cashReceived,setCashReceived]=useState(""),[paymentReference,setPaymentReference]=useState("");
  const [receipt,setReceipt]=useState<Receipt|null>(null),[showCheckout,setShowCheckout]=useState(false),[showSales,setShowSales]=useState(false);
  const call=useCallback(async(body:Record<string,unknown>)=>{const r=await fetch("/api/bigfoods-pos",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),cache:"no-store"});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"POS request failed");return d;},[]);
  const load=useCallback(async()=>{setError("");try{const s=await fetch("/api/bigfoods-staff/session",{cache:"no-store"});if(!s.ok){router.replace("/staff/login");return;}const d=await s.json(),u=d.staff as Staff;if(!canAccessPos(u)){setStaff(u);setError("Your staff account has not been granted POS access.");return;}if(u.must_change_password){router.replace("/staff/change-password");return;}setStaff(u);setData(await call({action:"overview"}));}catch(e){setError(e instanceof Error?e.message:"Unable to load POS");}finally{setLoading(false);}},[call,router]);
@@ -36,6 +37,11 @@ export default function BigFoodsPosPage(){
  const lines=basket.map(line=>({...line,product:data?.catalogue.find(p=>p.id===line.product_id)})).filter(x=>x.product);
  const subtotal=lines.reduce((sum,line)=>sum+Number(line.product!.selling_price)*line.quantity,0);
  const totalItems=basket.reduce((n,x)=>n+x.quantity,0);
+ const pricing=data?.pricing_settings;
+ const discountAllowed=!!pricing?.discount_enabled&&!!staff&&(isAdmin||(pricing.discount_allowed_roles||[]).includes(staff.role.toLowerCase()));
+ const appliedDiscount=Math.min(subtotal,discountAllowed?discountAmount:0);
+ const taxAmount=pricing?.tax_enabled?Math.round((subtotal-appliedDiscount)*Number(pricing.tax_rate||0))/100:0;
+ const total=Math.max(0,subtotal-appliedDiscount+taxAmount);
  const quickPicks=(data?.catalogue||[]).filter(p=>p.is_available).sort((a,b)=>Number(!!b.is_featured)-Number(!!a.is_featured)).slice(0,6);
  const paidSales=(data?.today_sales||[]).filter(x=>x.status==="paid");
  const salesTotal=paidSales.reduce((n,x)=>n+Number(x.total_amount||0),0);
@@ -46,9 +52,9 @@ export default function BigFoodsPosPage(){
    if(!data?.current_attendance)throw new Error("Check in through Staff Attendance before completing a sale.");
    const opened=await call({action:"session_open",service_type:"counter",guest_count:1,customer_name:customer.trim()||"Walk-in Customer"});
    const sessionId=opened.session?.id;if(!sessionId)throw new Error("Could not open the cashier sale session.");
-   const result=await call({action:"checkout",session_id:sessionId,items:basket,payment_method:paymentMethod,cash_received:paymentMethod==="cash"?Number(cashReceived):null,payment_reference:paymentReference,idempotency_key:crypto.randomUUID()});
+   const result=await call({action:"checkout",session_id:sessionId,items:basket,payment_method:paymentMethod,cash_received:paymentMethod==="cash"?Number(cashReceived):null,payment_reference:paymentReference,discount_amount:appliedDiscount,customer_email:customerEmail.trim()||null,idempotency_key:crypto.randomUUID()});
    setNotice(paymentMethod==="cash"?"Cash sale completed. Receipt is ready.":"Sale recorded. Confirm the terminal/bank payment in pending payments before treating it as paid.");
-   setBasket([]);setCustomer("");setCashReceived("");setPaymentReference("");setShowCheckout(false);await load();
+   setBasket([]);setCustomer("");setCustomerEmail("");setDiscountInput("");setDiscountAmount(0);setCashReceived("");setPaymentReference("");setShowCheckout(false);await load();
    if(result.sale?.sale_id)await openReceipt(result.sale.sale_id);
  }catch(e){setError(e instanceof Error?e.message:"Checkout failed");}finally{setBusy(false);}}
  async function refund(sale:any){const amountText=window.prompt("Refund amount (NGN):");if(amountText===null)return;const amount=Number(amountText);if(!Number.isFinite(amount)||amount<=0){setError("Enter a valid refund amount.");return;}const reason=window.prompt("Reason for refund:");if(!reason||reason.trim().length<3)return;const method=window.prompt("Refund method: cash, moniepoint_pos, or bank_transfer","cash");if(!method||!["cash","moniepoint_pos","bank_transfer"].includes(method))return;try{await call({action:"refund_create",sale_id:sale.id,amount,reason,refund_method:method});setNotice("Refund recorded.");await load();}catch(e){setError(e instanceof Error?e.message:"Refund failed");}}
