@@ -53,7 +53,7 @@ export default function BigFoodsPosPage(){
    const opened=await call({action:"session_open",service_type:"counter",guest_count:1,customer_name:customer.trim()||"Walk-in Customer"});
    const sessionId=opened.session?.id;if(!sessionId)throw new Error("Could not open the cashier sale session.");
    const result=await call({action:"checkout",session_id:sessionId,items:basket,payment_method:paymentMethod,cash_received:paymentMethod==="cash"?Number(cashReceived):null,payment_reference:paymentReference,transfer_confirmed:paymentMethod==="bank_transfer"&&transferConfirmed,discount_amount:appliedDiscount,customer_email:customerEmail.trim()||null,idempotency_key:crypto.randomUUID()});
-   setNotice(paymentMethod==="cash"?"Cash sale completed. Receipt is ready.":"Sale recorded. Confirm the terminal/bank payment in pending payments before treating it as paid.");
+   setNotice(paymentMethod==="cash"?"Cash sale completed. Receipt is ready.":paymentMethod==="bank_transfer"&&transferConfirmed?"Transfer verified and sale marked as paid. Receipt is ready.":"Sale recorded. Confirm the terminal payment in pending payments before treating it as paid.");
    setBasket([]);setCustomer("");setCustomerEmail("");setDiscountInput("");setDiscountAmount(0);setCashReceived("");setPaymentReference("");setTransferConfirmed(false);setShowCheckout(false);await load();
    if(result.sale?.sale_id)await openReceipt(result.sale.sale_id);
  }catch(e){setError(e instanceof Error?e.message:"Checkout failed");}finally{setBusy(false);}}
