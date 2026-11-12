@@ -64,11 +64,11 @@ begin
     v_sale_status := 'paid';
     v_payment_status := 'confirmed';
   elsif p_payment_method='moniepoint_pos' then
-    v_payment_method := 'card';
+    v_payment_method := 'moniepoint_pos';
     v_sale_status := 'needs_review';
     v_payment_status := 'pending';
   else
-    v_payment_method := 'transfer';
+    v_payment_method := 'bank_transfer';
     v_sale_status := 'needs_review';
     v_payment_status := 'pending';
   end if;
