@@ -18,6 +18,7 @@ set search_path = public
 as $$
 declare
   v_session public.bigfoods_pos_table_sessions%rowtype;
+  v_attendance public.bigfoods_staff_attendance%rowtype;
   v_item jsonb;
   v_product public.bigfoods_pos_items%rowtype;
   v_quantity integer;
@@ -41,6 +42,8 @@ begin
   if found then
     return jsonb_build_object('sale_id',v_existing.id,'receipt_number',v_existing.receipt_number,'total_amount',v_existing.total_amount,'status',v_existing.status,'replayed',true);
   end if;
+  select * into v_attendance from public.bigfoods_staff_attendance where staff_id=p_cashier_staff_id and checked_out_at is null for update;
+  if not found then raise exception 'Check in through Staff Attendance before processing POS payments'; end if;
   select * into v_session from public.bigfoods_pos_table_sessions where id=p_session_id for update;
   if not found or v_session.status <> 'open' then raise exception 'Service session is not open'; end if;
 
@@ -69,8 +72,8 @@ begin
   end if;
 
   v_receipt := 'BF-' || to_char(now(),'YYMMDDHH24MISS') || '-' || upper(substr(replace(gen_random_uuid()::text,'-',''),1,6));
-  insert into public.bigfoods_pos_sales(receipt_number,idempotency_key,cashier_staff_id,payment_method,status,subtotal,total_amount,cash_received,change_due,payment_note)
-  values(v_receipt,p_idempotency_key,p_cashier_staff_id,v_payment_method,v_sale_status,v_subtotal,v_total,
+  insert into public.bigfoods_pos_sales(receipt_number,idempotency_key,cashier_staff_id,cashier_attendance_id,payment_method,status,subtotal,total_amount,cash_received,change_due,payment_note)
+  values(v_receipt,p_idempotency_key,p_cashier_staff_id,v_attendance.id,v_payment_method,v_sale_status,v_subtotal,v_total,
     case when p_payment_method='cash' then p_cash_received else null end,v_change,p_payment_reference)
   returning id into v_sale_id;
 
