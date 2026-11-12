@@ -54,3 +54,13 @@ Use the existing BigFoods staff shell, warm neutral surfaces, dark brown navigat
 
 ## Current implementation notes
 The first foundation commit adds the independent dining/table/session/kitchen/payment/register schema, a staff-session secured POS Edge Function, a same-origin API proxy, permission helpers, staff navigation and the first POS workspace UI. Payment settlement, register lifecycle, receipt printing, refunds and inventory deduction are not yet complete and must not be represented as complete.
+
+
+## Cashier checkout foundation
+
+The cashier can now build a multi-line basket against an open POS service session. The browser submits product IDs and quantities only; the checkout RPC re-reads current POS catalogue prices, validates availability and the session under a row lock, writes the sale and sale lines, records the tender, and uses an idempotency key to protect retries.
+
+- Cash tenders require sufficient cash received, calculate change server-side, mark the sale paid, close the session, and release its table.
+- Moniepoint terminal and bank-transfer tenders are deliberately recorded as `needs_review` with a pending payment record. The platform does not claim to verify external payments that are not integrated; these sessions remain awaiting payment and retain their table.
+- The payment-review/confirmation workflow, receipt printing, refunds, discounts, tax, and inventory deduction remain outstanding.
+- The checkout RPC is service-role only; the Edge Function still authenticates the custom staff session and checks both `pos.sell` and `pos.payments`.
