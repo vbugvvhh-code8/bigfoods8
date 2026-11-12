@@ -1,0 +1,131 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
+
+const headers = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info", "Vary": "Origin" };
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...headers, "Content-Type": "application/json", "Cache-Control": "no-store" } });
+const sha256 = async (value: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))), b => b.toString(16).padStart(2, "0")).join("");
+type Actor = { id: string; role: string; permissions: unknown; must_change_password: boolean };
+const permissions = (actor: Actor) => Array.isArray(actor.permissions) ? actor.permissions.filter((x): x is string => typeof x === "string") : [];
+const allowed = (actor: Actor, permission: string) => ["owner", "admin"].includes(actor.role) || permissions(actor).includes("pos.access") && permissions(actor).includes(permission);
+const money = (value: unknown) => Number.isFinite(Number(value)) && Number(value) >= 0;
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers });
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  let body: any;
+  try { body = await req.json(); } catch { return json({ error: "Invalid request" }, 400); }
+  const token = typeof body.session_token === "string" ? body.session_token : "";
+  if (!/^[0-9a-f]{64}$/i.test(token)) return json({ error: "Unauthenticated" }, 401);
+  const url = Deno.env.get("SUPABASE_URL"), key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key) return json({ error: "POS service unavailable" }, 503);
+  const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  try {
+    const { data: session } = await db.from("bigfoods_staff_sessions").select("id,staff_id,expires_at,revoked_at").eq("token_hash", await sha256(token)).maybeSingle();
+    if (!session || session.revoked_at || new Date(session.expires_at).getTime() <= Date.now()) return json({ error: "Unauthenticated" }, 401);
+    const { data: actor } = await db.from("bigfoods_staff").select("id,role,permissions,is_active,must_change_password").eq("id", session.staff_id).maybeSingle();
+    if (!actor?.is_active) return json({ error: "Unauthenticated" }, 401);
+    if (actor.must_change_password) return json({ error: "Change your temporary password first" }, 403);
+    const action = String(body.action || "");
+
+    if (action === "overview") {
+      if (!allowed(actor, "pos.view") && !allowed(actor, "pos.sell")) return json({ error: "Forbidden" }, 403);
+      const [catalogue, areas, tables, sessions, tickets, shifts, sales] = await Promise.all([
+        db.from("bigfoods_pos_items").select("id,name,sku,category,subcategory,selling_price,is_available,image_url").order("category").order("name").limit(500),
+        db.from("bigfoods_pos_dining_areas").select("id,name,sort_order,is_active").eq("is_active", true).order("sort_order").order("name"),
+        db.from("bigfoods_pos_tables").select("id,dining_area_id,table_number,display_name,capacity,status,is_active").eq("is_active", true).order("sort_order").order("table_number"),
+        db.from("bigfoods_pos_table_sessions").select("id,session_number,table_id,service_type,status,guest_count,customer_name,opened_at").in("status", ["open","awaiting_payment"]).order("opened_at", { ascending: false }).limit(100),
+        db.from("bigfoods_pos_kitchen_tickets").select("id,ticket_number,session_id,status,priority,created_at").in("status", ["queued","preparing","ready"]).order("created_at").limit(100),
+        db.from("bigfoods_pos_register_shifts").select("id,shift_number,status,opening_cash,expected_cash,opened_at").eq("cashier_staff_id", actor.id).eq("status", "open").limit(1),
+        db.from("bigfoods_pos_sales").select("id,total_amount,payment_method,status,created_at").eq("cashier_staff_id", actor.id).gte("created_at", new Date(new Date().setHours(0,0,0,0)).toISOString()).order("created_at", { ascending: false }).limit(100)
+      ]);
+      const errors = [catalogue,areas,tables,sessions,tickets,shifts,sales].filter(x => x.error);
+      if (errors.length) return json({ error: "POS database is not ready. Apply the independent POS migrations first." }, 503);
+      return json({ catalogue: catalogue.data ?? [], dining_areas: areas.data ?? [], tables: tables.data ?? [], sessions: sessions.data ?? [], kitchen_tickets: tickets.data ?? [], register_shift: shifts.data?.[0] ?? null, today_sales: sales.data ?? [] });
+    }
+
+    if (action === "catalogue_create") {
+      if (!allowed(actor, "pos.manage_catalogue")) return json({ error: "Forbidden" }, 403);
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      const category = typeof body.category === "string" ? body.category.trim() : "";
+      const subcategory = typeof body.subcategory === "string" ? body.subcategory.trim() : "";
+      const price = Number(body.selling_price);
+      if (!name || name.length > 160 || !category || category.length > 80 || !money(price)) return json({ error: "Enter a product name, category and valid selling price." }, 400);
+      const { data, error } = await db.from("bigfoods_pos_items").insert({ name, category, subcategory: subcategory || null, selling_price: price, sku: typeof body.sku === "string" ? body.sku.trim() || null : null, is_available: true, created_by_staff_id: actor.id, updated_by_staff_id: actor.id }).select("id,name,sku,category,subcategory,selling_price,is_available").single();
+      if (error) return json({ error: error.code === "23505" ? "That SKU is already in use." : "Unable to create POS product." }, 400);
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.catalogue_item_created", details: { product_id: data.id, name } });
+      return json({ item: data }, 201);
+    }
+
+    if (action === "dining_area_save") {
+      if (!allowed(actor, "pos.manage_tables")) return json({ error: "Forbidden" }, 403);
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      if (!name || name.length > 80) return json({ error: "Enter a dining area name (maximum 80 characters)." }, 400);
+      const { data, error } = await db.from("bigfoods_pos_dining_areas").insert({ name, created_by_staff_id: actor.id, sort_order: Number.isInteger(body.sort_order) ? body.sort_order : 0 }).select("*").single();
+      if (error) return json({ error: error.code === "23505" ? "That dining area already exists." : "Unable to create dining area." }, 400);
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.dining_area_created", details: { area_id: data.id } });
+      return json({ dining_area: data }, 201);
+    }
+
+    if (action === "table_save") {
+      if (!allowed(actor, "pos.manage_tables")) return json({ error: "Forbidden" }, 403);
+      const number = typeof body.table_number === "string" ? body.table_number.trim() : "";
+      const capacity = Number(body.capacity ?? 2);
+      if (!body.dining_area_id || !number || number.length > 32 || !Number.isInteger(capacity) || capacity < 1 || capacity > 50) return json({ error: "Provide a dining area, table number and valid capacity." }, 400);
+      const { data, error } = await db.from("bigfoods_pos_tables").insert({ dining_area_id: body.dining_area_id, table_number: number, display_name: typeof body.display_name === "string" ? body.display_name.trim() || null : null, capacity }).select("*").single();
+      if (error) return json({ error: error.code === "23505" ? "That table number already exists in this area." : "Unable to create table." }, 400);
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.table_created", details: { table_id: data.id } });
+      return json({ table: data }, 201);
+    }
+
+    if (action === "session_open") {
+      if (!allowed(actor, "pos.sell")) return json({ error: "Forbidden" }, 403);
+      const service = body.service_type;
+      if (!["dine_in","takeaway","counter"].includes(service)) return json({ error: "Choose dine-in, takeaway or counter service." }, 400);
+      if (service === "dine_in" && !body.table_id) return json({ error: "Select a table for dine-in service." }, 400);
+      const { data: table } = service === "dine_in" ? await db.from("bigfoods_pos_tables").select("id,status,is_active").eq("id", body.table_id).maybeSingle() : { data: null };
+      if (service === "dine_in" && (!table || !table.is_active || table.status !== "available")) return json({ error: "That table is no longer available." }, 409);
+      const sessionNumber = "S-" + new Date().toISOString().replace(/[-:TZ.]/g,"").slice(0,14) + "-" + crypto.randomUUID().slice(0,6).toUpperCase();
+      const { data, error } = await db.from("bigfoods_pos_table_sessions").insert({ session_number: sessionNumber, service_type: service, table_id: service === "dine_in" ? body.table_id : null, guest_count: Math.max(1, Math.min(50, Number(body.guest_count) || 1)), customer_name: typeof body.customer_name === "string" ? body.customer_name.trim() || null : null, opened_by_staff_id: actor.id, notes: typeof body.notes === "string" ? body.notes.trim() || null : null }).select("*").single();
+      if (error) return json({ error: error.code === "23505" ? "This table already has an open session." : "Unable to open service session." }, 409);
+      if (service === "dine_in") await db.from("bigfoods_pos_tables").update({ status: "occupied", updated_at: new Date().toISOString() }).eq("id", body.table_id);
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.session_opened", details: { session_id: data.id, service_type: service, table_id: data.table_id } });
+      return json({ session: data }, 201);
+    }
+
+    if (action === "ticket_create") {
+      if (!allowed(actor, "pos.sell")) return json({ error: "Forbidden" }, 403);
+      if (typeof body.session_id !== "string" || !Array.isArray(body.items) || !body.items.length || body.items.length > 50) return json({ error: "Add at least one item to the kitchen ticket." }, 400);
+      const { data: sessionRow } = await db.from("bigfoods_pos_table_sessions").select("id,status").eq("id", body.session_id).maybeSingle();
+      if (!sessionRow || !["open","awaiting_payment"].includes(sessionRow.status)) return json({ error: "This service session is no longer open." }, 409);
+      const ids = [...new Set(body.items.map((item: any) => item.product_id).filter((id: unknown) => typeof id === "string"))];
+      const { data: products, error: productsError } = await db.from("bigfoods_pos_items").select("id,name,is_available").in("id", ids);
+      if (productsError || !products || products.length !== ids.length || products.some(p => !p.is_available)) return json({ error: "One or more products are unavailable." }, 400);
+      const ticketNumber = "K-" + new Date().toISOString().replace(/[-:TZ.]/g,"").slice(0,14) + "-" + crypto.randomUUID().slice(0,6).toUpperCase();
+      const { data: ticket, error } = await db.from("bigfoods_pos_kitchen_tickets").insert({ ticket_number: ticketNumber, session_id: body.session_id, created_by_staff_id: actor.id, notes: typeof body.notes === "string" ? body.notes.trim() || null : null }).select("*").single();
+      if (error || !ticket) return json({ error: "Unable to create kitchen ticket." }, 400);
+      const rows = body.items.map((item: any) => ({ ticket_id: ticket.id, product_id: item.product_id, product_name: products.find(p => p.id === item.product_id)!.name, quantity: Math.max(1, Math.min(99, Math.floor(Number(item.quantity) || 1))), item_notes: typeof item.notes === "string" ? item.notes.trim() || null : null }));
+      const { error: lineError } = await db.from("bigfoods_pos_kitchen_ticket_items").insert(rows);
+      if (lineError) { await db.from("bigfoods_pos_kitchen_tickets").delete().eq("id", ticket.id); return json({ error: "Unable to add ticket items." }, 400); }
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.kitchen_ticket_created", details: { ticket_id: ticket.id, session_id: body.session_id } });
+      return json({ ticket }, 201);
+    }
+
+    if (action === "kitchen_update") {
+      if (!allowed(actor, "pos.kitchen")) return json({ error: "Forbidden" }, 403);
+      const next = body.status;
+      if (!["preparing","ready","served","cancelled"].includes(next)) return json({ error: "Invalid kitchen ticket status." }, 400);
+      const patch: Record<string, unknown> = { status: next, updated_at: new Date().toISOString() };
+      if (next === "preparing") patch.started_at = new Date().toISOString();
+      if (next === "ready") patch.ready_at = new Date().toISOString();
+      if (next === "served") patch.served_at = new Date().toISOString();
+      const { data, error } = await db.from("bigfoods_pos_kitchen_tickets").update(patch).eq("id", body.ticket_id).select("*").single();
+      if (error) return json({ error: "Unable to update kitchen ticket." }, 400);
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "pos.kitchen_ticket_status_changed", details: { ticket_id: data.id, status: next } });
+      return json({ ticket: data });
+    }
+
+    return json({ error: "Unknown POS action." }, 400);
+  } catch {
+    return json({ error: "POS service unavailable." }, 503);
+  }
+});
