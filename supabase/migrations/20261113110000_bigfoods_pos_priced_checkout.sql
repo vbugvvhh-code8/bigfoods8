@@ -47,7 +47,7 @@ begin
   v_total := v_subtotal-v_discount+v_tax;
   if p_payment_method='cash' then
     if p_cash_received is null or p_cash_received < v_total then raise exception 'Cash received must cover the final total'; end if;
-    v_cash := p_cash_received;
+    v_cash := greatest(p_cash_received,v_subtotal);
   else
     v_cash := null;
   end if;
