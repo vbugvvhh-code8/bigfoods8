@@ -97,7 +97,9 @@ Deno.serve(async (req: Request) => {
       if (typeof body.session_id !== "string" || !Array.isArray(body.items) || !body.items.length || body.items.length > 50) return json({ error: "Add at least one item to the kitchen ticket." }, 400);
       const { data: sessionRow } = await db.from("bigfoods_pos_table_sessions").select("id,status").eq("id", body.session_id).maybeSingle();
       if (!sessionRow || !["open","awaiting_payment"].includes(sessionRow.status)) return json({ error: "This service session is no longer open." }, 409);
-      const ids = [...new Set(body.items.map((item: any) => item.product_id).filter((id: unknown) => typeof id === "string"))];
+      const validLines = body.items.every((item: any) => item && typeof item.product_id === "string" && Number.isInteger(Number(item.quantity)) && Number(item.quantity) > 0 && Number(item.quantity) <= 99);
+      if (!validLines) return json({ error: "Each ticket line needs a valid product and quantity." }, 400);
+      const ids = [...new Set(body.items.map((item: any) => item.product_id as string))];
       const { data: products, error: productsError } = await db.from("bigfoods_pos_items").select("id,name,is_available").in("id", ids);
       if (productsError || !products || products.length !== ids.length || products.some(p => !p.is_available)) return json({ error: "One or more products are unavailable." }, 400);
       const ticketNumber = "K-" + new Date().toISOString().replace(/[-:TZ.]/g,"").slice(0,14) + "-" + crypto.randomUUID().slice(0,6).toUpperCase();
