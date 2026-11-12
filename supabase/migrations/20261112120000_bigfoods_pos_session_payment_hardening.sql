@@ -5,6 +5,17 @@ alter table public.bigfoods_pos_sales
   add column if not exists session_id uuid references public.bigfoods_pos_table_sessions(id) on delete restrict;
 create index if not exists bigfoods_pos_sales_session_idx on public.bigfoods_pos_sales(session_id);
 
+-- Extend the legacy two-method sales constraint for the new verified bank-transfer tender.
+-- NOT VALID preserves historical rows while enforcing the rule for new POS sales.
+alter table public.bigfoods_pos_sales drop constraint if exists bigfoods_pos_sales_payment_method_check;
+alter table public.bigfoods_pos_sales add constraint bigfoods_pos_sales_payment_method_check
+  check (payment_method in ('cash','moniepoint_pos','bank_transfer')) not valid;
+alter table public.bigfoods_pos_sales drop constraint if exists bigfoods_pos_sales_cash_fields;
+alter table public.bigfoods_pos_sales add constraint bigfoods_pos_sales_cash_fields check (
+  (payment_method='cash' and cash_received is not null and cash_received>=total_amount)
+  or (payment_method in ('moniepoint_pos','bank_transfer') and cash_received is null)
+) not valid;
+
 create or replace function public.bigfoods_pos_open_session(
   p_actor_staff_id uuid,
   p_service_type text,
