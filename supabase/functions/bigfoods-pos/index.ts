@@ -30,7 +30,7 @@ Deno.serve(async (req: Request) => {
     if (action === "overview") {
       if (!allowed(actor, "pos.view") && !allowed(actor, "pos.sell") && !allowed(actor, "pos.manage_catalogue")) return json({ error: "Forbidden" }, 403);
       const [catalogue, categories, areas, tables, sessions, shifts, sales, payments] = await Promise.all([
-        db.from("bigfoods_pos_items").select("id,name,sku,description,category,subcategory,selling_price,is_available,image_url").order("category").order("name").limit(500),
+        db.from("bigfoods_pos_items").select("id,name,sku,description,category,subcategory,selling_price,is_available,image_url,item_type,is_featured,track_stock,stock_quantity,low_stock_alert").order("category").order("name").limit(500),
         db.from("menu_catalog_categories").select("id,category_name,subcategory_name").order("category_name").order("subcategory_name"),
         db.from("bigfoods_pos_dining_areas").select("id,name,sort_order,is_active").eq("is_active", true).order("sort_order").order("name"),
         db.from("bigfoods_pos_tables").select("id,dining_area_id,table_number,display_name,capacity,status,is_active").eq("is_active", true).order("sort_order").order("table_number"),
@@ -63,12 +63,12 @@ Deno.serve(async (req: Request) => {
       const description = typeof body.description === "string" ? body.description.trim().slice(0,1000) || null : null;
       const image_url = typeof body.image_url === "string" ? body.image_url.trim().slice(0,2000) || null : null;
       if (!name || name.length > 160 || !category || category.length > 80 || !money(price)) return json({ error: "Enter a product name, category and valid selling price." }, 400);
-      const values = { name, category, subcategory: subcategory || null, selling_price: price, sku, description, image_url, is_available: body.is_available !== false, updated_by_staff_id: actor.id };
+      const stockQuantity = Number(body.stock_quantity ?? 0), lowStockAlert = Number(body.low_stock_alert ?? 10);\n      if (!Number.isInteger(stockQuantity) || stockQuantity < 0 || !Number.isInteger(lowStockAlert) || lowStockAlert < 0) return json({ error: "Stock quantity and low-stock alert must be non-negative whole numbers." }, 400);\n      const values = { name, category, subcategory: subcategory || null, selling_price: price, sku, description, image_url, is_available: body.is_available !== false, item_type: typeof body.item_type === "string" ? body.item_type : "Meal", is_featured: body.is_featured === true, track_stock: body.track_stock !== false, stock_quantity: stockQuantity, low_stock_alert: lowStockAlert, updated_by_staff_id: actor.id };
       const query = action === "catalogue_create"
         ? db.from("bigfoods_pos_items").insert({ ...values, created_by_staff_id: actor.id })
         : db.from("bigfoods_pos_items").update(values).eq("id", body.id);
       if (action === "catalogue_update" && typeof body.id !== "string") return json({ error: "Menu item ID is required." }, 400);
-      const { data, error } = await query.select("id,name,sku,description,category,subcategory,selling_price,image_url,is_available").single();
+      const { data, error } = await query.select("id,name,sku,description,category,subcategory,selling_price,image_url,is_available,item_type,is_featured,track_stock,stock_quantity,low_stock_alert").single();
       if (error) return json({ error: error.code === "23505" ? "That SKU is already in use." : "Unable to save POS menu item." }, 400);
       await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: action === "catalogue_create" ? "pos.catalogue_item_created" : "pos.catalogue_item_updated", details: { product_id: data.id, name } });
       return json({ item: data }, action === "catalogue_create" ? 201 : 200);
