@@ -31,7 +31,7 @@ begin
       raise exception 'Your staff role is not allowed to apply discounts';
     end if;
   end if;
-  if p_customer_email is not null and (length(trim(p_customer_email)) > 254 or trim(p_customer_email) !~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$') then
+  if p_customer_email is not null and (length(trim(p_customer_email)) > 254 or trim(p_customer_email) !~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$') then
     raise exception 'Enter a valid customer email address';
   end if;
   select sum(i.selling_price * (x->>'quantity')::integer)
