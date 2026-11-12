@@ -36,7 +36,7 @@ Deno.serve(async (req: Request) => {
         db.from("bigfoods_pos_table_sessions").select("id,session_number,table_id,service_type,status,guest_count,customer_name,opened_at").in("status", ["open","awaiting_payment"]).order("opened_at", { ascending: false }).limit(100),
         db.from("bigfoods_pos_kitchen_tickets").select("id,ticket_number,session_id,status,priority,created_at").in("status", ["queued","preparing","ready"]).order("created_at").limit(100),
         db.from("bigfoods_staff_attendance").select("id,shift_assignment_id,checked_in_at,bigfoods_staff_shift_assignments(id,shift_date,starts_at,ends_at,status,bigfoods_staff_shift_templates(name))").eq("staff_id", actor.id).is("checked_out_at", null).limit(1),
-        db.from("bigfoods_pos_sales").select("id,total_amount,payment_method,status,created_at").eq("cashier_staff_id", actor.id).gte("created_at", new Date(new Date().setHours(0,0,0,0)).toISOString()).order("created_at", { ascending: false }).limit(100),
+        db.from("bigfoods_pos_sales").select("id,receipt_number,total_amount,payment_method,status,created_at,cashier_staff_id").eq("cashier_staff_id", actor.id).gte("created_at", new Date(new Date().setHours(0,0,0,0)).toISOString()).order("created_at", { ascending: false }).limit(100),
         db.from("bigfoods_pos_payments").select("id,sale_id,payment_method,amount,status,reference,created_at,bigfoods_pos_sales(receipt_number,cashier_staff_id)").eq("status", "pending").order("created_at", { ascending: true }).limit(100)
       ]);
       const errors = [catalogue,areas,tables,sessions,tickets,shifts,sales,payments].filter(x => x.error);
