@@ -74,8 +74,8 @@ begin
   end if;
 
   v_receipt := 'BF-' || to_char(now(),'YYMMDDHH24MISS') || '-' || upper(substr(replace(gen_random_uuid()::text,'-',''),1,6));
-  insert into public.bigfoods_pos_sales(receipt_number,idempotency_key,cashier_staff_id,cashier_attendance_id,payment_method,status,subtotal,total_amount,cash_received,change_due,payment_note)
-  values(v_receipt,p_idempotency_key,p_cashier_staff_id,v_attendance.id,v_payment_method,v_sale_status,v_subtotal,v_total,
+  insert into public.bigfoods_pos_sales(receipt_number,idempotency_key,cashier_staff_id,cashier_attendance_id,session_id,payment_method,status,subtotal,total_amount,cash_received,change_due,payment_note)
+  values(v_receipt,p_idempotency_key,p_cashier_staff_id,v_attendance.id,p_session_id,v_payment_method,v_sale_status,v_subtotal,v_total,
     case when p_payment_method='cash' then p_cash_received else null end,v_change,p_payment_reference)
   returning id into v_sale_id;
 
