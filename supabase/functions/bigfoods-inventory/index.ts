@@ -89,8 +89,10 @@ Deno.serve(async (req: Request) => {
     }
     if (action === "receive") {
       if (!has(actor, "inventory.receive")) return json({ error: "Forbidden" }, 403);
+      const { data: generatedCode, error: codeError } = await db.rpc("bigfoods_inventory_next_batch_code", { p_kind: "receipt" });
+      if (codeError || !generatedCode) return json({ error: "Unable to generate a stock batch code. Please retry." }, 503);
       const { data, error } = await db.rpc("bigfoods_inventory_receive", {
-        p_actor_staff_id: actor.id, p_inventory_item_id: body.inventory_item_id, p_batch_code: body.batch_code,
+        p_actor_staff_id: actor.id, p_inventory_item_id: body.inventory_item_id, p_batch_code: generatedCode,
         p_quantity: body.quantity, p_unit: body.unit, p_supplier_name: body.supplier_name ?? null,
         p_supplier_reference: body.supplier_reference ?? null, p_unit_cost: body.unit_cost === "" || body.unit_cost == null ? null : body.unit_cost,
         p_currency: body.currency ?? "NGN", p_received_at: body.received_at ?? new Date().toISOString(),
@@ -136,7 +138,7 @@ Deno.serve(async (req: Request) => {
     if (action === "production_start") {
       if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
       const rawQty = Number(body.raw_input_quantity), allowedLoss = Number(body.allowed_loss_quantity ?? 0);
-      if (!body.batch_code || !body.input_inventory_item_id || !body.input_batch_id || !body.output_inventory_item_id ||
+      if (!body.input_inventory_item_id || !body.input_batch_id || !body.output_inventory_item_id ||
           !Number.isFinite(rawQty) || rawQty <= 0 || !Number.isFinite(allowedLoss) || allowedLoss < 0) {
         return json({ error: "Complete the production batch details with valid quantities." }, 400);
       }
@@ -149,8 +151,10 @@ Deno.serve(async (req: Request) => {
       if (String(output.base_unit).trim().toLowerCase() !== String(source.base_unit).trim().toLowerCase()) {
         return json({ error: "For yield variance tracking, raw input and output must use the same base unit." }, 400);
       }
+      const { data: generatedCode, error: codeError } = await db.rpc("bigfoods_inventory_next_batch_code", { p_kind: "kitchen" });
+      if (codeError || !generatedCode) return json({ error: "Unable to generate a production batch code. Please retry." }, 503);
       const { data, error } = await db.from("inventory_production_batches").insert({
-        batch_code: String(body.batch_code).trim(), input_inventory_item_id: body.input_inventory_item_id,
+        batch_code: generatedCode, input_inventory_item_id: body.input_inventory_item_id,
         input_batch_id: body.input_batch_id, raw_input_quantity: rawQty, raw_input_unit: source.base_unit,
         output_inventory_item_id: body.output_inventory_item_id, output_unit: output.base_unit,
         unprocessed_quantity: 0, allowed_loss_quantity: allowedLoss, status: "in_progress", started_by_staff_id: actor.id
