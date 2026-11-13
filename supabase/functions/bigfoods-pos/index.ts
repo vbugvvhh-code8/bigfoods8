@@ -193,19 +193,26 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "orders_list") {
-      if (!allowed(actor, "pos.reports")) return json({ error: "You do not have permission to view order history." }, 403);
+      if (!allowed(actor, "pos.reports")) return json({ error: "You do not have permission to view POS order history." }, 403);
       const from = typeof body.from === "string" && !Number.isNaN(Date.parse(body.from)) ? new Date(body.from).toISOString() : new Date(Date.now() - 30 * 86400000).toISOString();
       const to = typeof body.to === "string" && !Number.isNaN(Date.parse(body.to)) ? new Date(body.to).toISOString() : new Date().toISOString();
       const limit = Math.min(500, Math.max(1, Number(body.limit) || 500));
-      const [posResult, onlineResult] = await Promise.all([
-        db.from("bigfoods_pos_sales").select("id,receipt_number,cashier_staff_id,customer_email,payment_method,status,subtotal,discount_amount,tax_amount,total_amount,created_at,bigfoods_staff(display_name),bigfoods_pos_sale_items(id,product_name,quantity,unit_price,line_total),bigfoods_pos_payments(id,payment_method,amount,status,reference),bigfoods_pos_table_sessions(service_type)").gte("created_at", from).lte("created_at", to).order("created_at", { ascending: false }).limit(limit),
-        db.from("orders").select("id,restaurant_id,customer_id,status,subtotal,platform_fee,delivery_fee,tip_amount,placed_at,delivered_at,cancelled_at,payment_status,delivery_address,profiles(full_name,phone),restaurants(name),order_items(id,quantity,unit_price,selected_options,menu_items(name))").gte("placed_at", from).lte("placed_at", to).order("placed_at", { ascending: false }).limit(limit)
-      ]);
-      if (posResult.error || onlineResult.error) return json({ error: "Unable to load order history." }, 503);
-      const pos = (posResult.data || []).map((s: any) => ({ id: s.id, number: s.receipt_number, source: "pos", customer: s.customer_email || "Walk-in Customer", email: s.customer_email, cashier: s.bigfoods_staff?.display_name || "Staff", type: s.bigfoods_pos_table_sessions?.service_type || "POS", payment_method: s.payment_method, payment_status: s.bigfoods_pos_payments?.[0]?.status || s.status, status: s.status, subtotal: Number(s.subtotal || 0), discount: Number(s.discount_amount || 0), tax: Number(s.tax_amount || 0), total: Number(s.total_amount || 0), created_at: s.created_at, items: (s.bigfoods_pos_sale_items || []).map((i: any) => ({ name: i.product_name, quantity: i.quantity, unit_price: Number(i.unit_price), total: Number(i.line_total) })), payments: s.bigfoods_pos_payments || [] }));
-      const online = (onlineResult.data || []).map((o: any) => ({ id: o.id, number: "BF-" + String(o.id).slice(0, 8).toUpperCase(), source: "online", customer: o.profiles?.full_name || "Customer", phone: o.profiles?.phone || "", restaurant: o.restaurants?.name || "BigFoods", type: "Delivery", payment_method: "Online", payment_status: o.payment_status || "unknown", status: o.status, subtotal: Number(o.subtotal || 0), discount: 0, tax: 0, delivery_fee: Number(o.delivery_fee || 0), platform_fee: Number(o.platform_fee || 0), tip: Number(o.tip_amount || 0), total: Number(o.subtotal || 0) + Number(o.delivery_fee || 0) + Number(o.platform_fee || 0) + Number(o.tip_amount || 0), created_at: o.placed_at, address: o.delivery_address, items: (o.order_items || []).map((i: any) => ({ name: i.menu_items?.name || "Menu item", quantity: i.quantity, unit_price: Number(i.unit_price), total: Number(i.unit_price) * Number(i.quantity), options: i.selected_options })) }));
-      const combined = [...pos, ...online].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      return json({ orders: combined, summary: { total_orders: combined.length, total_sales: combined.filter((o: any) => o.payment_status === "paid" || o.status === "completed" || o.status === "delivered").reduce((n: number, o: any) => n + o.total, 0), pos_orders: pos.length, online_orders: online.length } });
+      const { data, error } = await db.from("bigfoods_pos_sales")
+        .select("id,receipt_number,cashier_staff_id,customer_email,payment_method,status,subtotal,discount_amount,tax_amount,total_amount,created_at,bigfoods_staff(display_name),bigfoods_pos_sale_items(id,product_name,quantity,unit_price,line_total),bigfoods_pos_payments(id,payment_method,amount,status,reference),bigfoods_pos_table_sessions(service_type)")
+        .gte("created_at", from).lte("created_at", to).order("created_at", { ascending: false }).limit(limit);
+      if (error) return json({ error: "Unable to load POS order history." }, 503);
+      const orders = (data || []).map((s: any) => ({
+        id: s.id, number: s.receipt_number, source: "pos", customer: s.customer_email || "Walk-in Customer",
+        email: s.customer_email, cashier: s.bigfoods_staff?.display_name || "Staff",
+        type: s.bigfoods_pos_table_sessions?.service_type || "POS", payment_method: s.payment_method,
+        payment_status: s.bigfoods_pos_payments?.[0]?.status || s.status, status: s.status,
+        subtotal: Number(s.subtotal || 0), discount: Number(s.discount_amount || 0),
+        tax: Number(s.tax_amount || 0), total: Number(s.total_amount || 0), created_at: s.created_at,
+        items: (s.bigfoods_pos_sale_items || []).map((i: any) => ({ name: i.product_name, quantity: i.quantity, unit_price: Number(i.unit_price), total: Number(i.line_total) })),
+        payments: s.bigfoods_pos_payments || []
+      }));
+      const paid = orders.filter((o: any) => o.payment_status === "paid" || o.status === "completed" || o.status === "delivered");
+      return json({ orders, summary: { total_orders: orders.length, total_sales: paid.reduce((n: number, o: any) => n + o.total, 0), pos_orders: orders.length, online_orders: 0 } });
     }
 
     if (action === "receipt_get") {
