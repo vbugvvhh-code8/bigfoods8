@@ -198,21 +198,39 @@ Deno.serve(async (req: Request) => {
       const to = typeof body.to === "string" && !Number.isNaN(Date.parse(body.to)) ? new Date(body.to).toISOString() : new Date().toISOString();
       const limit = Math.min(500, Math.max(1, Number(body.limit) || 500));
       const { data, error } = await db.from("bigfoods_pos_sales")
-        .select("id,receipt_number,cashier_staff_id,customer_email,payment_method,status,subtotal,discount_amount,tax_amount,total_amount,created_at,bigfoods_staff(display_name),bigfoods_pos_sale_items(id,product_name,quantity,unit_price,line_total),bigfoods_pos_payments(id,payment_method,amount,status,reference,confirmed_at),bigfoods_pos_table_sessions(service_type)")
+        .select("id,receipt_number,cashier_staff_id,customer_email,payment_method,status,subtotal,discount_amount,tax_amount,total_amount,created_at,cash_received,change_due,bigfoods_staff(display_name),bigfoods_pos_sale_items(id,product_id,product_name,quantity,unit_price,line_total,bigfoods_pos_items(image_url)),bigfoods_pos_payments(id,payment_method,amount,status,reference,confirmed_at),bigfoods_pos_table_sessions(service_type,customer_name,guest_count,bigfoods_pos_tables(table_number,display_name,bigfoods_pos_dining_areas(name)))")
         .gte("created_at", from).lte("created_at", to).order("created_at", { ascending: false }).limit(limit);
       if (error) return json({ error: "Unable to load POS order history." }, 503);
-      const orders = (data || []).map((s: any) => ({
-        id: s.id, number: s.receipt_number, source: "pos", customer: s.customer_email || "Walk-in Customer",
-        email: s.customer_email, cashier: s.bigfoods_staff?.display_name || "Staff",
-        type: s.bigfoods_pos_table_sessions?.service_type || "POS", payment_method: s.payment_method,
-        payment_status: s.bigfoods_pos_payments?.[0]?.status || s.status, status: s.status,
-        subtotal: Number(s.subtotal || 0), discount: Number(s.discount_amount || 0),
-        tax: Number(s.tax_amount || 0), total: Number(s.total_amount || 0), created_at: s.created_at,
-        items: (s.bigfoods_pos_sale_items || []).map((i: any) => ({ name: i.product_name, quantity: i.quantity, unit_price: Number(i.unit_price), total: Number(i.line_total) })),
-        payments: s.bigfoods_pos_payments || []
-      }));
+      const orders = (data || []).map((s: any) => {
+        const session = Array.isArray(s.bigfoods_pos_table_sessions) ? s.bigfoods_pos_table_sessions[0] : s.bigfoods_pos_table_sessions;
+        const table = session?.bigfoods_pos_tables;
+        const diningArea = table?.bigfoods_pos_dining_areas;
+        const payment = (s.bigfoods_pos_payments || [])[0];
+        const paymentStatus = payment?.status === "confirmed" ? "paid" : payment?.status || s.status;
+        return {
+          id: s.id, number: s.receipt_number, source: "pos",
+          customer: session?.customer_name || "Walk-in Customer",
+          email: s.customer_email, cashier: s.bigfoods_staff?.display_name || "Staff",
+          type: session?.service_type || "counter",
+          table: table?.display_name || table?.table_number || null,
+          dining_area: diningArea?.name || null,
+          guest_count: Number(session?.guest_count || 1),
+          payment_method: s.payment_method, payment_status: paymentStatus,
+          status: s.status, subtotal: Number(s.subtotal || 0),
+          discount: Number(s.discount_amount || 0), tax: Number(s.tax_amount || 0),
+          total: Number(s.total_amount || 0), cash_received: Number(s.cash_received || 0),
+          change_due: Number(s.change_due || 0), created_at: s.created_at,
+          items: (s.bigfoods_pos_sale_items || []).map((i: any) => ({
+            id: i.id, product_id: i.product_id, name: i.product_name,
+            image_url: i.bigfoods_pos_items?.image_url || null,
+            quantity: Number(i.quantity), unit_price: Number(i.unit_price), total: Number(i.line_total)
+          })),
+          payments: s.bigfoods_pos_payments || []
+        };
+      });
       const paid = orders.filter((o: any) => o.payment_status === "paid" || o.status === "completed" || o.status === "delivered");
-      return json({ orders, summary: { total_orders: orders.length, total_sales: paid.reduce((n: number, o: any) => n + o.total, 0), pos_orders: orders.length, online_orders: 0 } });
+      const pending = orders.filter((o: any) => ["pending","awaiting_payment","needs_review"].includes((o.payment_status || "").toLowerCase()));
+      return json({ orders, summary: { total_orders: orders.length, total_sales: paid.reduce((n: number, o: any) => n + o.total, 0), pos_orders: orders.length, online_orders: 0, paid_orders: paid.length, pending_payments: pending.length } });
     }
 
     if (action === "receipt_get") {
