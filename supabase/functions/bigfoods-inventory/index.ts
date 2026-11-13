@@ -64,6 +64,26 @@ Deno.serve(async (req: Request) => {
       if (error) return json({ error: error.message.includes("duplicate key") ? "That SKU is already in use." : error.message.includes("Forbidden") ? "Forbidden" : "Unable to create inventory item. Check the fields and try again." }, error.message.includes("Forbidden") ? 403 : 400);
       return json({ item: data }, 201);
     }
+    if (action === "item_update") {
+      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.rpc("bigfoods_inventory_update_item", {
+        p_actor_staff_id: actor.id, p_inventory_item_id: body.inventory_item_id, p_name: body.name,
+        p_sku: body.sku ?? null, p_category: body.category ?? "ingredient", p_tracking_type: body.tracking_type,
+        p_base_unit: body.base_unit, p_reorder_level: body.reorder_level ?? 0,
+        p_is_perishable: body.is_perishable ?? false, p_notes: body.notes ?? null
+      });
+      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
+      return json({ item: data });
+    }
+    if (action === "adjust_batch") {
+      if (!has(actor, "inventory.receive")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.rpc("bigfoods_inventory_adjust_batch", {
+        p_actor_staff_id: actor.id, p_batch_id: body.batch_id, p_quantity: body.quantity,
+        p_direction: body.direction, p_reason: body.reason
+      });
+      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
+      return json({ adjustment: data }, 201);
+    }
     if (action === "receive") {
       if (!has(actor, "inventory.receive")) return json({ error: "Forbidden" }, 403);
       const { data, error } = await db.rpc("bigfoods_inventory_receive", {
