@@ -46,7 +46,7 @@ Deno.serve(async (req: Request) => {
     if (action === "overview") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
       const [items, batches, alerts, movements] = await Promise.all([
-        db.from("inventory_items").select("id,name,sku,category,tracking_type,base_unit,reorder_level,is_perishable,is_active,created_at").order("name").limit(500),
+        db.from("inventory_items").select("id,name,sku,category,tracking_type,base_unit,reorder_level,is_perishable,is_active,image_url,created_at").order("name").limit(500),
         db.from("inventory_batches").select("id,inventory_item_id,batch_code,supplier_name,received_quantity,remaining_quantity,base_unit,unit_cost,currency,received_at,expires_at,status").order("received_at", { ascending: false }).limit(200),
         db.from("inventory_alerts").select("id,inventory_item_id,alert_type,severity,status,title,created_at").neq("status", "resolved").neq("status", "dismissed").order("created_at", { ascending: false }).limit(100),
         db.from("inventory_movements").select("id,inventory_item_id,batch_id,movement_type,quantity,direction,base_unit,reason,occurred_at,actor_staff_id").order("occurred_at", { ascending: false }).limit(50)
@@ -62,6 +62,8 @@ Deno.serve(async (req: Request) => {
         p_is_perishable: body.is_perishable ?? false, p_notes: body.notes ?? null
       });
       if (error) return json({ error: error.message.includes("duplicate key") ? "That SKU is already in use." : error.message.includes("Forbidden") ? "Forbidden" : "Unable to create inventory item. Check the fields and try again." }, error.message.includes("Forbidden") ? 403 : 400);
+      const itemId = typeof data === "string" ? data : data?.id;
+      if (itemId && typeof body.image_url === "string") { const { error: imageError } = await db.from("inventory_items").update({ image_url: body.image_url.trim() || null }).eq("id", itemId); if (imageError) return json({ error: "Item was created, but its image could not be saved. Edit the item and retry." }, 500); }
       return json({ item: data }, 201);
     }
     if (action === "item_update") {
@@ -73,6 +75,7 @@ Deno.serve(async (req: Request) => {
         p_is_perishable: body.is_perishable ?? false, p_notes: body.notes ?? null
       });
       if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
+      if (typeof body.image_url === "string") { const { error: imageError } = await db.from("inventory_items").update({ image_url: body.image_url.trim() || null }).eq("id", body.inventory_item_id); if (imageError) return json({ error: "Item details were saved, but its image could not be saved." }, 500); }
       return json({ item: data });
     }
     if (action === "adjust_batch") {
