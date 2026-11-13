@@ -198,7 +198,7 @@ Deno.serve(async (req: Request) => {
       const to = typeof body.to === "string" && !Number.isNaN(Date.parse(body.to)) ? new Date(body.to).toISOString() : new Date().toISOString();
       const limit = Math.min(500, Math.max(1, Number(body.limit) || 500));
       const { data, error } = await db.from("bigfoods_pos_sales")
-        .select("id,receipt_number,cashier_staff_id,customer_email,payment_method,status,subtotal,discount_amount,tax_amount,total_amount,created_at,bigfoods_staff(display_name),bigfoods_pos_sale_items(id,product_name,quantity,unit_price,line_total),bigfoods_pos_payments(id,payment_method,amount,status,reference),bigfoods_pos_table_sessions(service_type)")
+        .select("id,receipt_number,cashier_staff_id,customer_email,payment_method,status,subtotal,discount_amount,tax_amount,total_amount,created_at,bigfoods_staff(display_name),bigfoods_pos_sale_items(id,product_name,quantity,unit_price,line_total),bigfoods_pos_payments(id,payment_method,amount,status,reference,confirmed_at),bigfoods_pos_table_sessions(service_type)")
         .gte("created_at", from).lte("created_at", to).order("created_at", { ascending: false }).limit(limit);
       if (error) return json({ error: "Unable to load POS order history." }, 503);
       const orders = (data || []).map((s: any) => ({
@@ -216,7 +216,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "receipt_get") {
-      if (!allowed(actor, "pos.view") && !allowed(actor, "pos.sell")) return json({ error: "Forbidden" }, 403);
+      if (!allowed(actor, "pos.view") && !allowed(actor, "pos.sell") && !allowed(actor, "pos.reports")) return json({ error: "Forbidden" }, 403);
       if (typeof body.sale_id !== "string") return json({ error: "Select a sale." }, 400);
       const { data: sale, error: saleError } = await db.from("bigfoods_pos_sales").select("id,receipt_number,cashier_staff_id,created_at,payment_method,status,subtotal,discount_amount,tax_amount,total_amount,customer_email,cash_received,change_due,payment_note,session_id,cashier_attendance_id").eq("id", body.sale_id).single();
       if (saleError || !sale || (sale.cashier_staff_id !== actor.id && !["owner","admin"].includes(actor.role) && !allowed(actor,"pos.reports"))) return json({ error: "Receipt not found or access denied." }, 404);
