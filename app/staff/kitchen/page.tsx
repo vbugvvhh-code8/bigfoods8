@@ -80,7 +80,7 @@ export default function StaffKitchenPage() {
   const inStockCount = items.filter(item => (stock.get(item.id) || 0) > Number(item.reorder_level)).length;
 
   return <StaffShell title="Kitchen" subtitle="Plan meal preparation against live inventory and recipe yields.">
-    <div className="space-y-5 pb-8">
+    <div className="mx-auto w-full max-w-[1200px] space-y-5 pb-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-2xl bg-orange-100 text-orange-700"><ChefHat className="h-6 w-6"/></div><div><h3 className="font-semibold text-[#30261F]">Kitchen preparation planner</h3><p className="text-xs text-[#817367]">Scale a standard recipe to the number of portions you need.</p></div></div>
         <button onClick={() => void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-[#E7DED4] bg-white px-3 py-2 text-xs font-semibold"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}/>Refresh stock</button>
