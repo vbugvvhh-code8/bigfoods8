@@ -28,7 +28,7 @@ Deno.serve(async (req: Request) => {
     const action = String(body.action || "");
 
     if (action === "settings_get") {
-      if (!allowed(actor, "pos.view") && !allowed(actor, "pos.sell")) return json({ error: "Forbidden" }, 403);
+      if (!allowed(actor, "pos.view") && !allowed(actor, "pos.sell") && !allowed(actor, "pos.reports")) return json({ error: "Forbidden" }, 403);
       const { data, error } = await db.from("bigfoods_pos_settings").select("tax_enabled,tax_rate,discount_enabled,discount_allowed_roles,discount_max_percent").eq("id", true).single();
       if (error) return json({ error: "Unable to load POS settings." }, 503);
       return json({ settings: data });
