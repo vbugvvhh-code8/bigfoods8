@@ -50,7 +50,7 @@ Deno.serve(async (req: Request) => {
         db.from("bigfoods_pos_table_sessions").select("id,service_type,opened_at")
           .gte("opened_at", start.toISOString()).lte("opened_at", end.toISOString()).limit(10000),
         db.from("bigfoods_pos_sales").select("customer_email,created_at")
-          .not("customer_email", "is", null).eq("status", "paid").lt("created_at", start.toISOString()).limit(10000),
+          .not("customer_email", "is", null).in("status", ["paid", "partially_refunded", "refunded"]).lt("created_at", start.toISOString()).limit(10000),
         db.from("inventory_items").select("id,name,category,base_unit,reorder_level,is_active,image_url")
           .eq("is_active", true).limit(2000),
         db.from("inventory_batches").select("id,inventory_item_id,batch_code,remaining_quantity,unit_cost,status,expires_at,received_at")
