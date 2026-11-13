@@ -22,7 +22,8 @@ export default function InventoryWorkflowsPage() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [production, setProduction] = useState<Production[]>([]);
   const [posItems, setPosItems] = useState<PosItem[]>([]);
-  const [recipes, setRecipes] = useState<Recipe[]>([]);\n  const [expandedRecipe, setExpandedRecipe] = useState<string | null>(null);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [expandedRecipe, setExpandedRecipe] = useState<string | null>(null);
   const [recipeForm, setRecipeForm] = useState(initialRecipe);
   const [ingredientLines, setIngredientLines] = useState<IngredientLine[]>([{ inventory_item_id: "", quantity: "", unit: "" }]);
   const [start, setStart] = useState(initialStart);
