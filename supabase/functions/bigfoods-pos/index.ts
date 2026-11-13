@@ -62,7 +62,8 @@ Deno.serve(async (req: Request) => {
       ]);
       const errors = [catalogue,categories,areas,tables,sessions,shifts,sales,payments,pricing].filter(x => x.error);
       if (errors.length) return json({ error: "POS database is not ready. Apply the independent POS migrations first." }, 503);
-      return json({ catalogue: catalogue.data ?? [], categories: categories.data ?? [], dining_areas: areas.data ?? [], tables: tables.data ?? [], sessions: sessions.data ?? [], current_attendance: shifts.data?.[0] ?? null, today_sales: sales.data ?? [], pending_payments: (payments.data ?? []).filter((p: any) => p.bigfoods_pos_sales?.cashier_staff_id === actor.id || ["owner","admin"].includes(actor.role)), pricing_settings: pricing.data });
+      const visibleCatalogue = (catalogue.data ?? []).filter((item: any) => item.track_stock !== true || Number(item.stock_quantity ?? 0) > 0);
+      return json({ catalogue: visibleCatalogue, categories: categories.data ?? [], dining_areas: areas.data ?? [], tables: tables.data ?? [], sessions: sessions.data ?? [], current_attendance: shifts.data?.[0] ?? null, today_sales: sales.data ?? [], pending_payments: (payments.data ?? []).filter((p: any) => p.bigfoods_pos_sales?.cashier_staff_id === actor.id || ["owner","admin"].includes(actor.role)), pricing_settings: pricing.data });
     }
 
     if (action === "catalogue_create" || action === "catalogue_update" || action === "catalogue_delete") {
