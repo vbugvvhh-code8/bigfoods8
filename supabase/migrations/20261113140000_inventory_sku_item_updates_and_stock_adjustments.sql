@@ -56,4 +56,25 @@ begin
  values(p_actor_staff_id,'inventory.stock_adjusted',jsonb_build_object('batch_id',v_batch.id,'movement_id',v_movement.id,'quantity',p_quantity,'direction',p_direction,'reason',trim(p_reason)));
  return jsonb_build_object('batch_id',v_batch.id,'movement_id',v_movement.id,'remaining_quantity',v_batch.remaining_quantity);
 end $$;
-\nupdate public.inventory_items set sku=null where sku is null;\n
+\nupdate public.inventory_items set sku=null where sku is null;\n\ncreate or replace function public.bigfoods_inventory_update_item(
+ p_actor_staff_id uuid,p_inventory_item_id uuid,p_name text,p_sku text,p_category text,
+ p_tracking_type text,p_base_unit text,p_reorder_level numeric,p_is_perishable boolean,p_notes text
+) returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_actor public.bigfoods_staff%rowtype; v_item public.inventory_items%rowtype;
+begin
+ select * into v_actor from public.bigfoods_staff where id=p_actor_staff_id and is_active for share;
+ if not found or v_actor.must_change_password or not (v_actor.role in ('owner','admin') or v_actor.permissions @> '["inventory.manage"]'::jsonb) then raise exception 'Forbidden'; end if;
+ if nullif(trim(p_name),'') is null or length(trim(p_name))>160 or nullif(trim(p_base_unit),'') is null or length(trim(p_base_unit))>24 then raise exception 'Item name and base unit are required'; end if;
+ if p_tracking_type not in ('weight','volume','count') or p_reorder_level is null or p_reorder_level<0 then raise exception 'Invalid inventory item details'; end if;
+ select * into v_item from public.inventory_items where id=p_inventory_item_id and is_active for update;
+ if not found then raise exception 'Active inventory item not found'; end if;
+ if lower(trim(v_item.base_unit))<>lower(trim(p_base_unit)) and exists(select 1 from public.inventory_batches where inventory_item_id=p_inventory_item_id) then
+   raise exception 'Unit cannot be changed after stock batches exist. Create a new inventory item for a different unit.';
+ end if;
+ update public.inventory_items set name=trim(p_name),sku=coalesce(nullif(trim(coalesce(p_sku,'')),''),sku),category=coalesce(nullif(trim(p_category),''),'ingredient'),
+ tracking_type=p_tracking_type,base_unit=trim(p_base_unit),reorder_level=p_reorder_level,is_perishable=coalesce(p_is_perishable,false),
+ notes=nullif(trim(coalesce(p_notes,'')),''),updated_by_staff_id=p_actor_staff_id,updated_at=now()
+ where id=p_inventory_item_id returning * into v_item;
+ insert into public.bigfoods_staff_audit_events(actor_staff_id,action,details) values(p_actor_staff_id,'inventory.item_updated',jsonb_build_object('item_id',v_item.id,'name',v_item.name,'sku',v_item.sku));
+ return to_jsonb(v_item);
+end $$;
