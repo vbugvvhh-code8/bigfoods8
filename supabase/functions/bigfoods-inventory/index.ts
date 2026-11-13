@@ -117,6 +117,23 @@ Deno.serve(async (req: Request) => {
       if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
       return json({ waste: data }, 201);
     }
+    if (action === "waste_history") {
+      if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
+      const [raw, menu] = await Promise.all([
+        db.from("inventory_movements")
+          .select("id,quantity,base_unit,reason,occurred_at,actor_staff_id,inventory_items(name),inventory_batches(batch_code),bigfoods_staff(display_name)")
+          .eq("movement_type", "waste").order("occurred_at", { ascending: false }).limit(100),
+        db.from("bigfoods_pos_menu_waste")
+          .select("id,quantity,stock_before,stock_after,reason,created_at,bigfoods_pos_items(name),bigfoods_staff(display_name)")
+          .order("created_at", { ascending: false }).limit(100)
+      ]);
+      if (raw.error || menu.error) return json({ error: "Unable to load waste history." }, 503);
+      const records = [
+        ...(raw.data ?? []).map((r: any) => ({ id: r.id, stock_type: "raw", item_name: r.inventory_items?.name ?? "Inventory item", batch_code: r.inventory_batches?.batch_code ?? null, quantity: Number(r.quantity), unit: r.base_unit, reason: r.reason, occurred_at: r.occurred_at, staff_name: r.bigfoods_staff?.display_name ?? "Staff" })),
+        ...(menu.data ?? []).map((r: any) => ({ id: r.id, stock_type: "menu", item_name: r.bigfoods_pos_items?.name ?? "Menu item", batch_code: null, quantity: Number(r.quantity), unit: "portion(s)", stock_before: r.stock_before, stock_after: r.stock_after, reason: r.reason, occurred_at: r.created_at, staff_name: r.bigfoods_staff?.display_name ?? "Staff" }))
+      ].sort((a: any, b: any) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime()).slice(0, 100);
+      return json({ records });
+    }
     if (action === "menu_waste") {
       if (!has(actor, "inventory.waste")) return json({ error: "Forbidden" }, 403);
       const quantity = Number(body.quantity);
