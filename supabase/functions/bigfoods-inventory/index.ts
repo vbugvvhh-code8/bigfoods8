@@ -120,17 +120,35 @@ Deno.serve(async (req: Request) => {
     if (action === "waste_history") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
       const [raw, menu] = await Promise.all([
-        db.from("inventory_movements")
-          .select("id,quantity,base_unit,reason,occurred_at,actor_staff_id,inventory_items(name),inventory_batches(batch_code),bigfoods_staff(display_name)")
-          .eq("movement_type", "waste").order("occurred_at", { ascending: false }).limit(100),
-        db.from("bigfoods_pos_menu_waste")
-          .select("id,quantity,stock_before,stock_after,reason,created_at,bigfoods_pos_items(name),bigfoods_staff(display_name)")
-          .order("created_at", { ascending: false }).limit(100)
+        db.from("inventory_movements").select("id,inventory_item_id,batch_id,quantity,base_unit,reason,occurred_at,actor_staff_id").eq("movement_type", "waste").order("occurred_at", { ascending: false }).limit(100),
+        db.from("bigfoods_pos_menu_waste").select("id,pos_item_id,quantity,stock_before,stock_after,reason,created_at,actor_staff_id").order("created_at", { ascending: false }).limit(100)
       ]);
-      if (raw.error || menu.error) return json({ error: "Unable to load waste history." }, 503);
+      if (raw.error || menu.error) {
+        console.error("Waste history query failed", raw.error?.message, menu.error?.message);
+        return json({ error: "Unable to load waste history." }, 503);
+      }
+      const rawRows = raw.data ?? [], menuRows = menu.data ?? [];
+      const itemIds = [...new Set(rawRows.map((r: any) => r.inventory_item_id).filter(Boolean))];
+      const batchIds = [...new Set(rawRows.map((r: any) => r.batch_id).filter(Boolean))];
+      const posIds = [...new Set(menuRows.map((r: any) => r.pos_item_id).filter(Boolean))];
+      const staffIds = [...new Set([...rawRows, ...menuRows].map((r: any) => r.actor_staff_id).filter(Boolean))];
+      const [rawItems, batches, posItems, staff] = await Promise.all([
+        itemIds.length ? db.from("inventory_items").select("id,name").in("id", itemIds) : Promise.resolve({ data: [], error: null }),
+        batchIds.length ? db.from("inventory_batches").select("id,batch_code").in("id", batchIds) : Promise.resolve({ data: [], error: null }),
+        posIds.length ? db.from("bigfoods_pos_items").select("id,name").in("id", posIds) : Promise.resolve({ data: [], error: null }),
+        staffIds.length ? db.from("bigfoods_staff").select("id,display_name").in("id", staffIds) : Promise.resolve({ data: [], error: null })
+      ]);
+      if (rawItems.error || batches.error || posItems.error || staff.error) {
+        console.error("Waste history lookup failed", rawItems.error?.message, batches.error?.message, posItems.error?.message, staff.error?.message);
+        return json({ error: "Unable to load waste history details." }, 503);
+      }
+      const rawItemMap = new Map((rawItems.data ?? []).map((r: any) => [r.id, r.name]));
+      const batchMap = new Map((batches.data ?? []).map((r: any) => [r.id, r.batch_code]));
+      const posMap = new Map((posItems.data ?? []).map((r: any) => [r.id, r.name]));
+      const staffMap = new Map((staff.data ?? []).map((r: any) => [r.id, r.display_name]));
       const records = [
-        ...(raw.data ?? []).map((r: any) => ({ id: r.id, stock_type: "raw", item_name: r.inventory_items?.name ?? "Inventory item", batch_code: r.inventory_batches?.batch_code ?? null, quantity: Number(r.quantity), unit: r.base_unit, reason: r.reason, occurred_at: r.occurred_at, staff_name: r.bigfoods_staff?.display_name ?? "Staff" })),
-        ...(menu.data ?? []).map((r: any) => ({ id: r.id, stock_type: "menu", item_name: r.bigfoods_pos_items?.name ?? "Menu item", batch_code: null, quantity: Number(r.quantity), unit: "portion(s)", stock_before: r.stock_before, stock_after: r.stock_after, reason: r.reason, occurred_at: r.created_at, staff_name: r.bigfoods_staff?.display_name ?? "Staff" }))
+        ...rawRows.map((r: any) => ({ id: r.id, stock_type: "raw", item_name: rawItemMap.get(r.inventory_item_id) ?? "Inventory item", batch_code: batchMap.get(r.batch_id) ?? null, quantity: Number(r.quantity), unit: r.base_unit, reason: r.reason, occurred_at: r.occurred_at, staff_name: staffMap.get(r.actor_staff_id) ?? "Staff" })),
+        ...menuRows.map((r: any) => ({ id: r.id, stock_type: "menu", item_name: posMap.get(r.pos_item_id) ?? "Menu item", batch_code: null, quantity: Number(r.quantity), unit: "portion(s)", stock_before: r.stock_before, stock_after: r.stock_after, reason: r.reason, occurred_at: r.created_at, staff_name: staffMap.get(r.actor_staff_id) ?? "Staff" }))
       ].sort((a: any, b: any) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime()).slice(0, 100);
       return json({ records });
     }
