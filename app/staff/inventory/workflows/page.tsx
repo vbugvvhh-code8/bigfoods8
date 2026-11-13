@@ -27,7 +27,8 @@ export default function InventoryWorkflowsPage() {
   const [recipeForm, setRecipeForm] = useState(initialRecipe);
   const [ingredientLines, setIngredientLines] = useState<IngredientLine[]>([{ inventory_item_id: "", quantity: "", unit: "" }]);
   const [start, setStart] = useState(initialStart);
-  const [waste, setWaste] = useState(initialWaste);\n  const [menuWasteSearch, setMenuWasteSearch] = useState("");
+  const [waste, setWaste] = useState(initialWaste);
+  const [menuWasteSearch, setMenuWasteSearch] = useState("");
   const [finish, setFinish] = useState(initialFinish);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -70,7 +71,9 @@ export default function InventoryWorkflowsPage() {
   const secondary = "inline-flex items-center justify-center gap-2 rounded-xl border border-[#E7DED4] bg-white px-3.5 py-2.5 text-sm font-semibold text-[#47382D] hover:bg-[#FBF7F2] disabled:opacity-50";
   const activeBatches = batches.filter(b => b.status === "active" && Number(b.remaining_quantity) > 0);
   const availableInputBatches = activeBatches.filter(b => b.inventory_item_id === start.input_inventory_item_id);
-  const inProgress = production.filter(p => p.status === "in_progress");\n  const wasteMenuItems = posItems.filter(m => m.track_stock === true);\n  const filteredWasteMenuItems = wasteMenuItems.filter(m => `${m.name} ${m.category ?? ""}`.toLowerCase().includes(menuWasteSearch.trim().toLowerCase()));
+  const inProgress = production.filter(p => p.status === "in_progress");
+  const wasteMenuItems = posItems.filter(m => m.track_stock === true);
+  const filteredWasteMenuItems = wasteMenuItems.filter(m => `${m.name} ${m.category ?? ""}`.toLowerCase().includes(menuWasteSearch.trim().toLowerCase()));
 
   return <StaffShell title="Inventory workflows" subtitle="Recipes, production yields and controlled stock usage."><main className="mx-auto max-w-7xl space-y-6 pb-10">
 
