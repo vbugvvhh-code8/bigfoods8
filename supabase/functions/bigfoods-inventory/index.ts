@@ -126,6 +126,16 @@ Deno.serve(async (req: Request) => {
       if (items.error || recipes.error) return json({ error: "Unable to load in-house recipe data. Confirm the POS catalogue migrations have been applied." }, 503);
       return json({ pos_items: items.data ?? [], recipes: recipes.data ?? [] });
     }
+    if (action === "kitchen_overview") {
+      if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
+      const [items, batches, recipes] = await Promise.all([
+        db.from("inventory_items").select("id,name,base_unit,reorder_level,is_active").eq("is_active", true).order("name").limit(500),
+        db.from("inventory_batches").select("inventory_item_id,remaining_quantity,status,expires_at").eq("status", "active").gt("remaining_quantity", 0).limit(2000),
+        db.from("inventory_recipes").select("id,bigfoods_pos_item_id,name,version,output_quantity,output_unit,inventory_recipe_items(quantity,unit,inventory_items(name,base_unit))").eq("is_active", true).not("bigfoods_pos_item_id", "is", null).order("name").limit(500)
+      ]);
+      if (items.error || batches.error || recipes.error) return json({ error: "Unable to load kitchen planning data. Check that inventory recipes are configured." }, 503);
+      return json({ items: items.data ?? [], batches: batches.data ?? [], recipes: recipes.data ?? [] });
+    }
     if (action === "recipe_save") {
       if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
       const { data, error } = await db.rpc("bigfoods_inventory_save_inhouse_recipe", {
