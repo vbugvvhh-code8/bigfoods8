@@ -160,6 +160,14 @@ Deno.serve(async (req: Request) => {
       if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
       return json({ preparation: data });
     }
+    if (action === "kitchen_cancel") {
+      if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.rpc("bigfoods_kitchen_cancel_preparation", {
+        p_actor_staff_id: actor.id, p_preparation_id: body.preparation_id, p_reason: body.reason ?? null
+      });
+      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
+      return json({ preparation: data });
+    }
     if (action === "recipe_save") {
       if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
       const { data, error } = await db.rpc("bigfoods_inventory_save_inhouse_recipe", {
