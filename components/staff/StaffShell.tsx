@@ -34,7 +34,7 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
   const showStaffOperations = canUseStaffOperations(accessProfile);
   const showPos = canAccessPos(accessProfile);
   const showOrders = ['owner', 'admin'].includes(effectiveStaffRole || '') || hasPosPermission(accessProfile, 'pos.reports');
-  const showInventory = ['owner','admin','inventory'].includes(effectiveStaffRole || '') || (Array.isArray(effectiveStaffPermissions) && effectiveStaffPermissions.some((p:any)=>['inventory.view','inventory.manage','inventory.receive'].includes(p)));
+  const showInventory = ['owner','admin','inventory'].includes(effectiveStaffRole || '') || (Array.isArray(effectiveStaffPermissions) && effectiveStaffPermissions.some((p:any)=>['inventory.view','inventory.manage','inventory.receive','inventory.process'].includes(p)));
 
   async function logout() {
     await fetch('/api/bigfoods-staff/session', { method: 'DELETE' });
