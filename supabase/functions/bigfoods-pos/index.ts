@@ -112,27 +112,6 @@ Deno.serve(async (req: Request) => {
       return json({ settings: data });
     }
 
-    if (action === "analytics") {
-      if (!allowed(actor, "pos.reports")) return json({ error: "Forbidden" }, 403);
-      const from = typeof body.from === "string" ? body.from : new Date(Date.now()-29*86400000).toISOString().slice(0,10);
-      const to = typeof body.to === "string" ? body.to : new Date().toISOString().slice(0,10);
-      const start = new Date(from+"T00:00:00.000Z"), end = new Date(to+"T23:59:59.999Z");
-      if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start>end || end.getTime()-start.getTime()>366*86400000) return json({ error: "Choose a valid date range of up to one year." }, 400);
-      const [sales, onlineOrders, items, payments, refunds, customersHistory] = await Promise.all([
-        db.from("bigfoods_pos_sales").select("id,receipt_number,payment_method,status,subtotal,total_amount,created_at,session_id,customer_email,bigfoods_pos_sale_items(product_id,product_name,quantity,unit_price,line_total)").gte("created_at",start.toISOString()).lte("created_at",end.toISOString()).order("created_at",{ascending:true}).limit(10000),
-        db.from("orders").select("id,status,subtotal,placed_at,customer_id,delivery_fee,payment_status,restaurant_id").gte("placed_at",start.toISOString()).lte("placed_at",end.toISOString()).eq("is_seed_data",false).order("placed_at",{ascending:true}).limit(10000),
-        db.from("bigfoods_pos_items").select("id,name,category,item_type"),
-        db.from("bigfoods_pos_payments").select("sale_id,payment_method,amount,status,created_at").gte("created_at",start.toISOString()).lte("created_at",end.toISOString()).eq("status","confirmed").limit(10000),
-        db.from("bigfoods_pos_refunds").select("sale_id,amount,status,created_at").gte("created_at",start.toISOString()).lte("created_at",end.toISOString()).eq("status","completed").limit(10000),
-        db.from("orders").select("customer_id,placed_at").not("customer_id","is",null).lt("placed_at",start.toISOString()).eq("is_seed_data",false).limit(10000)
-      ]);
-      const failed=[sales,onlineOrders,items,payments,refunds,customersHistory].find(x=>x.error);
-      if(failed) return json({error:"Unable to load analytics data."},503);
-      const sessions=(await db.from("bigfoods_pos_table_sessions").select("id,service_type,opened_at").gte("opened_at",start.toISOString()).lte("opened_at",end.toISOString()).limit(10000));
-      if(sessions.error) return json({error:"Unable to load service type analytics."},503);
-      return json({sales:sales.data??[],online_orders:onlineOrders.data??[],items:items.data??[],payments:payments.data??[],refunds:refunds.data??[],prior_customers:customersHistory.data??[],sessions:sessions.data??[]});
-    }
-
     if (action === "overview") {
       if (!allowed(actor, "pos.view") && !allowed(actor, "pos.sell") && !allowed(actor, "pos.manage_catalogue")) return json({ error: "Forbidden" }, 403);
       const [catalogue, categories, areas, tables, sessions, shifts, sales, payments, pricing] = await Promise.all([
