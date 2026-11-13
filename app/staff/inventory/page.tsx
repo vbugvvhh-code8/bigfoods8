@@ -14,7 +14,7 @@ const soft="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bo
 export default function StaffInventoryPage(){
  const [items,setItems]=useState<Item[]>([]),[batches,setBatches]=useState<Batch[]>([]),[alerts,setAlerts]=useState<any[]>([]),[movements,setMovements]=useState<Movement[]>([]);
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
- const [search,setSearch]=useState(""),[category,setCategory]=useState("all"),[supplier,setSupplier]=useState("all"),[status,setStatus]=useState("all"),[page,setPage]=useState(1),[selected,setSelected]=useState<Item|null>(null),[panel,setPanel]=useState<"edit"|"new"|"receive"|"movements"|"alerts"|null>(null);
+ const [search,setSearch]=useState(""),[category,setCategory]=useState("all"),[supplier,setSupplier]=useState("all"),[status,setStatus]=useState("all"),[page,setPage]=useState(1),[selected,setSelected]=useState<Item|null>(null),[panel,setPanel]=useState<"edit"|"new"|"receive"|"adjust"|"movements"|"alerts"|null>(null);
  const [form,setForm]=useState({name:"",sku:"",category:"ingredient",tracking_type:"weight",base_unit:"kg",reorder_level:"0",is_perishable:false,notes:""});
  const [receipt,setReceipt]=useState({inventory_item_id:"",batch_code:"",quantity:"",unit:"",supplier_name:"",supplier_reference:"",unit_cost:"",expires_at:"",notes:""});
  const [adjustment,setAdjustment]=useState({batch_id:"",quantity:"",direction:"out",reason:"Physical stock count correction"});
