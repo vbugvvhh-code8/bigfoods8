@@ -27,6 +27,51 @@ Deno.serve(async (req: Request) => {
     if (actor.must_change_password) return json({ error: "Change your temporary password first" }, 403);
     const action = String(body.action || "");
 
+    if (action === "analytics") {
+      if (!allowed(actor, "pos.reports")) return json({ error: "You do not have permission to view reports." }, 403);
+      const fromDate = typeof body.from === "string" && /^\\d{4}-\\d{2}-\\d{2}$/.test(body.from) ? body.from : new Date(Date.now() - 29 * 86400000).toISOString().slice(0,10);
+      const toDate = typeof body.to === "string" && /^\\d{4}-\\d{2}-\\d{2}$/.test(body.to) ? body.to : new Date().toISOString().slice(0,10);
+      if (fromDate > toDate) return json({ error: "The report start date must be before the end date." }, 400);
+      const start = new Date(fromDate + "T00:00:00.000Z").toISOString();
+      const end = new Date(new Date(toDate + "T00:00:00.000Z").getTime() + 86400000 - 1).toISOString();
+      const [salesQ, ordersQ, itemsQ, paymentsQ, refundsQ, sessionsQ, priorQ, inventoryQ, batchesQ, movementsQ, staffQ] = await Promise.all([
+        db.from("bigfoods_pos_sales").select("id,receipt_number,payment_method,status,subtotal,total_amount,discount_amount,tax_amount,created_at,session_id,cashier_staff_id,customer_email,bigfoods_pos_sale_items(product_id,product_name,quantity,unit_price,line_total)").gte("created_at", start).lte("created_at", end).order("created_at", { ascending: true }).limit(5000),
+        db.from("orders").select("id,status,subtotal,placed_at,customer_id,delivery_fee,platform_fee,payment_status,restaurant_id").gte("placed_at", start).lte("placed_at", end).order("placed_at", { ascending: true }).limit(5000),
+        db.from("bigfoods_pos_items").select("id,name,category,item_type,image_url").limit(1000),
+        db.from("bigfoods_pos_payments").select("sale_id,payment_method,amount,status,created_at").gte("created_at", start).lte("created_at", end).limit(5000),
+        db.from("bigfoods_pos_refunds").select("sale_id,amount,status,created_at").gte("created_at", start).lte("created_at", end).limit(5000),
+        db.from("bigfoods_pos_table_sessions").select("id,service_type,opened_at").gte("opened_at", start).lte("opened_at", end).limit(5000),
+        db.from("orders").select("customer_id,placed_at").lt("placed_at", start).not("customer_id", "is", null).limit(10000),
+        db.from("inventory_items").select("id,name,category,base_unit,reorder_level,is_active").eq("is_active", true).limit(2000),
+        db.from("inventory_batches").select("inventory_item_id,remaining_quantity,unit_cost,status").limit(10000),
+        db.from("inventory_movements").select("movement_type,quantity,direction,unit_cost,occurred_at").gte("occurred_at", start).lte("occurred_at", end).limit(10000),
+        db.from("bigfoods_staff").select("id,display_name,role,is_active").eq("is_active", true).limit(1000)
+      ]);
+      const failures = [salesQ,ordersQ,itemsQ,paymentsQ,refundsQ,sessionsQ,priorQ,inventoryQ,batchesQ,movementsQ,staffQ].filter(q => q.error);
+      if (failures.length) return json({ error: "Unable to load one or more report data sources. Check the POS, orders and inventory migrations." }, 503);
+      const sessions = sessionsQ.data ?? [];
+      const staffSales = new Map<string,{orders:number;revenue:number}>();
+      for (const sale of salesQ.data ?? []) {
+        const current = staffSales.get(sale.cashier_staff_id || "") || { orders: 0, revenue: 0 };
+        current.orders += 1; current.revenue += Number(sale.total_amount || 0);
+        if (sale.cashier_staff_id) staffSales.set(sale.cashier_staff_id, current);
+      }
+      const staff = (staffQ.data ?? []).map(person => ({ id: person.id, name: person.display_name, role: person.role, orders: staffSales.get(person.id)?.orders || 0, revenue: staffSales.get(person.id)?.revenue || 0 }));
+      return json({
+        sales: (salesQ.data ?? []).map(s => ({ ...s, bigfoods_pos_sale_items: s.bigfoods_pos_sale_items ?? [] })),
+        online_orders: ordersQ.data ?? [],
+        items: itemsQ.data ?? [],
+        payments: paymentsQ.data ?? [],
+        refunds: refundsQ.data ?? [],
+        sessions,
+        prior_customers: priorQ.data ?? [],
+        inventory_items: inventoryQ.data ?? [],
+        inventory_batches: batchesQ.data ?? [],
+        inventory_movements: movementsQ.data ?? [],
+        staff_performance: staff
+      });
+    }
+
     if (action === "settings_get") {
       if (!allowed(actor, "pos.view") && !allowed(actor, "pos.sell") && !allowed(actor, "pos.reports")) return json({ error: "Forbidden" }, 403);
       const { data, error } = await db.from("bigfoods_pos_settings").select("tax_enabled,tax_rate,discount_enabled,discount_allowed_roles,discount_max_percent").eq("id", true).single();
