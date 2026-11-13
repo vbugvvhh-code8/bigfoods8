@@ -1,19 +1,20 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { AlertTriangle, ArrowLeft, RefreshCw, Trash2, CookingPot } from "lucide-react";
+import { AlertTriangle, ArrowLeft, RefreshCw, Trash2, CookingPot, Search } from "lucide-react";
 import Link from "next/link";
-import PageHeader from "@/components/admin/layout/PageHeader";
+import StaffShell from "@/components/staff/StaffShell";
 import getBrowserSupabase from "@/lib/supabase/client";
 
 type Item = { id: string; name: string; base_unit: string; is_active: boolean };
 type Batch = { id: string; inventory_item_id: string; batch_code: string; remaining_quantity: number; base_unit: string; status: string };
-type PosItem = { id: string; name: string; category?: string; is_available?: boolean };
-type Recipe = { id: string; bigfoods_pos_item_id: string | null; name: string; version: number; output_quantity: number; output_unit: string; effective_from: string; is_active: boolean };
+type PosItem = { id: string; name: string; category?: string; is_available?: boolean; stock_quantity?: number | null; track_stock?: boolean };
+type Recipe = { id: string; bigfoods_pos_item_id: string | null; name: string; version: number; output_quantity: number; output_unit: string; effective_from: string; effective_until: string | null; is_active: boolean; inventory_recipe_items?: { inventory_item_id: string; quantity: number; unit: string; notes: string | null; inventory_items?: { name: string; base_unit: string } | null }[] };
 type IngredientLine = { inventory_item_id: string; quantity: string; unit: string };
+type WasteRecord = { id: string; stock_type: "raw" | "menu"; item_name: string; batch_code: string | null; quantity: number; unit: string; stock_before?: number; stock_after?: number; reason: string; occurred_at: string; staff_name: string };
 type Production = { id: string; batch_code: string; input_inventory_item_id: string; input_batch_id: string | null; raw_input_quantity: number; raw_input_unit: string; output_inventory_item_id: string; output_quantity: number | null; output_unit: string; unprocessed_quantity: number; allowed_loss_quantity: number; actual_loss_quantity: number | null; variance_quantity: number | null; status: string };
-const initialStart = { batch_code: "", input_inventory_item_id: "", input_batch_id: "", raw_input_quantity: "", output_inventory_item_id: "", allowed_loss_quantity: "0" };
-const initialWaste = { batch_id: "", quantity: "", reason: "" };
+const initialStart = { input_inventory_item_id: "", input_batch_id: "", raw_input_quantity: "", output_inventory_item_id: "", allowed_loss_quantity: "0" };
+const initialWaste = { stock_type: "raw", batch_id: "", pos_item_id: "", quantity: "", reason: "" };
 const initialFinish = { production_batch_id: "", output_quantity: "", unprocessed_quantity: "0", actual_loss_quantity: "0", review_note: "" };
 const initialRecipe = { bigfoods_pos_item_id: "", name: "", output_quantity: "1", output_unit: "portion" };
 
@@ -21,12 +22,15 @@ export default function InventoryWorkflowsPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [production, setProduction] = useState<Production[]>([]);
+  const [wasteRecords, setWasteRecords] = useState<WasteRecord[]>([]);
   const [posItems, setPosItems] = useState<PosItem[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [expandedRecipe, setExpandedRecipe] = useState<string | null>(null);
   const [recipeForm, setRecipeForm] = useState(initialRecipe);
   const [ingredientLines, setIngredientLines] = useState<IngredientLine[]>([{ inventory_item_id: "", quantity: "", unit: "" }]);
   const [start, setStart] = useState(initialStart);
   const [waste, setWaste] = useState(initialWaste);
+  const [menuWasteSearch, setMenuWasteSearch] = useState("");
   const [finish, setFinish] = useState(initialFinish);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -45,20 +49,24 @@ export default function InventoryWorkflowsPage() {
     return data;
   }, []);
 
-  const load = useCallback(async () => {
-    setLoading(true); setError("");
+  const load = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
+    setError("");
     try {
-      const [overview, prod, recipeData] = await Promise.all([call({ action: "overview" }), call({ action: "production_list" }), call({ action: "recipe_overview" })]);
+      const [overview, prod, recipeData, recipeOverview, wasteData] = await Promise.all([
+        call({ action: "overview" }), call({ action: "production_list" }), call({ action: "recipe_history" }),
+        call({ action: "recipe_overview" }), call({ action: "waste_history" })
+      ]);
       setItems(overview.items ?? []); setBatches(overview.batches ?? []); setProduction(prod.production ?? []);
-      setPosItems(recipeData.pos_items ?? []); setRecipes(recipeData.recipes ?? []);
+      setPosItems(recipeOverview.pos_items ?? []); setRecipes(recipeData.recipes ?? []); setWasteRecords(wasteData.records ?? []);
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to load inventory workflows"); }
-    finally { setLoading(false); }
+    finally { if (showLoading) setLoading(false); }
   }, [call]);
   useEffect(() => { void load(); }, [load]);
 
   async function submit(event: FormEvent, action: string, payload: Record<string, unknown>, reset: () => void, message: string) {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
-    try { await call({ action, ...payload }); reset(); setNotice(message); await load(); }
+    try { await call({ action, ...payload }); reset(); setNotice(message); await load(false); }
     catch (e) { setError(e instanceof Error ? e.message : "Unable to save inventory workflow"); }
     finally { setBusy(false); }
   }
@@ -70,11 +78,13 @@ export default function InventoryWorkflowsPage() {
   const activeBatches = batches.filter(b => b.status === "active" && Number(b.remaining_quantity) > 0);
   const availableInputBatches = activeBatches.filter(b => b.inventory_item_id === start.input_inventory_item_id);
   const inProgress = production.filter(p => p.status === "in_progress");
+  const wasteMenuItems = posItems.filter(m => m.track_stock === true);
+  const filteredWasteMenuItems = wasteMenuItems.filter(m => `${m.name} ${m.category ?? ""}`.toLowerCase().includes(menuWasteSearch.trim().toLowerCase()));
 
-  return <main className="mx-auto max-w-7xl space-y-6 pb-10">
-    <PageHeader title="Inventory workflows" subtitle="Record waste and production yields with a reasoned, auditable stock trail." />
+  return <StaffShell title="Inventory workflows" subtitle="Recipes, production yields and controlled stock usage."><main className="mx-auto max-w-7xl space-y-6 pb-10">
+
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <Link href="/admin/inventory" className={secondary}><ArrowLeft size={16}/> Back to inventory</Link>
+      <Link href="/staff/inventory" className={secondary}><ArrowLeft size={16}/> Back to inventory</Link>
       <button className={secondary} onClick={() => void load()} disabled={loading}><RefreshCw size={15} className={loading ? "animate-spin" : ""}/> Refresh</button>
     </div>
     {error && <div role="alert" className="flex gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"><AlertTriangle size={17} className="shrink-0"/>{error}</div>}
@@ -94,24 +104,37 @@ export default function InventoryWorkflowsPage() {
           </form>
         </div>
         <div className="overflow-hidden rounded-2xl border border-[#E9E0D6] bg-white shadow-[0_2px_10px_rgba(58,39,23,0.035)]">
-          <div className="border-b border-[#EFE7DF] p-4"><h2 className="font-semibold text-[#30261F]">Active recipe versions</h2><p className="mt-1 text-sm text-[#817367]">Saving a new recipe version retires the prior active version for that menu item.</p></div>
-          <div className="divide-y divide-[#F0E8E0]">{recipes.map(r=><div key={r.id} className="p-4"><div className="flex items-start justify-between gap-3"><div><div className="font-semibold text-[#342920]">{r.name}</div><div className="mt-1 text-sm text-[#817367]">{posItems.find(m=>m.id===r.bigfoods_pos_item_id)?.name ?? "In-house POS item"} · Version {r.version}</div></div><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">Active</span></div><div className="mt-2 text-xs text-[#827467]">Output: {Number(r.output_quantity)} {r.output_unit} · Effective {new Date(r.effective_from).toLocaleDateString("en-NG")}</div></div>)}{!recipes.length && <div className="p-8 text-center text-sm text-[#8A7C70]">No active recipes yet. Save a recipe to start linking menu sales to ingredient usage.</div>}</div>
+          <div className="border-b border-[#EFE7DF] p-4"><h2 className="font-semibold text-[#30261F]">Recipe version history</h2><p className="mt-1 text-sm text-[#817367]">Every version and its ingredient snapshot is retained. Retire versions to remove them from Kitchen; deletion is limited to versions never used in a preparation.</p></div>
+          <div className="divide-y divide-[#F0E8E0]">{recipes.map(r=><div key={r.id} className="p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-semibold text-[#342920]">{r.name}</div><div className="mt-1 text-sm text-[#817367]">{posItems.find(m=>m.id===r.bigfoods_pos_item_id)?.name ?? "In-house POS item"} · Version {r.version}</div></div><span className={"rounded-full px-2.5 py-1 text-xs font-semibold "+(r.is_active?"bg-emerald-50 text-emerald-800":"bg-slate-100 text-slate-700")}>{r.is_active?"Active":"Retired"}</span></div>
+            <div className="mt-2 text-xs text-[#827467]">Output: {Number(r.output_quantity)} {r.output_unit} · Effective {new Date(r.effective_from).toLocaleDateString("en-NG")}{r.effective_until? " – "+new Date(r.effective_until).toLocaleDateString("en-NG"):""}</div>
+            <div className="mt-3 flex flex-wrap gap-2"><button type="button" className={secondary} onClick={()=>setExpandedRecipe(expandedRecipe===r.id?null:r.id)}>{expandedRecipe===r.id?"Hide ingredients":"View ingredients"}</button>{r.is_active&&<button type="button" className={secondary} disabled={busy} onClick={async()=>{if(!window.confirm("Retire this recipe version? It will no longer be offered for new kitchen preparations."))return;setBusy(true);setError("");try{await call({action:"recipe_retire",recipe_id:r.id});setNotice("Recipe version retired. Existing preparation history remains intact.");await load();}catch(e){setError(e instanceof Error?e.message:"Unable to retire recipe");}finally{setBusy(false);}}}>Retire version</button>}{!r.is_active&&<button type="button" className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50" disabled={busy} onClick={async()=>{if(!window.confirm("Permanently delete this retired version? This is allowed only when it has never been used in a kitchen preparation."))return;setBusy(true);setError("");try{await call({action:"recipe_delete",recipe_id:r.id});setNotice("Unused recipe version deleted.");await load();}catch(e){setError(e instanceof Error?e.message:"Unable to delete recipe version");}finally{setBusy(false);}}}>Delete unused version</button>}</div>
+            {expandedRecipe===r.id&&<div className="mt-3 rounded-xl border border-[#F0E8E0] bg-[#FBF8F4] p-3"><p className="mb-2 text-xs font-semibold text-[#47382D]">Ingredient snapshot</p>{(r.inventory_recipe_items??[]).map((line,index)=><div key={line.inventory_item_id+"-"+index} className="flex items-center justify-between gap-3 border-t border-[#EFE7DF] py-2 text-xs"><span className="text-[#47382D]">{line.inventory_items?.name??"Inventory item"}</span><span className="font-semibold text-[#30261F]">{Number(line.quantity)} {line.unit}</span></div>)}{!r.inventory_recipe_items?.length&&<p className="text-xs text-[#817367]">No ingredient lines found for this version.</p>}</div>}
+          </div>)}{!recipes.length && <div className="p-8 text-center text-sm text-[#8A7C70]">No recipe versions yet. Save a recipe to begin version history.</div>}</div>
         </div>
       </section>
       <section className="grid gap-5 xl:grid-cols-2">
         <div className="rounded-2xl border border-[#E9E0D6] bg-white p-5 shadow-[0_2px_10px_rgba(58,39,23,0.035)]">
           <div className="mb-5 flex items-center gap-3"><span className="rounded-xl bg-[#FFF1E5] p-2 text-[#D96B1F]"><Trash2 size={19}/></span><div><h2 className="font-semibold text-[#30261F]">Log stock waste</h2><p className="mt-1 text-sm text-[#817367]">Expired, spoiled or otherwise unusable stock.</p></div></div>
-          <form className="space-y-4" onSubmit={e => void submit(e,"waste",{...waste,quantity:Number(waste.quantity)},()=>setWaste(initialWaste),"Waste logged and stock balance updated atomically.")}>
-            <label className={label}>Stock batch<select required className={field} value={waste.batch_id} onChange={e=>setWaste({...waste,batch_id:e.target.value})}><option value="">Choose batch</option>{activeBatches.map(b=><option key={b.id} value={b.id}>{items.find(i=>i.id===b.inventory_item_id)?.name ?? "Item"} · {b.batch_code} · {Number(b.remaining_quantity)} {b.base_unit} left</option>)}</select></label>
-            <label className={label}>Quantity wasted<input required type="number" min="0.0001" step="0.0001" className={field} value={waste.quantity} onChange={e=>setWaste({...waste,quantity:e.target.value})}/></label>
+          <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl bg-[#F8F3ED] p-1">
+            <button type="button" onClick={()=>setWaste({...initialWaste,stock_type:"raw"})} className={"rounded-lg px-3 py-2.5 text-sm font-semibold "+(waste.stock_type==="raw"?"bg-white text-[#B95616] shadow-sm":"text-[#817367]")}>Raw inventory</button>
+            <button type="button" onClick={()=>setWaste({...initialWaste,stock_type:"menu"})} className={"rounded-lg px-3 py-2.5 text-sm font-semibold "+(waste.stock_type==="menu"?"bg-white text-[#B95616] shadow-sm":"text-[#817367]")}>Menu items</button>
+          </div>
+          <div className="mb-4 rounded-xl border border-[#F0E8E0] bg-[#FBF8F4] p-3 text-xs text-[#75685C]">
+            {waste.stock_type==="raw" ? "Record expired, spoiled or damaged ingredients against the exact stock batch." : "Record prepared menu portions that are spoiled, damaged or otherwise unsellable. This reduces the item's POS stock."}
+          </div>
+          <form className="space-y-4" onSubmit={e=>void submit(e,waste.stock_type==="raw"?"waste":"menu_waste",waste.stock_type==="raw"?{batch_id:waste.batch_id,quantity:Number(waste.quantity),reason:waste.reason}:{pos_item_id:waste.pos_item_id,quantity:Number(waste.quantity),reason:waste.reason},()=>setWaste(initialWaste),"Waste recorded. The stock balance and audit record have been updated.")}>
+            {waste.stock_type==="raw" ? <label className={label}>Raw stock batch<select required className={field} value={waste.batch_id} onChange={e=>setWaste({...waste,batch_id:e.target.value})}><option value="">Choose batch</option>{activeBatches.map(b=><option key={b.id} value={b.id}>{items.find(i=>i.id===b.inventory_item_id)?.name ?? "Item"} · {b.batch_code} · {Number(b.remaining_quantity)} {b.base_unit} left</option>)}</select></label> :
+<div className="space-y-2"><label className={label}>Search menu items<div className="relative mt-1"><Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#94877B]"/><input type="search" className={field+" pl-9"} value={menuWasteSearch} onChange={e=>setMenuWasteSearch(e.target.value)} placeholder="Search by item name or category"/></div></label><label className={label}>BigFoods menu item<select required className={field} value={waste.pos_item_id} onChange={e=>setWaste({...waste,pos_item_id:e.target.value,quantity:""})}><option value="">Choose menu item ({filteredWasteMenuItems.length})</option>{filteredWasteMenuItems.map(m=><option key={m.id} value={m.id} disabled={Number(m.stock_quantity??0)<=0}>{m.name} · {Number(m.stock_quantity??0)} portions {Number(m.stock_quantity??0)<=0?"(out of stock)":"available"}</option>)}</select><span className="mt-1 block text-[11px] font-normal text-[#817367]">Stock balances are fetched from the POS catalogue. Items with zero stock remain visible but cannot be selected for waste.</span>{!filteredWasteMenuItems.length&&<span className="mt-1 block text-xs text-amber-700">No stock-tracked menu items match this search.</span>}</label></div>}
+            <label className={label}>Quantity wasted<input required type="number" min="1" step="1" max={waste.stock_type==="menu"?Math.max(0,Number(posItems.find(m=>m.id===waste.pos_item_id)?.stock_quantity??0)):undefined} className={field} value={waste.quantity} onChange={e=>setWaste({...waste,quantity:e.target.value})}/><span className="mt-1 block text-[11px] font-normal text-[#817367]">{waste.stock_type==="menu"?"Enter whole portions/items.":"Enter quantity using the batch's base unit."}</span></label>
             <label className={label}>Reason<textarea required minLength={3} maxLength={500} rows={3} className={field} value={waste.reason} onChange={e=>setWaste({...waste,reason:e.target.value})} placeholder="e.g. Expired before use; packaging damaged"/></label>
-            <button className={primary} disabled={busy || !activeBatches.length}>{busy ? "Saving…" : "Record waste"}</button>
+            <button className={primary} disabled={busy || (waste.stock_type==="raw"?!activeBatches.length:!wasteMenuItems.some(m=>Number(m.stock_quantity??0)>0))}>{busy ? "Saving…" : "Record waste"}</button>
           </form>
         </div>
         <div className="rounded-2xl border border-[#E9E0D6] bg-white p-5 shadow-[0_2px_10px_rgba(58,39,23,0.035)]">
           <div className="mb-5 flex items-center gap-3"><span className="rounded-xl bg-[#FFF1E5] p-2 text-[#D96B1F]"><CookingPot size={19}/></span><div><h2 className="font-semibold text-[#30261F]">Start production batch</h2><p className="mt-1 text-sm text-[#817367]">Choose the raw batch and the inventory item produced.</p></div></div>
           <form className="space-y-4" onSubmit={e=>void submit(e,"production_start",{...start,raw_input_quantity:Number(start.raw_input_quantity),allowed_loss_quantity:Number(start.allowed_loss_quantity)},()=>setStart(initialStart),"Production batch started. Input stock is checked again when the batch is finished.")}>
-            <label className={label}>Production batch code<input required maxLength={100} className={field} value={start.batch_code} onChange={e=>setStart({...start,batch_code:e.target.value})} placeholder="e.g. PROD-TOMATO-001"/></label>
+            <div className="rounded-xl border border-dashed border-[#E7DED4] bg-[#FBF8F4] px-3 py-3"><p className="text-xs font-semibold">Production batch code generated automatically</p><p className="mt-1 text-[10px] text-[#94877B]">A unique kitchen batch code is assigned when production starts.</p></div>
             <label className={label}>Raw inventory item<select required className={field} value={start.input_inventory_item_id} onChange={e=>setStart({...start,input_inventory_item_id:e.target.value,input_batch_id:""})}><option value="">Choose raw item</option>{items.filter(i=>i.is_active).map(i=><option key={i.id} value={i.id}>{i.name} ({i.base_unit})</option>)}</select></label>
             <label className={label}>Source stock batch<select required className={field} value={start.input_batch_id} onChange={e=>setStart({...start,input_batch_id:e.target.value})}><option value="">Choose batch</option>{availableInputBatches.map(b=><option key={b.id} value={b.id}>{b.batch_code} — {Number(b.remaining_quantity)} {b.base_unit} left</option>)}</select></label>
             <label className={label}>Raw input quantity<input required type="number" min="0.0001" step="0.0001" className={field} value={start.raw_input_quantity} onChange={e=>setStart({...start,raw_input_quantity:e.target.value})}/></label>
@@ -120,7 +143,11 @@ export default function InventoryWorkflowsPage() {
             <button className={primary} disabled={busy || !availableInputBatches.length}>{busy ? "Saving…" : "Start production"}</button>
           </form>
         </div>
-      </section>
+<div className="rounded-2xl border border-[#E9E0D6] bg-white p-5 shadow-[0_2px_10px_rgba(58,39,23,0.035)] xl:col-span-2">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-semibold text-[#30261F]">Waste records</h2><p className="mt-1 text-sm text-[#817367]">Recent raw-stock and prepared menu-item waste entries.</p></div><span className="rounded-full bg-[#FFF1E5] px-3 py-1 text-xs font-semibold text-[#B95616]">{wasteRecords.length} records</span></div>
+          {wasteRecords.length ? <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead><tr className="border-b border-[#EFE7DF] text-xs text-[#817367]"><th className="px-3 py-3 font-semibold">Date</th><th className="px-3 py-3 font-semibold">Stock type</th><th className="px-3 py-3 font-semibold">Item / batch</th><th className="px-3 py-3 font-semibold">Quantity</th><th className="px-3 py-3 font-semibold">Reason</th><th className="px-3 py-3 font-semibold">Recorded by</th></tr></thead><tbody>{wasteRecords.map(record=><tr key={record.id} className="border-b border-[#F3EDE7] last:border-0"><td className="whitespace-nowrap px-3 py-3 text-[#6E6257]">{new Date(record.occurred_at).toLocaleString()}</td><td className="px-3 py-3"><span className="rounded-full bg-[#F8F3ED] px-2.5 py-1 text-xs font-semibold">{record.stock_type==="menu"?"Menu item":"Raw inventory"}</span></td><td className="px-3 py-3 font-medium text-[#30261F]">{record.item_name}{record.batch_code&&<span className="block text-xs font-normal text-[#817367]">{record.batch_code}</span>}</td><td className="px-3 py-3 tabular-nums">{record.quantity} {record.unit}{record.stock_type==="menu"&&record.stock_before!==undefined&&<span className="block text-xs text-[#817367]">{record.stock_before} → {record.stock_after} remaining</span>}</td><td className="max-w-[220px] px-3 py-3 text-[#6E6257]">{record.reason}</td><td className="px-3 py-3 text-[#6E6257]">{record.staff_name}</td></tr>)}</tbody></table></div> : <div className="rounded-xl border border-dashed border-[#E7DED4] px-4 py-8 text-center text-sm text-[#817367]">No waste has been recorded yet.</div>}
+        </div>
+              </section>
       <section className="rounded-2xl border border-[#E9E0D6] bg-white p-5 shadow-[0_2px_10px_rgba(58,39,23,0.035)]">
         <div className="mb-5"><h2 className="font-semibold text-[#30261F]">Finish production batch</h2><p className="mt-1 text-sm text-[#817367]">Output, unprocessed input and actual loss are reconciled. Variance beyond tolerance raises an alert for review.</p></div>
         <form className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" onSubmit={e=>void submit(e,"production_finish",{...finish,output_quantity:Number(finish.output_quantity),unprocessed_quantity:Number(finish.unprocessed_quantity),actual_loss_quantity:Number(finish.actual_loss_quantity)},()=>setFinish(initialFinish),"Production results recorded. Check the batch status and alerts for any variance.")}>
@@ -137,5 +164,5 @@ export default function InventoryWorkflowsPage() {
         <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-[#FBF7F2] text-xs uppercase tracking-wide text-[#827467]"><tr><th className="px-4 py-3">Batch</th><th className="px-4 py-3">Input</th><th className="px-4 py-3">Output</th><th className="px-4 py-3">Variance</th><th className="px-4 py-3">Status</th></tr></thead><tbody className="divide-y divide-[#F0E8E0]">{production.map(p=><tr key={p.id}><td className="px-4 py-3.5 font-semibold">{p.batch_code}</td><td className="px-4 py-3.5">{Number(p.raw_input_quantity)} {p.raw_input_unit}</td><td className="px-4 py-3.5">{p.output_quantity == null ? "—" : Number(p.output_quantity)+" "+p.output_unit}</td><td className="px-4 py-3.5">{p.variance_quantity == null ? "—" : Number(p.variance_quantity)}</td><td className="px-4 py-3.5"><span className={"rounded-full px-2.5 py-1 text-xs font-semibold "+(p.status==="pending_review"?"bg-amber-50 text-amber-800":p.status==="confirmed"?"bg-emerald-50 text-emerald-800":"bg-gray-100 text-gray-700")}>{p.status.replaceAll("_"," ")}</span></td></tr>)}{!production.length && <tr><td colSpan={5} className="px-4 py-8 text-center text-[#8A7C70]">No production batches yet.</td></tr>}</tbody></table></div>
       </section>
     </>}
-  </main>;
+  </main></StaffShell>;
 }

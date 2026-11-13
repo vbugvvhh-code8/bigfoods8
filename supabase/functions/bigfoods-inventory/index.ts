@@ -46,7 +46,7 @@ Deno.serve(async (req: Request) => {
     if (action === "overview") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
       const [items, batches, alerts, movements] = await Promise.all([
-        db.from("inventory_items").select("id,name,sku,category,tracking_type,base_unit,reorder_level,is_perishable,is_active,created_at").order("name").limit(500),
+        db.from("inventory_items").select("id,name,sku,category,tracking_type,base_unit,reorder_level,is_perishable,is_active,image_url,created_at").order("name").limit(500),
         db.from("inventory_batches").select("id,inventory_item_id,batch_code,supplier_name,received_quantity,remaining_quantity,base_unit,unit_cost,currency,received_at,expires_at,status").order("received_at", { ascending: false }).limit(200),
         db.from("inventory_alerts").select("id,inventory_item_id,alert_type,severity,status,title,created_at").neq("status", "resolved").neq("status", "dismissed").order("created_at", { ascending: false }).limit(100),
         db.from("inventory_movements").select("id,inventory_item_id,batch_id,movement_type,quantity,direction,base_unit,reason,occurred_at,actor_staff_id").order("occurred_at", { ascending: false }).limit(50)
@@ -62,12 +62,37 @@ Deno.serve(async (req: Request) => {
         p_is_perishable: body.is_perishable ?? false, p_notes: body.notes ?? null
       });
       if (error) return json({ error: error.message.includes("duplicate key") ? "That SKU is already in use." : error.message.includes("Forbidden") ? "Forbidden" : "Unable to create inventory item. Check the fields and try again." }, error.message.includes("Forbidden") ? 403 : 400);
+      const itemId = typeof data === "string" ? data : data?.id;
+      if (itemId && typeof body.image_url === "string") { const { error: imageError } = await db.from("inventory_items").update({ image_url: body.image_url.trim() || null }).eq("id", itemId); if (imageError) return json({ error: "Item was created, but its image could not be saved. Edit the item and retry." }, 500); }
       return json({ item: data }, 201);
+    }
+    if (action === "item_update") {
+      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.rpc("bigfoods_inventory_update_item", {
+        p_actor_staff_id: actor.id, p_inventory_item_id: body.inventory_item_id, p_name: body.name,
+        p_sku: body.sku ?? null, p_category: body.category ?? "ingredient", p_tracking_type: body.tracking_type,
+        p_base_unit: body.base_unit, p_reorder_level: body.reorder_level ?? 0,
+        p_is_perishable: body.is_perishable ?? false, p_notes: body.notes ?? null
+      });
+      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
+      if (typeof body.image_url === "string") { const { error: imageError } = await db.from("inventory_items").update({ image_url: body.image_url.trim() || null }).eq("id", body.inventory_item_id); if (imageError) return json({ error: "Item details were saved, but its image could not be saved." }, 500); }
+      return json({ item: data });
+    }
+    if (action === "adjust_batch") {
+      if (!has(actor, "inventory.receive")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.rpc("bigfoods_inventory_adjust_batch", {
+        p_actor_staff_id: actor.id, p_batch_id: body.batch_id, p_quantity: body.quantity,
+        p_direction: body.direction, p_reason: body.reason
+      });
+      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
+      return json({ adjustment: data }, 201);
     }
     if (action === "receive") {
       if (!has(actor, "inventory.receive")) return json({ error: "Forbidden" }, 403);
+      const { data: generatedCode, error: codeError } = await db.rpc("bigfoods_inventory_next_batch_code", { p_kind: "receipt" });
+      if (codeError || !generatedCode) return json({ error: "Unable to generate a stock batch code. Please retry." }, 503);
       const { data, error } = await db.rpc("bigfoods_inventory_receive", {
-        p_actor_staff_id: actor.id, p_inventory_item_id: body.inventory_item_id, p_batch_code: body.batch_code,
+        p_actor_staff_id: actor.id, p_inventory_item_id: body.inventory_item_id, p_batch_code: generatedCode,
         p_quantity: body.quantity, p_unit: body.unit, p_supplier_name: body.supplier_name ?? null,
         p_supplier_reference: body.supplier_reference ?? null, p_unit_cost: body.unit_cost === "" || body.unit_cost == null ? null : body.unit_cost,
         p_currency: body.currency ?? "NGN", p_received_at: body.received_at ?? new Date().toISOString(),
@@ -92,14 +117,123 @@ Deno.serve(async (req: Request) => {
       if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
       return json({ waste: data }, 201);
     }
+    if (action === "waste_history") {
+      if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
+      const [raw, menu] = await Promise.all([
+        db.from("inventory_movements").select("id,inventory_item_id,batch_id,quantity,base_unit,reason,occurred_at,actor_staff_id").eq("movement_type", "waste").order("occurred_at", { ascending: false }).limit(100),
+        db.from("bigfoods_pos_menu_waste").select("id,pos_item_id,quantity,stock_before,stock_after,reason,created_at,actor_staff_id").order("created_at", { ascending: false }).limit(100)
+      ]);
+      if (raw.error || menu.error) {
+        console.error("Waste history query failed", raw.error?.message, menu.error?.message);
+        return json({ error: "Unable to load waste history." }, 503);
+      }
+      const rawRows = raw.data ?? [], menuRows = menu.data ?? [];
+      const itemIds = [...new Set(rawRows.map((r: any) => r.inventory_item_id).filter(Boolean))];
+      const batchIds = [...new Set(rawRows.map((r: any) => r.batch_id).filter(Boolean))];
+      const posIds = [...new Set(menuRows.map((r: any) => r.pos_item_id).filter(Boolean))];
+      const staffIds = [...new Set([...rawRows, ...menuRows].map((r: any) => r.actor_staff_id).filter(Boolean))];
+      const [rawItems, batches, posItems, staff] = await Promise.all([
+        itemIds.length ? db.from("inventory_items").select("id,name").in("id", itemIds) : Promise.resolve({ data: [], error: null }),
+        batchIds.length ? db.from("inventory_batches").select("id,batch_code").in("id", batchIds) : Promise.resolve({ data: [], error: null }),
+        posIds.length ? db.from("bigfoods_pos_items").select("id,name").in("id", posIds) : Promise.resolve({ data: [], error: null }),
+        staffIds.length ? db.from("bigfoods_staff").select("id,display_name").in("id", staffIds) : Promise.resolve({ data: [], error: null })
+      ]);
+      if (rawItems.error || batches.error || posItems.error || staff.error) {
+        console.error("Waste history lookup failed", rawItems.error?.message, batches.error?.message, posItems.error?.message, staff.error?.message);
+        return json({ error: "Unable to load waste history details." }, 503);
+      }
+      const rawItemMap = new Map((rawItems.data ?? []).map((r: any) => [r.id, r.name]));
+      const batchMap = new Map((batches.data ?? []).map((r: any) => [r.id, r.batch_code]));
+      const posMap = new Map((posItems.data ?? []).map((r: any) => [r.id, r.name]));
+      const staffMap = new Map((staff.data ?? []).map((r: any) => [r.id, r.display_name]));
+      const records = [
+        ...rawRows.map((r: any) => ({ id: r.id, stock_type: "raw", item_name: rawItemMap.get(r.inventory_item_id) ?? "Inventory item", batch_code: batchMap.get(r.batch_id) ?? null, quantity: Number(r.quantity), unit: r.base_unit, reason: r.reason, occurred_at: r.occurred_at, staff_name: staffMap.get(r.actor_staff_id) ?? "Staff" })),
+        ...menuRows.map((r: any) => ({ id: r.id, stock_type: "menu", item_name: posMap.get(r.pos_item_id) ?? "Menu item", batch_code: null, quantity: Number(r.quantity), unit: "portion(s)", stock_before: r.stock_before, stock_after: r.stock_after, reason: r.reason, occurred_at: r.created_at, staff_name: staffMap.get(r.actor_staff_id) ?? "Staff" }))
+      ].sort((a: any, b: any) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime()).slice(0, 100);
+      return json({ records });
+    }
+    if (action === "menu_waste") {
+      if (!has(actor, "inventory.waste")) return json({ error: "Forbidden" }, 403);
+      const quantity = Number(body.quantity);
+      if (!body.pos_item_id || !Number.isSafeInteger(quantity) || quantity <= 0 || typeof body.reason !== "string" || body.reason.trim().length < 3) {
+        return json({ error: "Choose a menu item and enter a whole-number quantity and reason." }, 400);
+      }
+      const { data, error } = await db.rpc("bigfoods_inventory_log_menu_waste", {
+        p_actor_staff_id: actor.id, p_pos_item_id: body.pos_item_id, p_quantity: quantity, p_reason: body.reason.trim()
+      });
+      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
+      return json({ waste: data }, 201);
+    }
     if (action === "recipe_overview") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
       const [items, recipes] = await Promise.all([
-        db.from("bigfoods_pos_items").select("id,name,category,is_available").order("name").limit(1000),
+        db.from("bigfoods_pos_items").select("id,name,category,is_available,stock_quantity,track_stock").order("name").limit(1000),
         db.from("inventory_recipes").select("id,bigfoods_pos_item_id,name,version,output_quantity,output_unit,effective_from,is_active").eq("is_active", true).not("bigfoods_pos_item_id", "is", null).order("name").limit(300)
       ]);
       if (items.error || recipes.error) return json({ error: "Unable to load in-house recipe data. Confirm the POS catalogue migrations have been applied." }, 503);
       return json({ pos_items: items.data ?? [], recipes: recipes.data ?? [] });
+    }
+    if (action === "recipe_history") {
+      if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.from("inventory_recipes")
+        .select("id,bigfoods_pos_item_id,name,version,output_quantity,output_unit,effective_from,effective_until,is_active,created_at,inventory_recipe_items(inventory_item_id,quantity,unit,notes,inventory_items(name,base_unit))")
+        .not("bigfoods_pos_item_id", "is", null).order("name").order("version", { ascending: false }).limit(1000);
+      if (error) return json({ error: "Unable to load recipe version history." }, 503);
+      return json({ recipes: data ?? [] });
+    }
+    if (action === "recipe_retire") {
+      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.rpc("bigfoods_inventory_retire_recipe", { p_actor_staff_id: actor.id, p_recipe_id: body.recipe_id });
+      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
+      return json({ recipe: data });
+    }
+    if (action === "recipe_delete") {
+      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.rpc("bigfoods_inventory_delete_unused_recipe", { p_actor_staff_id: actor.id, p_recipe_id: body.recipe_id });
+      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
+      return json({ recipe: data });
+    }
+    if (action === "kitchen_overview") {
+      if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
+      const [items, batches, recipes] = await Promise.all([
+        db.from("inventory_items").select("id,name,base_unit,reorder_level,is_active").eq("is_active", true).order("name").limit(500),
+        db.from("inventory_batches").select("inventory_item_id,remaining_quantity,status,expires_at").eq("status", "active").gt("remaining_quantity", 0).limit(2000),
+        db.from("inventory_recipes").select("id,bigfoods_pos_item_id,name,version,output_quantity,output_unit,bigfoods_pos_items(name),inventory_recipe_items(inventory_item_id,quantity,unit,inventory_items(id,name,base_unit))").eq("is_active", true).not("bigfoods_pos_item_id", "is", null).order("name").limit(500)
+      ]);
+      if (items.error || batches.error || recipes.error) return json({ error: "Unable to load kitchen planning data. Check that inventory recipes are configured." }, 503);
+      return json({ items: items.data ?? [], batches: batches.data ?? [], recipes: recipes.data ?? [] });
+    }
+    if (action === "kitchen_queue") {
+      if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.from("inventory_kitchen_preparations").select("id,prep_code,recipe_name,recipe_version,bigfoods_pos_item_id,requested_portions,status,ingredient_snapshot,requested_at,started_at,completed_at,notes,bigfoods_pos_items(name)").order("requested_at", { ascending: false }).limit(150);
+      if (error) return json({ error: "Unable to load kitchen preparation queue." }, 503);
+      return json({ preparations: data ?? [] });
+    }
+    if (action === "kitchen_create") {
+      if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.rpc("bigfoods_kitchen_create_preparation", { p_actor_staff_id: actor.id, p_recipe_id: body.recipe_id, p_portions: body.portions, p_notes: body.notes ?? null });
+      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
+      return json({ preparation: data }, 201);
+    }
+    if (action === "kitchen_start") {
+      if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.rpc("bigfoods_kitchen_start_preparation", { p_actor_staff_id: actor.id, p_preparation_id: body.preparation_id });
+      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
+      return json({ preparation: data });
+    }
+    if (action === "kitchen_finish") {
+      if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.rpc("bigfoods_kitchen_finish_preparation", { p_actor_staff_id: actor.id, p_preparation_id: body.preparation_id, p_notes: body.notes ?? null });
+      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
+      return json({ preparation: data });
+    }
+    if (action === "kitchen_cancel") {
+      if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.rpc("bigfoods_kitchen_cancel_preparation", {
+        p_actor_staff_id: actor.id, p_preparation_id: body.preparation_id, p_reason: body.reason ?? null
+      });
+      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
+      return json({ preparation: data });
     }
     if (action === "recipe_save") {
       if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
@@ -113,7 +247,7 @@ Deno.serve(async (req: Request) => {
     if (action === "production_start") {
       if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
       const rawQty = Number(body.raw_input_quantity), allowedLoss = Number(body.allowed_loss_quantity ?? 0);
-      if (!body.batch_code || !body.input_inventory_item_id || !body.input_batch_id || !body.output_inventory_item_id ||
+      if (!body.input_inventory_item_id || !body.input_batch_id || !body.output_inventory_item_id ||
           !Number.isFinite(rawQty) || rawQty <= 0 || !Number.isFinite(allowedLoss) || allowedLoss < 0) {
         return json({ error: "Complete the production batch details with valid quantities." }, 400);
       }
@@ -126,8 +260,10 @@ Deno.serve(async (req: Request) => {
       if (String(output.base_unit).trim().toLowerCase() !== String(source.base_unit).trim().toLowerCase()) {
         return json({ error: "For yield variance tracking, raw input and output must use the same base unit." }, 400);
       }
+      const { data: generatedCode, error: codeError } = await db.rpc("bigfoods_inventory_next_batch_code", { p_kind: "kitchen" });
+      if (codeError || !generatedCode) return json({ error: "Unable to generate a production batch code. Please retry." }, 503);
       const { data, error } = await db.from("inventory_production_batches").insert({
-        batch_code: String(body.batch_code).trim(), input_inventory_item_id: body.input_inventory_item_id,
+        batch_code: generatedCode, input_inventory_item_id: body.input_inventory_item_id,
         input_batch_id: body.input_batch_id, raw_input_quantity: rawQty, raw_input_unit: source.base_unit,
         output_inventory_item_id: body.output_inventory_item_id, output_unit: output.base_unit,
         unprocessed_quantity: 0, allowed_loss_quantity: allowedLoss, status: "in_progress", started_by_staff_id: actor.id

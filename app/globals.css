@@ -68,8 +68,8 @@
 /* Compact receipt printing: print the receipt itself, not the full app page. */
 @media print {
   @page {
-    size: auto;
-    margin: 5mm;
+    size: 80mm 200mm;
+    margin: 0;
   }
 
   html,

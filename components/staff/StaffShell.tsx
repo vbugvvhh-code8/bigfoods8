@@ -4,8 +4,8 @@ import { ReactNode, useEffect, useState } from 'react';
 import SafeImage from '@/components/ui/SafeImage';
 import { LOGO_URL } from '@/lib/brandImages';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound, CalendarPlus, Repeat2, Users, ClipboardList, ChevronDown, MapPin, Clock3, CalendarCheck, QrCode, ClipboardCheck, HeartPulse, Target, Settings } from 'lucide-react';
-import { canManageStaff, canUseStaffOperations } from '@/lib/staff/access';
+import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound, CalendarPlus, Repeat2, Users, ClipboardList, ChevronDown, MapPin, Clock3, CalendarCheck, QrCode, ClipboardCheck, HeartPulse, Target, Settings, ShoppingCart, BarChart3, FileBarChart, Utensils, Boxes, ChefHat } from 'lucide-react';
+import { canManageStaff, canUseStaffOperations, canAccessPos, hasPosPermission } from '@/lib/staff/access';
 
 export default function StaffShell({ children, title, subtitle, staffName, staffRole, staffPermissions }: { children: ReactNode; title: string; subtitle?: string; staffName?: string; staffRole?: string; staffPermissions?: unknown }) {
   const pathname = usePathname();
@@ -32,6 +32,9 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
   const accessProfile = { role: effectiveStaffRole, permissions: effectiveStaffPermissions };
   const showStaffManagement = canManageStaff(accessProfile);
   const showStaffOperations = canUseStaffOperations(accessProfile);
+  const showPos = canAccessPos(accessProfile);
+  const showOrders = ['owner', 'admin'].includes(effectiveStaffRole || '') || hasPosPermission(accessProfile, 'pos.reports');
+  const showInventory = ['owner','admin','inventory'].includes(effectiveStaffRole || '') || (Array.isArray(effectiveStaffPermissions) && effectiveStaffPermissions.some((p:any)=>['inventory.view','inventory.manage','inventory.receive','inventory.process'].includes(p)));
 
   async function logout() {
     await fetch('/api/bigfoods-staff/session', { method: 'DELETE' });
@@ -43,6 +46,9 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
     { href: '/staff', label: 'Dashboard', icon: <LayoutGrid className="h-4 w-4" /> },
     { href: '/staff/attendance', label: 'Attendance & schedule', icon: <CalendarDays className="h-4 w-4" /> },
     ...(showStaffManagement ? [{ href: '/staff/manage', label: 'Staff management', icon: <Users className="h-4 w-4" /> }] : []),
+    ...(showPos ? [{ href: '/staff/pos', label: 'Point of sale', icon: <ShoppingCart className="h-4 w-4" /> }, { href: '/staff/menu', label: 'Menu', icon: <Utensils className="h-4 w-4" /> }] : []),
+    ...(showOrders ? [{ href: '/staff/orders', label: 'Orders', icon: <ClipboardList className="h-4 w-4" /> }, { href: '/staff/analytics', label: 'Analytics', icon: <BarChart3 className="h-4 w-4" /> }, { href: '/staff/report', label: 'Reports', icon: <FileBarChart className="h-4 w-4" /> }] : []),
+    ...(showInventory ? [{ href: '/staff/inventory', label: 'Inventory', icon: <Boxes className="h-4 w-4" /> }, { href: '/staff/kitchen', label: 'Kitchen', icon: <ChefHat className="h-4 w-4" /> }] : []),
     ...(showStaffOperations ? [{ href: '/staff/operations', label: 'Staff operations', icon: <ClipboardList className="h-4 w-4" /> }] : []),
     { href: '/staff/leave', label: 'Request leave', icon: <CalendarPlus className="h-4 w-4" /> },
     { href: '/staff/shift-swaps', label: 'Shift swaps', icon: <Repeat2 className="h-4 w-4" /> },
@@ -93,7 +99,7 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
         <div className="flex items-center gap-3"><button onClick={() => setOpen(true)} aria-label="Open menu" className="text-white md:hidden"><Menu className="h-5 w-5" /></button><div><p className="text-[10px] uppercase tracking-widest text-[#9C948A]">BigFoods / Staff</p><h1 className="mt-0.5 text-[15px] font-semibold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{title}</h1></div></div>
         <div className="flex items-center gap-3"><div className="hidden max-w-[220px] truncate text-[11px] text-[#B8B0A8] sm:block">{effectiveStaffName || 'Staff account'}</div><button onClick={logout} className="rounded-lg border border-white/15 px-3 py-2 text-[11.5px] font-medium text-[#E4DDD6] transition hover:bg-white/[.06]">Log out</button></div>
       </header>
-      <main className="w-full max-w-[1180px] px-4 py-4 sm:px-7 sm:py-6"><div className="mb-4"><h2 className="text-[20px] font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{title}</h2><p className="mt-0.5 text-[11.5px] text-[#81766D]">{subtitle || 'Your staff workspace'}</p></div>{children}</main>
+      <main className={`w-full ${pathname === '/staff/pos' || pathname === '/staff/menu' || pathname === '/staff/orders' || pathname === '/staff/report' || pathname === '/staff/analytics' || pathname.startsWith('/staff/inventory') || pathname === '/staff/kitchen' ? 'max-w-none px-3 py-3 sm:px-5 sm:py-4' : 'max-w-[1180px] px-4 py-4 sm:px-7 sm:py-6'}`}><div className="mb-4"><h2 className="text-[20px] font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{title}</h2><p className="mt-0.5 text-[11.5px] text-[#81766D]">{subtitle || 'Your staff workspace'}</p></div>{children}</main>
     </div>
     {open && <div className="fixed inset-0 z-50 flex md:hidden"><button aria-label="Close menu" onClick={() => setOpen(false)} className="absolute inset-0 bg-black/40" /><aside className="relative flex h-full w-[260px] flex-col overflow-y-auto px-3.5 py-5" style={{ background: 'var(--ink, #211A17)', color: '#D8D2CB' }}><div className="mb-6 flex shrink-0 items-center justify-between px-1.5"><div><div className="flex items-center gap-2"><SafeImage src={LOGO_URL} alt="BigFoods" className="h-[18px] w-[18px] shrink-0 rounded-[5px] object-cover" /><span className="text-[14px] font-semibold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>BigFoods</span></div><p className="mt-2 text-[10px] uppercase tracking-widest text-[#9C948A]">Staff Workspace</p></div><button aria-label="Close menu" onClick={() => setOpen(false)} className="text-white"><X className="h-5 w-5" /></button></div>{nav(true)}{footer}</aside></div>}
   </div>;
