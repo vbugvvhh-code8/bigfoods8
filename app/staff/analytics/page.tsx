@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { BarChart3, CalendarDays, Download, RefreshCw, TrendingUp, ShoppingCart, Users, ReceiptText, Utensils, Boxes, CreditCard, Search, ArrowUpRight, ArrowDownRight, FileBarChart, Package, Wallet, UserRound, ChefHat, Truck, Percent, Activity } from "lucide-react";
-import ReportsShell from "@/components/staff/ReportsShell";
+import StaffShell from "@/components/staff/StaffShell";
 import { canAccessPos, hasPosPermission } from "@/lib/staff/access";
 
 type Staff={id:string;display_name:string;role:string;permissions:unknown;must_change_password:boolean};
@@ -85,7 +85,7 @@ export default function StaffAnalyticsPage(){
  function exportCsv(){const rows=[["Source","Reference","Date","Status","Amount","Payment"],...filtered.sales.map(s=>["POS",s.receipt_number,s.created_at,s.status,s.total_amount,s.payment_method]),...filtered.orders.map(o=>["Online",o.id,o.placed_at,o.status,o.subtotal,"Online"])];const csv=rows.map(row=>row.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")).join("\r\n");const a=document.createElement("a"),url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.href=url;a.download="bigfoods-report-"+tab+".csv";a.click();URL.revokeObjectURL(url);}
  const title=tabs.find(x=>x.id===tab)?.label||"Reports";
  const topSearch=search.trim();
- return <ReportsShell title="Reports" subtitle="Insights into sales, orders, menu performance, inventory and more." staffName={staff?.display_name} staffRole={staff?.role} staffPermissions={staff?.permissions}>
+ return <StaffShell title="Reports" subtitle="Insights into sales, orders, menu performance, inventory and more." staffName={staff?.display_name} staffRole={staff?.role} staffPermissions={staff?.permissions}>
   <div className="space-y-4 pb-8 text-[#172033]">
    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#E8EDF3] bg-white p-3 shadow-sm">
     <div className="relative min-w-[220px] flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><input aria-label="Search reports" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search reports, menu items, inventory…" className="h-10 w-full rounded-xl border border-[#E2E8F0] pl-9 pr-3 text-xs outline-none focus:border-orange-400"/></div>
@@ -133,5 +133,5 @@ export default function StaffAnalyticsPage(){
    </>}
    <p className="text-[10px] text-slate-400">Report figures are calculated from recorded POS and online transactions. Customer insights use linked online customer IDs; staff performance uses recorded POS cashier IDs. Inventory valuation uses remaining batch quantity × recorded unit cost.</p>
   </div>
- </ReportsShell>;
+ </StaffShell>;
 }
