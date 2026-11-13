@@ -4,7 +4,7 @@ import { ReactNode, useEffect, useState } from 'react';
 import SafeImage from '@/components/ui/SafeImage';
 import { LOGO_URL } from '@/lib/brandImages';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound, CalendarPlus, Repeat2, Users, ClipboardList, ChevronDown, MapPin, Clock3, CalendarCheck, QrCode, ClipboardCheck, HeartPulse, Target, Settings, ShoppingCart, ChartNoAxesCombined, Utensils, Boxes, ChefHat } from 'lucide-react';
+import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound, CalendarPlus, Repeat2, Users, ClipboardList, ChevronDown, MapPin, Clock3, CalendarCheck, QrCode, ClipboardCheck, HeartPulse, Target, Settings, ShoppingCart, BarChart3, Utensils, Boxes, ChefHat } from 'lucide-react';
 import { canManageStaff, canUseStaffOperations, canAccessPos, hasPosPermission } from '@/lib/staff/access';
 
 export default function StaffShell({ children, title, subtitle, staffName, staffRole, staffPermissions }: { children: ReactNode; title: string; subtitle?: string; staffName?: string; staffRole?: string; staffPermissions?: unknown }) {
