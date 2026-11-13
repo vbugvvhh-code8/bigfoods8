@@ -47,7 +47,7 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
     { href: '/staff/attendance', label: 'Attendance & schedule', icon: <CalendarDays className="h-4 w-4" /> },
     ...(showStaffManagement ? [{ href: '/staff/manage', label: 'Staff management', icon: <Users className="h-4 w-4" /> }] : []),
     ...(showPos ? [{ href: '/staff/pos', label: 'Point of sale', icon: <ShoppingCart className="h-4 w-4" /> }, { href: '/staff/menu', label: 'Menu', icon: <Utensils className="h-4 w-4" /> }] : []),
-    ...(showOrders ? [{ href: '/staff/orders', label: 'Orders', icon: <ClipboardList className="h-4 w-4" /> }, { href: '/staff/analytics', label: 'Analytics', icon: <BarChart3 className="h-4 w-4" /> }] : []),
+    ...(showOrders ? [{ href: '/staff/orders', label: 'Orders', icon: <ClipboardList className="h-4 w-4" /> }, { href: '/staff/analytics', label: 'Reports', icon: <BarChart3 className="h-4 w-4" /> }] : []),
     ...(showInventory ? [{ href: '/staff/inventory', label: 'Inventory', icon: <Boxes className="h-4 w-4" /> }, { href: '/staff/kitchen', label: 'Kitchen', icon: <ChefHat className="h-4 w-4" /> }] : []),
     ...(showStaffOperations ? [{ href: '/staff/operations', label: 'Staff operations', icon: <ClipboardList className="h-4 w-4" /> }] : []),
     { href: '/staff/leave', label: 'Request leave', icon: <CalendarPlus className="h-4 w-4" /> },
