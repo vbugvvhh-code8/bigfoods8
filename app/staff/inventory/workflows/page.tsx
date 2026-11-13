@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { AlertTriangle, ArrowLeft, RefreshCw, Trash2, CookingPot } from "lucide-react";
+import { AlertTriangle, ArrowLeft, RefreshCw, Trash2, CookingPot, Search } from "lucide-react";
 import Link from "next/link";
 import StaffShell from "@/components/staff/StaffShell";
 import getBrowserSupabase from "@/lib/supabase/client";
@@ -27,7 +27,7 @@ export default function InventoryWorkflowsPage() {
   const [recipeForm, setRecipeForm] = useState(initialRecipe);
   const [ingredientLines, setIngredientLines] = useState<IngredientLine[]>([{ inventory_item_id: "", quantity: "", unit: "" }]);
   const [start, setStart] = useState(initialStart);
-  const [waste, setWaste] = useState(initialWaste);
+  const [waste, setWaste] = useState(initialWaste);\n  const [menuWasteSearch, setMenuWasteSearch] = useState("");
   const [finish, setFinish] = useState(initialFinish);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -70,7 +70,7 @@ export default function InventoryWorkflowsPage() {
   const secondary = "inline-flex items-center justify-center gap-2 rounded-xl border border-[#E7DED4] bg-white px-3.5 py-2.5 text-sm font-semibold text-[#47382D] hover:bg-[#FBF7F2] disabled:opacity-50";
   const activeBatches = batches.filter(b => b.status === "active" && Number(b.remaining_quantity) > 0);
   const availableInputBatches = activeBatches.filter(b => b.inventory_item_id === start.input_inventory_item_id);
-  const inProgress = production.filter(p => p.status === "in_progress");
+  const inProgress = production.filter(p => p.status === "in_progress");\n  const wasteMenuItems = posItems.filter(m => m.track_stock === true);\n  const filteredWasteMenuItems = wasteMenuItems.filter(m => `${m.name} ${m.category ?? ""}`.toLowerCase().includes(menuWasteSearch.trim().toLowerCase()));
 
   return <StaffShell title="Inventory workflows" subtitle="Recipes, production yields and controlled stock usage."><main className="mx-auto max-w-7xl space-y-6 pb-10">
 
@@ -116,10 +116,10 @@ export default function InventoryWorkflowsPage() {
           </div>
           <form className="space-y-4" onSubmit={e=>void submit(e,waste.stock_type==="raw"?"waste":"menu_waste",waste.stock_type==="raw"?{batch_id:waste.batch_id,quantity:Number(waste.quantity),reason:waste.reason}:{pos_item_id:waste.pos_item_id,quantity:Number(waste.quantity),reason:waste.reason},()=>setWaste(initialWaste),"Waste recorded. The stock balance and audit record have been updated.")}>
             {waste.stock_type==="raw" ? <label className={label}>Raw stock batch<select required className={field} value={waste.batch_id} onChange={e=>setWaste({...waste,batch_id:e.target.value})}><option value="">Choose batch</option>{activeBatches.map(b=><option key={b.id} value={b.id}>{items.find(i=>i.id===b.inventory_item_id)?.name ?? "Item"} · {b.batch_code} · {Number(b.remaining_quantity)} {b.base_unit} left</option>)}</select></label> :
-            <label className={label}>BigFoods menu item<select required className={field} value={waste.pos_item_id} onChange={e=>setWaste({...waste,pos_item_id:e.target.value,quantity:""})}><option value="">Choose menu item</option>{posItems.filter(m=>m.track_stock===true && Number(m.stock_quantity??0)>0).map(m=><option key={m.id} value={m.id}>{m.name} · {Number(m.stock_quantity)} portions available</option>)}</select><span className="mt-1 block text-[11px] font-normal text-[#817367]">Only stock-tracked BigFoods POS items with available stock are listed.</span></label>}
+<div className="space-y-2"><label className={label}>Search menu items<div className="relative mt-1"><Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#94877B]"/><input type="search" className={field+" pl-9"} value={menuWasteSearch} onChange={e=>setMenuWasteSearch(e.target.value)} placeholder="Search by item name or category"/></div></label><label className={label}>BigFoods menu item<select required className={field} value={waste.pos_item_id} onChange={e=>setWaste({...waste,pos_item_id:e.target.value,quantity:""})}><option value="">Choose menu item ({filteredWasteMenuItems.length})</option>{filteredWasteMenuItems.map(m=><option key={m.id} value={m.id} disabled={Number(m.stock_quantity??0)<=0}>{m.name} · {Number(m.stock_quantity??0)} portions {Number(m.stock_quantity??0)<=0?"(out of stock)":"available"}</option>)}</select><span className="mt-1 block text-[11px]] font-normal text-[#817367]">Stock balances are fetched from the POS catalogue. Items with zero stock remain visible but cannot be selected for waste.</span>{!filteredWasteMenuItems.length&&<span className="mt-1 block text-xs text-amber-700">No stock-tracked menu items match this search.</span>}</label></div>}
             <label className={label}>Quantity wasted<input required type="number" min="1" step="1" max={waste.stock_type==="menu"?Math.max(0,Number(posItems.find(m=>m.id===waste.pos_item_id)?.stock_quantity??0)):undefined} className={field} value={waste.quantity} onChange={e=>setWaste({...waste,quantity:e.target.value})}/><span className="mt-1 block text-[11px] font-normal text-[#817367]">{waste.stock_type==="menu"?"Enter whole portions/items.":"Enter quantity using the batch's base unit."}</span></label>
             <label className={label}>Reason<textarea required minLength={3} maxLength={500} rows={3} className={field} value={waste.reason} onChange={e=>setWaste({...waste,reason:e.target.value})} placeholder="e.g. Expired before use; packaging damaged"/></label>
-            <button className={primary} disabled={busy || (waste.stock_type==="raw"?!activeBatches.length:!posItems.some(m=>m.track_stock===true && Number(m.stock_quantity??0)>0))}>{busy ? "Saving…" : "Record waste"}</button>
+            <button className={primary} disabled={busy || (waste.stock_type==="raw"?!activeBatches.length:!wasteMenuItems.some(m=>Number(m.stock_quantity??0)>0))}>{busy ? "Saving…" : "Record waste"}</button>
           </form>
         </div>
         <div className="rounded-2xl border border-[#E9E0D6] bg-white p-5 shadow-[0_2px_10px_rgba(58,39,23,0.035)]">
