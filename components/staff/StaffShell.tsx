@@ -4,7 +4,7 @@ import { ReactNode, useEffect, useState } from 'react';
 import SafeImage from '@/components/ui/SafeImage';
 import { LOGO_URL } from '@/lib/brandImages';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound, CalendarPlus, Repeat2, Users, ClipboardList, ChevronDown, MapPin, Clock3, CalendarCheck, QrCode, ClipboardCheck, HeartPulse, Target, Settings, ShoppingCart, Utensils, Boxes, ChefHat } from 'lucide-react';
+import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound, CalendarPlus, Repeat2, Users, ClipboardList, ChevronDown, MapPin, Clock3, CalendarCheck, QrCode, ClipboardCheck, HeartPulse, Target, Settings, ShoppingCart, ChartNoAxesCombined, Utensils, Boxes, ChefHat } from 'lucide-react';
 import { canManageStaff, canUseStaffOperations, canAccessPos, hasPosPermission } from '@/lib/staff/access';
 
 export default function StaffShell({ children, title, subtitle, staffName, staffRole, staffPermissions }: { children: ReactNode; title: string; subtitle?: string; staffName?: string; staffRole?: string; staffPermissions?: unknown }) {
@@ -47,7 +47,7 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
     { href: '/staff/attendance', label: 'Attendance & schedule', icon: <CalendarDays className="h-4 w-4" /> },
     ...(showStaffManagement ? [{ href: '/staff/manage', label: 'Staff management', icon: <Users className="h-4 w-4" /> }] : []),
     ...(showPos ? [{ href: '/staff/pos', label: 'Point of sale', icon: <ShoppingCart className="h-4 w-4" /> }, { href: '/staff/menu', label: 'Menu', icon: <Utensils className="h-4 w-4" /> }] : []),
-    ...(showOrders ? [{ href: '/staff/orders', label: 'Orders', icon: <ClipboardList className="h-4 w-4" /> }] : []),
+    ...(showOrders ? [{ href: '/staff/orders', label: 'Orders', icon: <ClipboardList className="h-4 w-4" /> }, { href: '/staff/analytics', label: 'Analytics', icon: <ChartNoAxesCombined className="h-4 w-4" /> }] : []),
     ...(showInventory ? [{ href: '/staff/inventory', label: 'Inventory', icon: <Boxes className="h-4 w-4" /> }, { href: '/staff/kitchen', label: 'Kitchen', icon: <ChefHat className="h-4 w-4" /> }] : []),
     ...(showStaffOperations ? [{ href: '/staff/operations', label: 'Staff operations', icon: <ClipboardList className="h-4 w-4" /> }] : []),
     { href: '/staff/leave', label: 'Request leave', icon: <CalendarPlus className="h-4 w-4" /> },
