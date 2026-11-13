@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";\nimport type { ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, Download, RefreshCw, TrendingUp, ShoppingCart, Users, ReceiptText, Utensils, Clock3, ChevronDown, ArrowUpRight, Search, CreditCard } from "lucide-react";
 import StaffShell from "@/components/staff/StaffShell";
