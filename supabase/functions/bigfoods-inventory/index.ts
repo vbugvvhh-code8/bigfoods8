@@ -126,6 +126,26 @@ Deno.serve(async (req: Request) => {
       if (items.error || recipes.error) return json({ error: "Unable to load in-house recipe data. Confirm the POS catalogue migrations have been applied." }, 503);
       return json({ pos_items: items.data ?? [], recipes: recipes.data ?? [] });
     }
+    if (action === "recipe_history") {
+      if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.from("inventory_recipes")
+        .select("id,bigfoods_pos_item_id,name,version,output_quantity,output_unit,effective_from,effective_until,is_active,created_at,inventory_recipe_items(inventory_item_id,quantity,unit,notes,inventory_items(name,base_unit))")
+        .not("bigfoods_pos_item_id", "is", null).order("name").order("version", { ascending: false }).limit(1000);
+      if (error) return json({ error: "Unable to load recipe version history." }, 503);
+      return json({ recipes: data ?? [] });
+    }
+    if (action === "recipe_retire") {
+      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.rpc("bigfoods_inventory_retire_recipe", { p_actor_staff_id: actor.id, p_recipe_id: body.recipe_id });
+      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
+      return json({ recipe: data });
+    }
+    if (action === "recipe_delete") {
+      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await db.rpc("bigfoods_inventory_delete_unused_recipe", { p_actor_staff_id: actor.id, p_recipe_id: body.recipe_id });
+      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
+      return json({ recipe: data });
+    }
     if (action === "kitchen_overview") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
       const [items, batches, recipes] = await Promise.all([
