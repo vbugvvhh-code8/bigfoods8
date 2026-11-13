@@ -52,6 +52,7 @@ Deno.serve(async (req: Request) => {
       const sessions = sessionsQ.data ?? [];
       const staffSales = new Map<string,{orders:number;revenue:number}>();
       for (const sale of salesQ.data ?? []) {
+        if (sale.status !== "paid" && sale.status !== "completed") continue;
         const current = staffSales.get(sale.cashier_staff_id || "") || { orders: 0, revenue: 0 };
         current.orders += 1; current.revenue += Number(sale.total_amount || 0);
         if (sale.cashier_staff_id) staffSales.set(sale.cashier_staff_id, current);
