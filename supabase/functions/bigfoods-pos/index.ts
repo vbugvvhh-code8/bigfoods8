@@ -49,6 +49,18 @@ Deno.serve(async (req: Request) => {
       ]);
       const failures = [salesQ,ordersQ,itemsQ,paymentsQ,refundsQ,sessionsQ,priorQ,inventoryQ,batchesQ,movementsQ,staffQ].filter(q => q.error);
       if (failures.length) return json({ error: "Unable to load one or more report data sources. Check the POS, orders and inventory migrations." }, 503);
+      const paidOrderIds = (ordersQ.data ?? []).filter(order => order.payment_status === "paid" && !["cancelled","rejected"].includes(order.status)).map(order => order.id);
+      const onlineItemsQ = paidOrderIds.length
+        ? await db.from("order_items").select("order_id,menu_item_id,quantity,unit_price").in("order_id", paidOrderIds).limit(10000)
+        : { data: [], error: null };
+      if (onlineItemsQ.error) return json({ error: "Unable to load online menu item sales." }, 503);
+      const onlineMenuIds = [...new Set((onlineItemsQ.data ?? []).map(line => line.menu_item_id).filter(Boolean))];
+      const onlineMenuQ = onlineMenuIds.length
+        ? await db.from("menu_items").select("id,name,category").in("id", onlineMenuIds).limit(2000)
+        : { data: [], error: null };
+      if (onlineMenuQ.error) return json({ error: "Unable to load online menu item details." }, 503);
+      const onlineMenu = new Map((onlineMenuQ.data ?? []).map(item => [item.id, item]));
+      const onlineItems = (onlineItemsQ.data ?? []).map(line => ({ name: onlineMenu.get(line.menu_item_id)?.name || "Online menu item", category: onlineMenu.get(line.menu_item_id)?.category || "Uncategorised", quantity: Number(line.quantity || 0), unit_price: Number(line.unit_price || 0) }));
       const sessions = sessionsQ.data ?? [];
       const staffSales = new Map<string,{orders:number;revenue:number}>();
       for (const sale of salesQ.data ?? []) {
@@ -61,6 +73,7 @@ Deno.serve(async (req: Request) => {
       return json({
         sales: (salesQ.data ?? []).map(s => ({ ...s, bigfoods_pos_sale_items: s.bigfoods_pos_sale_items ?? [] })),
         online_orders: ordersQ.data ?? [],
+        online_items: onlineItems,
         items: itemsQ.data ?? [],
         payments: paymentsQ.data ?? [],
         refunds: refundsQ.data ?? [],
