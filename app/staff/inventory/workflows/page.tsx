@@ -9,7 +9,7 @@ import getBrowserSupabase from "@/lib/supabase/client";
 type Item = { id: string; name: string; base_unit: string; is_active: boolean };
 type Batch = { id: string; inventory_item_id: string; batch_code: string; remaining_quantity: number; base_unit: string; status: string };
 type PosItem = { id: string; name: string; category?: string; is_available?: boolean };
-type Recipe = { id: string; bigfoods_pos_item_id: string | null; name: string; version: number; output_quantity: number; output_unit: string; effective_from: string; is_active: boolean };
+type Recipe = { id: string; bigfoods_pos_item_id: string | null; name: string; version: number; output_quantity: number; output_unit: string; effective_from: string; effective_until: string | null; is_active: boolean; inventory_recipe_items?: { inventory_item_id: string; quantity: number; unit: string; notes: string | null; inventory_items?: { name: string; base_unit: string } | null }[] };
 type IngredientLine = { inventory_item_id: string; quantity: string; unit: string };
 type Production = { id: string; batch_code: string; input_inventory_item_id: string; input_batch_id: string | null; raw_input_quantity: number; raw_input_unit: string; output_inventory_item_id: string; output_quantity: number | null; output_unit: string; unprocessed_quantity: number; allowed_loss_quantity: number; actual_loss_quantity: number | null; variance_quantity: number | null; status: string };
 const initialStart = { input_inventory_item_id: "", input_batch_id: "", raw_input_quantity: "", output_inventory_item_id: "", allowed_loss_quantity: "0" };
@@ -22,7 +22,7 @@ export default function InventoryWorkflowsPage() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [production, setProduction] = useState<Production[]>([]);
   const [posItems, setPosItems] = useState<PosItem[]>([]);
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);\n  const [expandedRecipe, setExpandedRecipe] = useState<string | null>(null);
   const [recipeForm, setRecipeForm] = useState(initialRecipe);
   const [ingredientLines, setIngredientLines] = useState<IngredientLine[]>([{ inventory_item_id: "", quantity: "", unit: "" }]);
   const [start, setStart] = useState(initialStart);
@@ -48,9 +48,9 @@ export default function InventoryWorkflowsPage() {
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const [overview, prod, recipeData] = await Promise.all([call({ action: "overview" }), call({ action: "production_list" }), call({ action: "recipe_overview" })]);
+      const [overview, prod, recipeData] = await Promise.all([call({ action: "overview" }), call({ action: "production_list" }), call({ action: "recipe_history" })]);
       setItems(overview.items ?? []); setBatches(overview.batches ?? []); setProduction(prod.production ?? []);
-      setPosItems(recipeData.pos_items ?? []); setRecipes(recipeData.recipes ?? []);
+      setPosItems((await call({ action: "recipe_overview" })).pos_items ?? []); setRecipes(recipeData.recipes ?? []);
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to load inventory workflows"); }
     finally { setLoading(false); }
   }, [call]);
@@ -94,8 +94,13 @@ export default function InventoryWorkflowsPage() {
           </form>
         </div>
         <div className="overflow-hidden rounded-2xl border border-[#E9E0D6] bg-white shadow-[0_2px_10px_rgba(58,39,23,0.035)]">
-          <div className="border-b border-[#EFE7DF] p-4"><h2 className="font-semibold text-[#30261F]">Active recipe versions</h2><p className="mt-1 text-sm text-[#817367]">Saving a new recipe version retires the prior active version for that menu item.</p></div>
-          <div className="divide-y divide-[#F0E8E0]">{recipes.map(r=><div key={r.id} className="p-4"><div className="flex items-start justify-between gap-3"><div><div className="font-semibold text-[#342920]">{r.name}</div><div className="mt-1 text-sm text-[#817367]">{posItems.find(m=>m.id===r.bigfoods_pos_item_id)?.name ?? "In-house POS item"} · Version {r.version}</div></div><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">Active</span></div><div className="mt-2 text-xs text-[#827467]">Output: {Number(r.output_quantity)} {r.output_unit} · Effective {new Date(r.effective_from).toLocaleDateString("en-NG")}</div></div>)}{!recipes.length && <div className="p-8 text-center text-sm text-[#8A7C70]">No active recipes yet. Save a recipe to start linking menu sales to ingredient usage.</div>}</div>
+          <div className="border-b border-[#EFE7DF] p-4"><h2 className="font-semibold text-[#30261F]">Recipe version history</h2><p className="mt-1 text-sm text-[#817367]">Every version and its ingredient snapshot is retained. Retire versions to remove them from Kitchen; deletion is limited to versions never used in a preparation.</p></div>
+          <div className="divide-y divide-[#F0E8E0]">{recipes.map(r=><div key={r.id} className="p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-semibold text-[#342920]">{r.name}</div><div className="mt-1 text-sm text-[#817367]">{posItems.find(m=>m.id===r.bigfoods_pos_item_id)?.name ?? "In-house POS item"} · Version {r.version}</div></div><span className={"rounded-full px-2.5 py-1 text-xs font-semibold "+(r.is_active?"bg-emerald-50 text-emerald-800":"bg-slate-100 text-slate-700")}>{r.is_active?"Active":"Retired"}</span></div>
+            <div className="mt-2 text-xs text-[#827467]">Output: {Number(r.output_quantity)} {r.output_unit} · Effective {new Date(r.effective_from).toLocaleDateString("en-NG")}{r.effective_until? " – "+new Date(r.effective_until).toLocaleDateString("en-NG"):""}</div>
+            <div className="mt-3 flex flex-wrap gap-2"><button type="button" className={secondary} onClick={()=>setExpandedRecipe(expandedRecipe===r.id?null:r.id)}>{expandedRecipe===r.id?"Hide ingredients":"View ingredients"}</button>{r.is_active&&<button type="button" className={secondary} disabled={busy} onClick={async()=>{if(!window.confirm("Retire this recipe version? It will no longer be offered for new kitchen preparations."))return;setBusy(true);setError("");try{await call({action:"recipe_retire",recipe_id:r.id});setNotice("Recipe version retired. Existing preparation history remains intact.");await load();}catch(e){setError(e instanceof Error?e.message:"Unable to retire recipe");}finally{setBusy(false);}}}>Retire version</button>}{!r.is_active&&<button type="button" className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50" disabled={busy} onClick={async()=>{if(!window.confirm("Permanently delete this retired version? This is allowed only when it has never been used in a kitchen preparation."))return;setBusy(true);setError("");try{await call({action:"recipe_delete",recipe_id:r.id});setNotice("Unused recipe version deleted.");await load();}catch(e){setError(e instanceof Error?e.message:"Unable to delete recipe version");}finally{setBusy(false);}}}>Delete unused version</button>}</div>
+            {expandedRecipe===r.id&&<div className="mt-3 rounded-xl border border-[#F0E8E0] bg-[#FBF8F4] p-3"><p className="mb-2 text-xs font-semibold text-[#47382D]">Ingredient snapshot</p>{(r.inventory_recipe_items??[]).map((line,index)=><div key={line.inventory_item_id+"-"+index} className="flex items-center justify-between gap-3 border-t border-[#EFE7DF] py-2 text-xs"><span className="text-[#47382D]">{line.inventory_items?.name??"Inventory item"}</span><span className="font-semibold text-[#30261F]">{Number(line.quantity)} {line.unit}</span></div>)}{!r.inventory_recipe_items?.length&&<p className="text-xs text-[#817367]">No ingredient lines found for this version.</p>}</div>}
+          </div>)}{!recipes.length && <div className="p-8 text-center text-sm text-[#8A7C70]">No recipe versions yet. Save a recipe to begin version history.</div>}</div>
         </div>
       </section>
       <section className="grid gap-5 xl:grid-cols-2">
