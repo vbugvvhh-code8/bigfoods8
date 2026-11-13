@@ -117,6 +117,18 @@ Deno.serve(async (req: Request) => {
       if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
       return json({ waste: data }, 201);
     }
+    if (action === "menu_waste") {
+      if (!has(actor, "inventory.waste")) return json({ error: "Forbidden" }, 403);
+      const quantity = Number(body.quantity);
+      if (!body.pos_item_id || !Number.isSafeInteger(quantity) || quantity <= 0 || typeof body.reason !== "string" || body.reason.trim().length < 3) {
+        return json({ error: "Choose a menu item and enter a whole-number quantity and reason." }, 400);
+      }
+      const { data, error } = await db.rpc("bigfoods_inventory_log_menu_waste", {
+        p_actor_staff_id: actor.id, p_pos_item_id: body.pos_item_id, p_quantity: quantity, p_reason: body.reason.trim()
+      });
+      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
+      return json({ waste: data }, 201);
+    }
     if (action === "recipe_overview") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
       const [items, recipes] = await Promise.all([
