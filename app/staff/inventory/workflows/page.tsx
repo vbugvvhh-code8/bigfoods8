@@ -8,12 +8,12 @@ import getBrowserSupabase from "@/lib/supabase/client";
 
 type Item = { id: string; name: string; base_unit: string; is_active: boolean };
 type Batch = { id: string; inventory_item_id: string; batch_code: string; remaining_quantity: number; base_unit: string; status: string };
-type PosItem = { id: string; name: string; category?: string; is_available?: boolean };
+type PosItem = { id: string; name: string; category?: string; is_available?: boolean; stock_quantity?: number | null; track_stock?: boolean };
 type Recipe = { id: string; bigfoods_pos_item_id: string | null; name: string; version: number; output_quantity: number; output_unit: string; effective_from: string; effective_until: string | null; is_active: boolean; inventory_recipe_items?: { inventory_item_id: string; quantity: number; unit: string; notes: string | null; inventory_items?: { name: string; base_unit: string } | null }[] };
 type IngredientLine = { inventory_item_id: string; quantity: string; unit: string };
 type Production = { id: string; batch_code: string; input_inventory_item_id: string; input_batch_id: string | null; raw_input_quantity: number; raw_input_unit: string; output_inventory_item_id: string; output_quantity: number | null; output_unit: string; unprocessed_quantity: number; allowed_loss_quantity: number; actual_loss_quantity: number | null; variance_quantity: number | null; status: string };
 const initialStart = { input_inventory_item_id: "", input_batch_id: "", raw_input_quantity: "", output_inventory_item_id: "", allowed_loss_quantity: "0" };
-const initialWaste = { batch_id: "", quantity: "", reason: "" };
+const initialWaste = { stock_type: "raw", batch_id: "", pos_item_id: "", quantity: "", reason: "" };
 const initialFinish = { production_batch_id: "", output_quantity: "", unprocessed_quantity: "0", actual_loss_quantity: "0", review_note: "" };
 const initialRecipe = { bigfoods_pos_item_id: "", name: "", output_quantity: "1", output_unit: "portion" };
 
@@ -107,11 +107,19 @@ export default function InventoryWorkflowsPage() {
       <section className="grid gap-5 xl:grid-cols-2">
         <div className="rounded-2xl border border-[#E9E0D6] bg-white p-5 shadow-[0_2px_10px_rgba(58,39,23,0.035)]">
           <div className="mb-5 flex items-center gap-3"><span className="rounded-xl bg-[#FFF1E5] p-2 text-[#D96B1F]"><Trash2 size={19}/></span><div><h2 className="font-semibold text-[#30261F]">Log stock waste</h2><p className="mt-1 text-sm text-[#817367]">Expired, spoiled or otherwise unusable stock.</p></div></div>
-          <form className="space-y-4" onSubmit={e => void submit(e,"waste",{...waste,quantity:Number(waste.quantity)},()=>setWaste(initialWaste),"Waste logged and stock balance updated atomically.")}>
-            <label className={label}>Stock batch<select required className={field} value={waste.batch_id} onChange={e=>setWaste({...waste,batch_id:e.target.value})}><option value="">Choose batch</option>{activeBatches.map(b=><option key={b.id} value={b.id}>{items.find(i=>i.id===b.inventory_item_id)?.name ?? "Item"} · {b.batch_code} · {Number(b.remaining_quantity)} {b.base_unit} left</option>)}</select></label>
-            <label className={label}>Quantity wasted<input required type="number" min="0.0001" step="0.0001" className={field} value={waste.quantity} onChange={e=>setWaste({...waste,quantity:e.target.value})}/></label>
+          <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl bg-[#F8F3ED] p-1">
+            <button type="button" onClick={()=>setWaste({...initialWaste,stock_type:"raw"})} className={"rounded-lg px-3 py-2.5 text-sm font-semibold "+(waste.stock_type==="raw"?"bg-white text-[#B95616] shadow-sm":"text-[#817367]")}>Raw inventory</button>
+            <button type="button" onClick={()=>setWaste({...initialWaste,stock_type:"menu"})} className={"rounded-lg px-3 py-2.5 text-sm font-semibold "+(waste.stock_type==="menu"?"bg-white text-[#B95616] shadow-sm":"text-[#817367]")}>Menu items</button>
+          </div>
+          <div className="mb-4 rounded-xl border border-[#F0E8E0] bg-[#FBF8F4] p-3 text-xs text-[#75685C]">
+            {waste.stock_type==="raw" ? "Record expired, spoiled or damaged ingredients against the exact stock batch." : "Record prepared menu portions that are spoiled, damaged or otherwise unsellable. This reduces the item's POS stock."}
+          </div>
+          <form className="space-y-4" onSubmit={e=>void submit(e,waste.stock_type==="raw"?"waste":"menu_waste",waste.stock_type==="raw"?{batch_id:waste.batch_id,quantity:Number(waste.quantity),reason:waste.reason}:{pos_item_id:waste.pos_item_id,quantity:Number(waste.quantity),reason:waste.reason},()=>setWaste(initialWaste),"Waste recorded. The stock balance and audit record have been updated.")}>
+            {waste.stock_type==="raw" ? <label className={label}>Raw stock batch<select required className={field} value={waste.batch_id} onChange={e=>setWaste({...waste,batch_id:e.target.value})}><option value="">Choose batch</option>{activeBatches.map(b=><option key={b.id} value={b.id}>{items.find(i=>i.id===b.inventory_item_id)?.name ?? "Item"} · {b.batch_code} · {Number(b.remaining_quantity)} {b.base_unit} left</option>)}</select></label> :
+            <label className={label}>BigFoods menu item<select required className={field} value={waste.pos_item_id} onChange={e=>setWaste({...waste,pos_item_id:e.target.value,quantity:""})}><option value="">Choose menu item</option>{posItems.filter(m=>m.track_stock===true && Number(m.stock_quantity??0)>0).map(m=><option key={m.id} value={m.id}>{m.name} · {Number(m.stock_quantity)} portions available</option>)}</select><span className="mt-1 block text-[11px] font-normal text-[#817367]">Only stock-tracked BigFoods POS items with available stock are listed.</span></label>}
+            <label className={label}>Quantity wasted<input required type="number" min="1" step="1" max={waste.stock_type==="menu"?Math.max(0,Number(posItems.find(m=>m.id===waste.pos_item_id)?.stock_quantity??0)):undefined} className={field} value={waste.quantity} onChange={e=>setWaste({...waste,quantity:e.target.value})}/><span className="mt-1 block text-[11px] font-normal text-[#817367]">{waste.stock_type==="menu"?"Enter whole portions/items.":"Enter quantity using the batch's base unit."}</span></label>
             <label className={label}>Reason<textarea required minLength={3} maxLength={500} rows={3} className={field} value={waste.reason} onChange={e=>setWaste({...waste,reason:e.target.value})} placeholder="e.g. Expired before use; packaging damaged"/></label>
-            <button className={primary} disabled={busy || !activeBatches.length}>{busy ? "Saving…" : "Record waste"}</button>
+            <button className={primary} disabled={busy || (waste.stock_type==="raw"?!activeBatches.length:!posItems.some(m=>m.track_stock===true && Number(m.stock_quantity??0)>0))}>{busy ? "Saving…" : "Record waste"}</button>
           </form>
         </div>
         <div className="rounded-2xl border border-[#E9E0D6] bg-white p-5 shadow-[0_2px_10px_rgba(58,39,23,0.035)]">
