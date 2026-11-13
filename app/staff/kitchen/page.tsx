@@ -5,7 +5,7 @@ import StaffShell from "@/components/staff/StaffShell";
 import { ChefHat, RefreshCw, AlertTriangle, CheckCircle2, Boxes, Calculator } from "lucide-react";
 
 type StockItem = { id: string; name: string; base_unit: string; reorder_level: number };
-type RecipeLine = { quantity: number; unit: string; inventory_items?: { name: string; base_unit: string } | null };
+type RecipeLine = { inventory_item_id: string; quantity: number; unit: string; inventory_items?: { id: string; name: string; base_unit: string } | null };
 type Recipe = { id: string; bigfoods_pos_item_id: string; name: string; version: number; output_quantity: number; output_unit: string; bigfoods_pos_items?: { name: string } | null; inventory_recipe_items?: RecipeLine[] };
 type Batch = { inventory_item_id: string; remaining_quantity: number; status: string; expires_at: string | null };
 type Requirement = { id: string; name: string; unit: string; required: number; available: number; shortage: number };
@@ -46,11 +46,11 @@ export default function StaffKitchenPage() {
   const requirements: Requirement[] = useMemo(() => {
     if (!selected || !Number(selected.output_quantity) || requested <= 0) return [];
     return (selected.inventory_recipe_items || []).map(line => {
-      const item = items.find(entry => entry.name === line.inventory_items?.name);
+      const item = items.find(entry => entry.id === line.inventory_item_id);
       const id = item?.id || "";
       const required = Number(line.quantity) * requested / Number(selected.output_quantity);
       const available = id ? stock.get(id) || 0 : 0;
-      return { id, name: line.inventory_items?.name || "Unknown ingredient", unit: line.unit, required, available, shortage: Math.max(0, required - available) };
+      return { id: line.inventory_item_id, name: line.inventory_items?.name || "Unknown ingredient", unit: line.unit, required, available, shortage: Math.max(0, required - available) };
     });
   }, [selected, requested, items, stock]);
 
