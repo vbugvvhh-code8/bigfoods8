@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { BarChart3, CalendarDays, Download, RefreshCw, TrendingUp, ShoppingCart, Users, ReceiptText, Utensils, Boxes, CreditCard, Search, ArrowUpRight, ArrowDownRight, FileBarChart, Package, Wallet, UserRound, ChefHat, Truck, Percent, Activity } from "lucide-react";
-import StaffShell from "@/components/staff/StaffShell";
+import ReportsShell from "@/components/staff/ReportsShell";
 import { canAccessPos, hasPosPermission } from "@/lib/staff/access";
 
 type Staff={id:string;display_name:string;role:string;permissions:unknown;must_change_password:boolean};
@@ -17,13 +17,44 @@ const money=(n:number)=>new Intl.NumberFormat("en-NG",{style:"currency",currency
 const shortMoney=(n:number)=>n>=1000000?"₦"+(n/1000000).toFixed(1)+"M":n>=1000?"₦"+(n/1000).toFixed(0)+"K":"₦"+Math.round(n);
 const iso=(d:Date)=>{const x=new Date(d.getTime()-d.getTimezoneOffset()*60000);return x.toISOString().slice(0,10)};
 const startDate=()=>{const d=new Date();d.setDate(d.getDate()-29);return iso(d)};
-const panel="rounded-2xl border border-[#E8EDF3] bg-white shadow-[0_2px_8px_rgba(22,34,51,.035)]";
+const panel="rounded-xl border border-[#E8EDF3] bg-white shadow-[0_2px_8px_rgba(22,34,51,.035)]";
 const select="h-10 rounded-xl border border-[#E2E8F0] bg-white px-3 text-xs font-medium text-[#334155] outline-none focus:border-orange-400";
 type Tab="overview"|"sales"|"orders"|"menu"|"inventory"|"customers"|"payments"|"staff"|"tax";
 const tabs:{id:Tab;label:string;icon:any}[]=[{id:"overview",label:"Overview",icon:FileBarChart},{id:"sales",label:"Sales",icon:TrendingUp},{id:"orders",label:"Orders",icon:ShoppingCart},{id:"menu",label:"Menu Items",icon:Utensils},{id:"inventory",label:"Inventory",icon:Boxes},{id:"customers",label:"Customers",icon:Users},{id:"payments",label:"Payments",icon:CreditCard},{id:"staff",label:"Staff",icon:UserRound},{id:"tax",label:"Tax & Fees",icon:Percent}];
 function CardTitle({children,action}:{children:ReactNode;action?:string}){return <div className="mb-3 flex items-center justify-between gap-2"><h3 className="text-sm font-bold text-[#172033]">{children}</h3>{action&&<span className="text-[11px] font-medium text-[#64748B]">{action}</span>}</div>}
-function Metric({label,value,sub,icon:Icon,delta}:{label:string;value:string;sub:string;icon:any;delta?:number|null}){return <div className={panel+" flex min-h-[112px] items-center gap-3 p-4"}><div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-orange-50 text-orange-600"><Icon className="h-5 w-5"/></div><div className="min-w-0 flex-1"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 truncate text-xl font-bold tracking-tight text-[#172033]">{value}</p><p className="mt-1 flex items-center gap-1 text-[10px] text-slate-400">{delta!==undefined&&delta!==null?<span className={delta>=0?"flex items-center text-emerald-600":"flex items-center text-rose-600"}>{delta>=0?<ArrowUpRight className="h-3 w-3"/>:<ArrowDownRight className="h-3 w-3"/>}{Math.abs(delta).toFixed(1)}%</span>:null}{sub}</p></div></div>}
+function Metric({label,value,sub,icon:Icon,delta,tone="orange"}:{label:string;value:string;sub:string;icon:any;delta?:number|null;tone?:string}){const tones:Record<string,string>={orange:"bg-orange-50 text-orange-600",green:"bg-emerald-50 text-emerald-600",blue:"bg-blue-50 text-blue-600",purple:"bg-violet-50 text-violet-600",amber:"bg-amber-50 text-amber-600"};return <div className={panel+" flex min-h-[112px] items-center gap-3 p-4"}><div className={"grid h-11 w-11 shrink-0 place-items-center rounded-xl "+(tones[tone]||tones.orange)}><Icon className="h-5 w-5"/></div><div className="min-w-0 flex-1"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 truncate text-xl font-bold tracking-tight text-[#172033]">{value}</p><p className="mt-1 flex items-center gap-1 text-[10px] text-slate-400">{delta!==undefined&&delta!==null?<span className={delta>=0?"flex items-center text-emerald-600":"flex items-center text-rose-600"}>{delta>=0?<ArrowUpRight className="h-3 w-3"/>:<ArrowDownRight className="h-3 w-3"/>}{Math.abs(delta).toFixed(1)}%</span>:null}{sub}</p></div></div>}
 function Empty({text}:{text:string}){return <div className="py-9 text-center text-xs text-slate-400">{text}</div>}
+function SalesLineChart({data}:{data:{key:string;label:string;pos:number;online:number}[]}) {
+ const max=Math.max(1,...data.map(d=>d.pos+d.online));
+ const point=(value:number,index:number)=>`${data.length<2?360:index/(data.length-1)*700+10},${174-(value/max)*150}`;
+ const total=data.map((d,i)=>point(d.pos+d.online,i)).join(" ");
+ const pos=data.map((d,i)=>point(d.pos,i)).join(" ");
+ const online=data.map((d,i)=>point(d.online,i)).join(" ");
+ return <div className="w-full">
+  <div className="flex items-center justify-end gap-4 pb-2 text-[10px] text-[#64748B]">
+   <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#F36B12]"/>Total Sales</span>
+   <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#4389E8]"/>POS Sales</span>
+   <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#32B77A]"/>Online Sales</span>
+  </div>
+  <svg viewBox="0 0 720 205" role="img" aria-label="Daily total, POS and online sales trend" className="h-[205px] w-full overflow-visible">
+   {[24,62,100,138,176].map((y,i)=><g key={y}><line x1="10" x2="710" y1={y} y2={y} stroke="#E9EEF4" strokeWidth="1"/><text x="2" y={y-4} fill="#8A96A6" fontSize="9">₦{Math.round((4-i)*max/4/1000)}K</text></g>)}
+   {data.length>1&&<><polyline points={total} fill="none" stroke="#F36B12" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"/><polyline points={pos} fill="none" stroke="#4389E8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><polyline points={online} fill="none" stroke="#32B77A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></>}
+   {data.length===1&&<><circle cx="360" cy={174-(data[0].pos+data[0].online)/max*150} r="4" fill="#F36B12"/><circle cx="360" cy={174-data[0].pos/max*150} r="4" fill="#4389E8"/><circle cx="360" cy={174-data[0].online/max*150} r="4" fill="#32B77A"/></>}
+   {data.filter((_,i)=>i===0||i===data.length-1||i===Math.floor(data.length/2)).map(d=><text key={d.key} x={data.length<2?360:10+data.indexOf(d)/(data.length-1)*700} y="198" textAnchor="middle" fill="#8A96A6" fontSize="10">{d.label}</text>)}
+  </svg>
+ </div>;
+}
+function DonutChart({items,total}:{items:{name:string;value:number}[];total:number}) {
+ const colors=["#F36B12","#4389E8","#32B77A","#8B5CE6","#F5B544"];
+ let cursor=0;
+ const stops=items.map((item,i)=>{const start=cursor;cursor+=total?item.value/total*100:0;return `${colors[i%colors.length]} ${start}% ${cursor}%`;}).join(", ");
+ return <div className="flex flex-col items-center gap-5 sm:flex-row sm:justify-center">
+  <div className="relative h-[174px] w-[174px] shrink-0 rounded-full" style={{background:items.length?`conic-gradient(${stops})`:"#E9EEF4"}}>
+   <div className="absolute inset-[27px] grid place-content-center rounded-full bg-white text-center"><b className="text-[22px] font-bold text-[#172033]">{total.toLocaleString()}</b><span className="text-[11px] text-[#7A8798]">Orders</span></div>
+  </div>
+  <div className="w-full space-y-3">{items.map((item,i)=><div key={item.name} className="flex items-center gap-2 text-xs"><i className="h-2.5 w-2.5 shrink-0 rounded-full" style={{background:colors[i%colors.length]}}/><span className="min-w-0 flex-1 text-[#526071]">{item.name}</span><b className="text-[#172033]">{total?Math.round(item.value/total*100):0}%</b><span className="w-10 text-right text-[#7A8798]">({item.value})</span></div>)}</div>
+ </div>;
+}
 function BarRow({label,value,max,amount}:{label:string;value:number;max:number;amount?:string}){return <div className="flex items-center gap-3 text-xs"><span className="w-28 shrink-0 truncate text-slate-600">{label}</span><div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#EEF2F7]"><div className="h-full rounded-full bg-[#F36B12]" style={{width:(max?Math.max(value>0?2:0,value/max*100):0)+"%"}}/></div><b className="w-24 shrink-0 text-right text-[#172033]">{amount||value.toLocaleString()}</b></div>}
 export default function StaffAnalyticsPage(){
  const router=useRouter();
@@ -54,7 +85,7 @@ export default function StaffAnalyticsPage(){
  function exportCsv(){const rows=[["Source","Reference","Date","Status","Amount","Payment"],...filtered.sales.map(s=>["POS",s.receipt_number,s.created_at,s.status,s.total_amount,s.payment_method]),...filtered.orders.map(o=>["Online",o.id,o.placed_at,o.status,o.subtotal,"Online"])];const csv=rows.map(row=>row.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")).join("\r\n");const a=document.createElement("a"),url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.href=url;a.download="bigfoods-report-"+tab+".csv";a.click();URL.revokeObjectURL(url);}
  const title=tabs.find(x=>x.id===tab)?.label||"Reports";
  const topSearch=search.trim();
- return <StaffShell title="Reports" subtitle="Insights into sales, orders, menu performance, inventory and more." staffName={staff?.display_name} staffRole={staff?.role} staffPermissions={staff?.permissions}>
+ return <ReportsShell title="Reports" subtitle="Insights into sales, orders, menu performance, inventory and more." staffName={staff?.display_name} staffRole={staff?.role} staffPermissions={staff?.permissions}>
   <div className="space-y-4 pb-8 text-[#172033]">
    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#E8EDF3] bg-white p-3 shadow-sm">
     <div className="relative min-w-[220px] flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><input aria-label="Search reports" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search reports, menu items, inventory…" className="h-10 w-full rounded-xl border border-[#E2E8F0] pl-9 pr-3 text-xs outline-none focus:border-orange-400"/></div>
@@ -70,19 +101,19 @@ export default function StaffAnalyticsPage(){
    {loading&&!data&&<div className={panel+" grid min-h-48 place-items-center text-sm text-slate-500"}><span className="inline-flex items-center gap-2"><RefreshCw className="h-4 w-4 animate-spin"/>Loading reports…</span></div>}
    {data&&<>
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-     <Metric label="Total Sales" value={money(revenue)} sub="Paid POS and online orders" icon={Wallet} delta={compare?delta(revenue,prevRevenue):null}/>
-     <Metric label="Total Orders" value={count.toLocaleString()} sub="Successfully paid orders" icon={ShoppingCart} delta={compare?delta(count,prevCount):null}/>
-     <Metric label="Average Order Value" value={money(average)} sub="Revenue per paid order" icon={ReceiptText} delta={compare?delta(average,prevAverage):null}/>
-     <Metric label="Top Item" value={topItems[0]?.name||"—"} sub={topItems[0]?topItems[0].qty+" sold":"No item sales"} icon={ChefHat}/>
-     <Metric label="New Customers" value={customers.new.toLocaleString()} sub="First seen in this period" icon={Users}/>
+     <Metric label="Total Sales" value={money(revenue)} sub="Paid POS and online orders" icon={Wallet} tone="green" delta={compare?delta(revenue,prevRevenue):null}/>
+     <Metric label="Total Orders" value={count.toLocaleString()} sub="Successfully paid orders" icon={ShoppingCart} tone="blue" delta={compare?delta(count,prevCount):null}/>
+     <Metric label="Average Order Value" value={money(average)} sub="Revenue per paid order" icon={ReceiptText} tone="orange" delta={compare?delta(average,prevAverage):null}/>
+     <Metric label="Top Item" value={topItems[0]?.name||"—"} sub={topItems[0]?topItems[0].qty+" sold":"No item sales"} icon={ChefHat} tone="amber"/>
+     <Metric label="New Customers" value={customers.new.toLocaleString()} sub="First seen in this period" icon={Users} tone="purple"/>
     </div>
     {tab==="overview"&&<div className="space-y-3">
      <div className="grid gap-3 xl:grid-cols-[1.8fr_.95fr]">
-      <section className={panel+" p-4"}><CardTitle action="POS + online · daily">Sales Overview</CardTitle><div className="mb-3 flex flex-wrap gap-4 text-[11px]"><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-[#F36B12]"/>POS Sales</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-[#4A9BE8]"/>Online Sales</span></div><div className="flex h-52 items-end gap-1 border-b border-l border-slate-100 px-2">{timeline.map((d,i)=><div key={d.key} title={d.label+" · "+money(d.pos+d.online)} className="flex h-full min-w-0 flex-1 items-end justify-center gap-[2px]"><div className="w-[46%] rounded-t-sm bg-[#F36B12]" style={{height:(d.pos?Math.max(2,d.pos/maxDay*100):0)+"%"}}/><div className="w-[46%] rounded-t-sm bg-[#4A9BE8]" style={{height:(d.online?Math.max(2,d.online/maxDay*100):0)+"%"}}/></div>)}</div><div className="mt-2 flex justify-between text-[9px] text-slate-400"><span>{timeline[0]?.label||from}</span><span>{timeline[Math.floor(timeline.length/2)]?.label||""}</span><span>{timeline[timeline.length-1]?.label||to}</span></div>{!timeline.length&&<Empty text="No sales in this date range."/>}</section>
-      <section className={panel+" p-4"}><CardTitle>Order Type Breakdown</CardTitle><div className="space-y-4 pt-2">{orderTypes.map(x=><BarRow key={x.name} label={x.name} value={x.value} max={Math.max(1,...orderTypes.map(y=>y.value))} amount={x.value+" ("+(count?Math.round(x.value/count*100):0)+"%)"}/>)}{!orderTypes.length&&<Empty text="No order type data available."/>}</div></section>
+      <section className={panel+" p-4 sm:p-5"}><CardTitle action="POS + online · daily">Sales Overview</CardTitle>{timeline.length?<SalesLineChart data={timeline}/>:<Empty text="No sales in this date range."/>}</section>
+      <section className={panel+" p-4 sm:p-5"}><CardTitle>Order Type Breakdown</CardTitle>{orderTypes.length?<DonutChart items={orderTypes} total={count}/>:<Empty text="No order type data available."/>}</section>
      </div>
      <div className="grid gap-3 xl:grid-cols-[1.2fr_1fr]">
-      <section className={panel+" p-4"}><CardTitle action="By quantity sold">Top Menu Items</CardTitle><div className="overflow-x-auto"><table className="w-full min-w-[440px] text-left text-xs"><thead className="border-b bg-slate-50 text-[10px] uppercase text-slate-500"><tr><th className="p-2">#</th><th className="p-2">Item</th><th className="p-2">Category</th><th className="p-2 text-right">Qty Sold</th><th className="p-2 text-right">Revenue</th></tr></thead><tbody>{topItems.slice(0,5).map((x,i)=><tr key={x.name} className="border-b border-slate-100"><td className="p-2 text-slate-400">{i+1}</td><td className="p-2 font-medium">{x.name}</td><td className="p-2"><span className="rounded-full bg-orange-50 px-2 py-1 text-[10px] text-orange-700">{x.category}</span></td><td className="p-2 text-right">{x.qty}</td><td className="p-2 text-right font-semibold">{money(x.revenue)}</td></tr>)}</tbody></table>{!topItems.length&&<Empty text="No menu item sales in this period."/>}</div></section>
+      <section className={panel+" p-4"}><CardTitle action="By quantity sold">Top Menu Items</CardTitle><div className="overflow-x-auto"><table className="w-full min-w-[440px] text-left text-xs"><thead className="border-b bg-slate-50 text-[10px] uppercase text-slate-500"><tr><th className="p-2">#</th><th className="p-2">Item</th><th className="p-2">Category</th><th className="p-2 text-right">Qty Sold</th><th className="p-2 text-right">Revenue</th></tr></thead><tbody>{topItems.slice(0,5).map((x,i)=><tr key={x.name} className="border-b border-slate-100"><td className="p-2 text-slate-400">{i+1}</td><td className="p-2"><div className="flex items-center gap-2">{x.image?<img src={x.image} alt="" className="h-8 w-8 rounded-lg object-cover"/>:<span className="grid h-8 w-8 place-items-center rounded-lg bg-[#FFF0E7] text-[#E85D0A]"><ChefHat className="h-4 w-4"/></span>}<span className="font-medium text-[#172033]">{x.name}</span></div></td><td className="p-2"><span className="rounded-full bg-orange-50 px-2 py-1 text-[10px] text-orange-700">{x.category}</span></td><td className="p-2 text-right">{x.qty}</td><td className="p-2 text-right font-semibold">{money(x.revenue)}</td></tr>)}</tbody></table>{!topItems.length&&<Empty text="No menu item sales in this period."/>}</div></section>
       <section className={panel+" p-4"}><CardTitle>Sales by Payment Method</CardTitle><div className="space-y-4">{paymentRows.map(x=><BarRow key={x.name} label={x.name.replaceAll("_"," ")} value={x.value} max={Math.max(1,...paymentRows.map(y=>y.value))} amount={money(x.value)+" · "+(revenue?Math.round(x.value/revenue*100):0)+"%"}/>)}{!paymentRows.length&&<Empty text="No payment data available."/>}</div></section>
      </div>
      <div className="grid gap-3 lg:grid-cols-3">
@@ -102,5 +133,5 @@ export default function StaffAnalyticsPage(){
    </>}
    <p className="text-[10px] text-slate-400">Report figures are calculated from recorded POS and online transactions. Customer insights use linked online customer IDs; staff performance uses recorded POS cashier IDs. Inventory valuation uses remaining batch quantity × recorded unit cost.</p>
   </div>
- </StaffShell>;
+ </ReportsShell>;
 }
