@@ -56,7 +56,10 @@ begin
  values(p_actor_staff_id,'inventory.stock_adjusted',jsonb_build_object('batch_id',v_batch.id,'movement_id',v_movement.id,'quantity',p_quantity,'direction',p_direction,'reason',trim(p_reason)));
  return jsonb_build_object('batch_id',v_batch.id,'movement_id',v_movement.id,'remaining_quantity',v_batch.remaining_quantity);
 end $$;
-\nupdate public.inventory_items set sku=null where sku is null;\n\ncreate or replace function public.bigfoods_inventory_update_item(
+
+update public.inventory_items set sku=null where sku is null;
+
+create or replace function public.bigfoods_inventory_update_item(
  p_actor_staff_id uuid,p_inventory_item_id uuid,p_name text,p_sku text,p_category text,
  p_tracking_type text,p_base_unit text,p_reorder_level numeric,p_is_perishable boolean,p_notes text
 ) returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
