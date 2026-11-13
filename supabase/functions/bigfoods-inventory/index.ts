@@ -132,7 +132,7 @@ Deno.serve(async (req: Request) => {
     if (action === "recipe_overview") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
       const [items, recipes] = await Promise.all([
-        db.from("bigfoods_pos_items").select("id,name,category,is_available").order("name").limit(1000),
+        db.from("bigfoods_pos_items").select("id,name,category,is_available,stock_quantity,track_stock").order("name").limit(1000),
         db.from("inventory_recipes").select("id,bigfoods_pos_item_id,name,version,output_quantity,output_unit,effective_from,is_active").eq("is_active", true).not("bigfoods_pos_item_id", "is", null).order("name").limit(300)
       ]);
       if (items.error || recipes.error) return json({ error: "Unable to load in-house recipe data. Confirm the POS catalogue migrations have been applied." }, 503);
