@@ -62,7 +62,7 @@ Deno.serve(async (req: Request) => {
       const failures = [salesQ, itemsQ, paymentsQ, refundsQ, sessionsQ, priorCustomersQ, inventoryQ, batchesQ, posStockQ, staffQ].filter(q => q.error);
       if (failures.length) return json({ error: "Unable to load BigFoods POS and inventory report data." }, 503);
 
-      const settledSales = (salesQ.data ?? []).filter(sale => sale.status === "paid");
+      const settledSales = (salesQ.data ?? []).filter(sale => ["paid", "partially_refunded", "refunded"].includes(sale.status));
       const staffSales = new Map<string, { orders: number; revenue: number }>();
       for (const sale of settledSales) {
         if (!sale.cashier_staff_id) continue;
