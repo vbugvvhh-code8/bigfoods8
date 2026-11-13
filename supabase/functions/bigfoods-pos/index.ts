@@ -29,8 +29,8 @@ Deno.serve(async (req: Request) => {
 
     if (action === "analytics") {
       if (!allowed(actor, "pos.reports")) return json({ error: "You do not have permission to view reports." }, 403);
-      const fromDate = typeof body.from === "string" && /^\\d{4}-\\d{2}-\\d{2}$/.test(body.from) ? body.from : new Date(Date.now() - 29 * 86400000).toISOString().slice(0,10);
-      const toDate = typeof body.to === "string" && /^\\d{4}-\\d{2}-\\d{2}$/.test(body.to) ? body.to : new Date().toISOString().slice(0,10);
+      const fromDate = typeof body.from === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.from) ? body.from : new Date(Date.now() - 29 * 86400000).toISOString().slice(0,10);
+      const toDate = typeof body.to === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.to) ? body.to : new Date().toISOString().slice(0,10);
       if (fromDate > toDate) return json({ error: "The report start date must be before the end date." }, 400);
       const start = new Date(fromDate + "T00:00:00.000Z").toISOString();
       const end = new Date(new Date(toDate + "T00:00:00.000Z").getTime() + 86400000 - 1).toISOString();
