@@ -5,7 +5,7 @@ import SafeImage from '@/components/ui/SafeImage';
 import { LOGO_URL } from '@/lib/brandImages';
 import { usePathname, useRouter } from 'next/navigation';
 import { LayoutGrid, CalendarDays, Menu, X, LogOut, UserRound, CalendarPlus, Repeat2, Users, ClipboardList, ChevronDown, MapPin, Clock3, CalendarCheck, QrCode, ClipboardCheck, HeartPulse, Target, Settings, ShoppingCart, Utensils } from 'lucide-react';
-import { canManageStaff, canUseStaffOperations, canAccessPos } from '@/lib/staff/access';
+import { canManageStaff, canUseStaffOperations, canAccessPos, hasPosPermission } from '@/lib/staff/access';
 
 export default function StaffShell({ children, title, subtitle, staffName, staffRole, staffPermissions }: { children: ReactNode; title: string; subtitle?: string; staffName?: string; staffRole?: string; staffPermissions?: unknown }) {
   const pathname = usePathname();
@@ -33,6 +33,7 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
   const showStaffManagement = canManageStaff(accessProfile);
   const showStaffOperations = canUseStaffOperations(accessProfile);
   const showPos = canAccessPos(accessProfile);
+  const showOrders = ['owner', 'admin'].includes(effectiveStaffRole || '') || hasPosPermission(accessProfile, 'pos.reports');
 
   async function logout() {
     await fetch('/api/bigfoods-staff/session', { method: 'DELETE' });
@@ -45,6 +46,7 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
     { href: '/staff/attendance', label: 'Attendance & schedule', icon: <CalendarDays className="h-4 w-4" /> },
     ...(showStaffManagement ? [{ href: '/staff/manage', label: 'Staff management', icon: <Users className="h-4 w-4" /> }] : []),
     ...(showPos ? [{ href: '/staff/pos', label: 'Point of sale', icon: <ShoppingCart className="h-4 w-4" /> }, { href: '/staff/menu', label: 'Menu', icon: <Utensils className="h-4 w-4" /> }] : []),
+    ...(showOrders ? [{ href: '/staff/orders', label: 'Orders', icon: <ClipboardList className="h-4 w-4" /> }] : []),
     ...(showStaffOperations ? [{ href: '/staff/operations', label: 'Staff operations', icon: <ClipboardList className="h-4 w-4" /> }] : []),
     { href: '/staff/leave', label: 'Request leave', icon: <CalendarPlus className="h-4 w-4" /> },
     { href: '/staff/shift-swaps', label: 'Shift swaps', icon: <Repeat2 className="h-4 w-4" /> },
