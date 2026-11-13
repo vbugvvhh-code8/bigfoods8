@@ -54,7 +54,8 @@ Deno.serve(async (req: Request) => {
         ? await db.from("order_items").select("order_id,menu_item_id,quantity,unit_price").in("order_id", paidOrderIds).limit(10000)
         : { data: [], error: null };
       if (onlineItemsQ.error) return json({ error: "Unable to load online menu item sales." }, 503);
-      const onlineMenuIds: string[] = [];\n      (onlineItemsQ.data ?? []).forEach(line => { if (line.menu_item_id && !onlineMenuIds.includes(line.menu_item_id)) onlineMenuIds.push(line.menu_item_id); });
+      const onlineMenuIds: string[] = [];
+      (onlineItemsQ.data ?? []).forEach(line => { if (line.menu_item_id && !onlineMenuIds.includes(line.menu_item_id)) onlineMenuIds.push(line.menu_item_id); });
       const onlineMenuQ = onlineMenuIds.length
         ? await db.from("menu_items").select("id,name,category").in("id", onlineMenuIds).limit(2000)
         : { data: [], error: null };
