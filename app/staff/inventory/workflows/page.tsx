@@ -11,6 +11,7 @@ type Batch = { id: string; inventory_item_id: string; batch_code: string; remain
 type PosItem = { id: string; name: string; category?: string; is_available?: boolean; stock_quantity?: number | null; track_stock?: boolean };
 type Recipe = { id: string; bigfoods_pos_item_id: string | null; name: string; version: number; output_quantity: number; output_unit: string; effective_from: string; effective_until: string | null; is_active: boolean; inventory_recipe_items?: { inventory_item_id: string; quantity: number; unit: string; notes: string | null; inventory_items?: { name: string; base_unit: string } | null }[] };
 type IngredientLine = { inventory_item_id: string; quantity: string; unit: string };
+type WasteRecord = { id: string; stock_type: "raw" | "menu"; item_name: string; batch_code: string | null; quantity: number; unit: string; stock_before?: number; stock_after?: number; reason: string; occurred_at: string; staff_name: string };
 type Production = { id: string; batch_code: string; input_inventory_item_id: string; input_batch_id: string | null; raw_input_quantity: number; raw_input_unit: string; output_inventory_item_id: string; output_quantity: number | null; output_unit: string; unprocessed_quantity: number; allowed_loss_quantity: number; actual_loss_quantity: number | null; variance_quantity: number | null; status: string };
 const initialStart = { input_inventory_item_id: "", input_batch_id: "", raw_input_quantity: "", output_inventory_item_id: "", allowed_loss_quantity: "0" };
 const initialWaste = { stock_type: "raw", batch_id: "", pos_item_id: "", quantity: "", reason: "" };
@@ -21,6 +22,7 @@ export default function InventoryWorkflowsPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [production, setProduction] = useState<Production[]>([]);
+  const [wasteRecords, setWasteRecords] = useState<WasteRecord[]>([]);
   const [posItems, setPosItems] = useState<PosItem[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [expandedRecipe, setExpandedRecipe] = useState<string | null>(null);
@@ -47,20 +49,24 @@ export default function InventoryWorkflowsPage() {
     return data;
   }, []);
 
-  const load = useCallback(async () => {
-    setLoading(true); setError("");
+  const load = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
+    setError("");
     try {
-      const [overview, prod, recipeData] = await Promise.all([call({ action: "overview" }), call({ action: "production_list" }), call({ action: "recipe_history" })]);
+      const [overview, prod, recipeData, recipeOverview, wasteData] = await Promise.all([
+        call({ action: "overview" }), call({ action: "production_list" }), call({ action: "recipe_history" }),
+        call({ action: "recipe_overview" }), call({ action: "waste_history" })
+      ]);
       setItems(overview.items ?? []); setBatches(overview.batches ?? []); setProduction(prod.production ?? []);
-      setPosItems((await call({ action: "recipe_overview" })).pos_items ?? []); setRecipes(recipeData.recipes ?? []);
+      setPosItems(recipeOverview.pos_items ?? []); setRecipes(recipeData.recipes ?? []); setWasteRecords(wasteData.records ?? []);
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to load inventory workflows"); }
-    finally { setLoading(false); }
+    finally { if (showLoading) setLoading(false); }
   }, [call]);
   useEffect(() => { void load(); }, [load]);
 
   async function submit(event: FormEvent, action: string, payload: Record<string, unknown>, reset: () => void, message: string) {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
-    try { await call({ action, ...payload }); reset(); setNotice(message); await load(); }
+    try { await call({ action, ...payload }); reset(); setNotice(message); await load(false); }
     catch (e) { setError(e instanceof Error ? e.message : "Unable to save inventory workflow"); }
     finally { setBusy(false); }
   }
@@ -124,6 +130,10 @@ export default function InventoryWorkflowsPage() {
             <label className={label}>Reason<textarea required minLength={3} maxLength={500} rows={3} className={field} value={waste.reason} onChange={e=>setWaste({...waste,reason:e.target.value})} placeholder="e.g. Expired before use; packaging damaged"/></label>
             <button className={primary} disabled={busy || (waste.stock_type==="raw"?!activeBatches.length:!wasteMenuItems.some(m=>Number(m.stock_quantity??0)>0))}>{busy ? "Saving…" : "Record waste"}</button>
           </form>
+        </div>
+        <div className="rounded-2xl border border-[#E9E0D6] bg-white p-5 shadow-[0_2px_10px_rgba(58,39,23,0.035)] xl:col-span-2">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-semibold text-[#30261F]">Waste records</h2><p className="mt-1 text-sm text-[#817367]">Recent raw-stock and prepared menu-item waste entries.</p></div><span className="rounded-full bg-[#FFF1E5] px-3 py-1 text-xs font-semibold text-[#B95616]">{wasteRecords.length} records</span></div>
+          {wasteRecords.length ? <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead><tr className="border-b border-[#EFE7DF] text-xs text-[#817367]"><th className="px-3 py-3 font-semibold">Date</th><th className="px-3 py-3 font-semibold">Stock type</th><th className="px-3 py-3 font-semibold">Item / batch</th><th className="px-3 py-3 font-semibold">Quantity</th><th className="px-3 py-3 font-semibold">Reason</th><th className="px-3 py-3 font-semibold">Recorded by</th></tr></thead><tbody>{wasteRecords.map(record=><tr key={record.id} className="border-b border-[#F3EDE7] last:border-0"><td className="whitespace-nowrap px-3 py-3 text-[#6E6257]">{new Date(record.occurred_at).toLocaleString()}</td><td className="px-3 py-3"><span className="rounded-full bg-[#F8F3ED] px-2.5 py-1 text-xs font-semibold">{record.stock_type==="menu"?"Menu item":"Raw inventory"}</span></td><td className="px-3 py-3 font-medium text-[#30261F]">{record.item_name}{record.batch_code&&<span className="block text-xs font-normal text-[#817367]">{record.batch_code}</span>}</td><td className="px-3 py-3 tabular-nums">{record.quantity} {record.unit}{record.stock_type==="menu"&&record.stock_before!==undefined&&<span className="block text-xs text-[#817367]">{record.stock_before} → {record.stock_after} remaining</span>}</td><td className="max-w-[220px] px-3 py-3 text-[#6E6257]">{record.reason}</td><td className="px-3 py-3 text-[#6E6257]">{record.staff_name}</td></tr>)}</tbody></table></div> : <div className="rounded-xl border border-dashed border-[#E7DED4] px-4 py-8 text-center text-sm text-[#817367]">No waste has been recorded yet.</div>}
         </div>
         <div className="rounded-2xl border border-[#E9E0D6] bg-white p-5 shadow-[0_2px_10px_rgba(58,39,23,0.035)]">
           <div className="mb-5 flex items-center gap-3"><span className="rounded-xl bg-[#FFF1E5] p-2 text-[#D96B1F]"><CookingPot size={19}/></span><div><h2 className="font-semibold text-[#30261F]">Start production batch</h2><p className="mt-1 text-sm text-[#817367]">Choose the raw batch and the inventory item produced.</p></div></div>
