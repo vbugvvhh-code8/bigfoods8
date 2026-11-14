@@ -313,7 +313,7 @@ Deno.serve(async (req: Request) => {
       return json({ branch_item: data });
     }
     if (action === "branch_stock_save") {
-      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
+      if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
       const branchId = typeof body.work_location_id === "string" ? body.work_location_id : "";
       const itemId = typeof body.pos_item_id === "string" ? body.pos_item_id : "";
       const quantity = Number(body.stock_quantity), low = Number(body.low_stock_alert ?? 10);
