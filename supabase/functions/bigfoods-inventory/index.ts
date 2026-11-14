@@ -294,7 +294,7 @@ Deno.serve(async (req: Request) => {
       return json({ branches: branches.data ?? [], items: items.data ?? [], branch_items: branchItems.data ?? [], branch_stock: stock.data ?? [] });
     }
     if (action === "branch_item_save") {
-      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
+      if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
       const branchId = typeof body.work_location_id === "string" ? body.work_location_id : "";
       const itemId = typeof body.pos_item_id === "string" ? body.pos_item_id : "";
       const price = body.selling_price === "" || body.selling_price == null ? null : Number(body.selling_price);
