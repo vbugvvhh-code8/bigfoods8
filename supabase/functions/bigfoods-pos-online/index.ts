@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { sendBigFoodsOrderEmail } from "../_shared/bigfoods-order-email.ts";
 const URL=Deno.env.get("SUPABASE_URL")!, SERVICE=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, PAYSTACK=Deno.env.get("PAYSTACK_SECRET_KEY");
 const cors={ "Access-Control-Allow-Origin":"*", "Access-Control-Allow-Methods":"POST, OPTIONS", "Access-Control-Allow-Headers":"authorization, apikey, content-type, x-client-info" };
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,"Content-Type":"application/json","Cache-Control":"no-store"}});
@@ -62,6 +63,7 @@ Deno.serve(async(req:Request)=>{
    const {data:finalized,error:finalizeError}=await db.rpc("bigfoods_pos_online_payment_finalize",{p_reference:body.reference,p_success:true});
    if(finalizeError)return json({error:"Payment was received but order finalization needs support review.",order_number:order.order_number},503);
    if(finalized?.success!==true)return json({error:"This order was already cancelled after an unsuccessful payment attempt. Contact BigFoods support if Paystack charged you.",order_number:order.order_number},409);
+   if(finalized?.already_processed!==true)await sendBigFoodsOrderEmail(db,order.id,"confirmed");
    return json({success:true,order_number:order.order_number,order_id:order.id,already_processed:finalized?.already_processed===true});
   }
   const token=typeof body.session_token==="string"?body.session_token:"";
@@ -156,6 +158,7 @@ Deno.serve(async(req:Request)=>{
    const {data:updated,error}=await db.from("bigfoods_pos_online_orders").update(patch).eq("id",id).eq("status",order.status).select("id,status").maybeSingle();
    if(error||!updated)return json({error:"Order changed; refresh and try again."},409);
    await db.from("bigfoods_staff_audit_events").insert({actor_staff_id:actor.id,action:"pos.online_order_status_updated",details:{order_id:id,status}});
+   await sendBigFoodsOrderEmail(db,id,status);
    return json({order:updated});
   }
   return json({error:"Unsupported action"},400);
