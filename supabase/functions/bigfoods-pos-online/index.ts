@@ -50,6 +50,7 @@ Deno.serve(async(req:Request)=>{
    }
    const {data:finalized,error:finalizeError}=await db.rpc("bigfoods_pos_online_payment_finalize",{p_reference:body.reference,p_success:true});
    if(finalizeError)return json({error:"Payment was received but order finalization needs support review.",order_number:order.order_number},503);
+   if(finalized?.success!==true)return json({error:"This order was already cancelled after an unsuccessful payment attempt. Contact BigFoods support if Paystack charged you.",order_number:order.order_number},409);
    return json({success:true,order_number:order.order_number,order_id:order.id,already_processed:finalized?.already_processed===true});
   }
   const token=typeof body.session_token==="string"?body.session_token:"";
