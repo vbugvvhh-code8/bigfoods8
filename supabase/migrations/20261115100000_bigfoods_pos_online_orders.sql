@@ -34,7 +34,8 @@ create table if not exists public.bigfoods_pos_online_order_items (
  image_url text,
  quantity integer not null check (quantity>0),
  unit_price numeric(14,2) not null check (unit_price>=0),
- line_total numeric(14,2) not null check (line_total>=0)
+ line_total numeric(14,2) not null check (line_total>=0),
+ stock_reserved boolean not null default false
 );
 create index if not exists bigfoods_pos_online_orders_branch_queue_idx
  on public.bigfoods_pos_online_orders(work_location_id,status,created_at desc);
@@ -127,13 +128,13 @@ declare v_order public.bigfoods_pos_online_orders%rowtype;
 begin
  select * into v_order from public.bigfoods_pos_online_orders where payment_reference=p_reference for update;
  if not found then raise exception 'Online order not found'; end if;
- if v_order.payment_status='paid' then return jsonb_build_object('success',true,'already_processed',true,'order_id',v_order.id); end if;
+ if v_order.payment_status in ('paid','failed') then return jsonb_build_object('success',v_order.payment_status='paid','already_processed',true,'order_id',v_order.id); end if;
  if p_success then
   update public.bigfoods_pos_online_orders set payment_status='paid',status='confirmed',updated_at=now() where id=v_order.id;
  else
   update public.bigfoods_pos_online_orders set payment_status='failed',status='cancelled',cancellation_reason='Payment was not completed',updated_at=now() where id=v_order.id;
   update public.bigfoods_pos_branch_menu_stock s set stock_quantity=s.stock_quantity+oi.quantity,updated_at=now()
-  from (select pos_item_id,sum(quantity)::integer quantity from public.bigfoods_pos_online_order_items where order_id=v_order.id group by pos_item_id) oi
+  from (select pos_item_id,sum(quantity)::integer quantity from public.bigfoods_pos_online_order_items where order_id=v_order.id and stock_reserved group by pos_item_id) oi
   where s.work_location_id=v_order.work_location_id and s.pos_item_id=oi.pos_item_id and s.track_stock;
  end if;
  return jsonb_build_object('success',p_success,'order_id',v_order.id,'order_number',v_order.order_number);
