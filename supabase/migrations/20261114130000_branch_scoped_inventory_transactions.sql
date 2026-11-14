@@ -76,3 +76,25 @@ drop trigger if exists inventory_batches_inherit_production_branch on public.inv
 create trigger inventory_batches_inherit_production_branch
 before insert on public.inventory_batches
 for each row execute function public.bigfoods_set_production_output_branch();
+
+-- Persist the attendance-derived branch on POS sales for branch-level reporting.
+alter table public.bigfoods_pos_sales
+  add column if not exists work_location_id uuid references public.bigfoods_staff_work_locations(id) on delete restrict;
+create or replace function public.bigfoods_pos_sale_set_attendance_branch()
+returns trigger language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_branch uuid;
+begin
+  if new.cashier_attendance_id is not null then
+    select work_location_id into v_branch from public.bigfoods_staff_attendance
+      where id=new.cashier_attendance_id and staff_id=new.cashier_staff_id and checked_out_at is null;
+    if v_branch is null then raise exception 'Active cashier branch attendance is required'; end if;
+    new.work_location_id := v_branch;
+  end if;
+  return new;
+end; $$;
+drop trigger if exists bigfoods_pos_sales_attendance_branch on public.bigfoods_pos_sales;
+create trigger bigfoods_pos_sales_attendance_branch
+before insert or update of cashier_attendance_id,cashier_staff_id on public.bigfoods_pos_sales
+for each row execute function public.bigfoods_pos_sale_set_attendance_branch();
+create index if not exists bigfoods_pos_sales_branch_created_idx
+  on public.bigfoods_pos_sales(work_location_id,created_at desc);
