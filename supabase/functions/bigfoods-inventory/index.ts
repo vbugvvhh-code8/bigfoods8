@@ -57,9 +57,11 @@ Deno.serve(async (req: Request) => {
     };
     if (action === "overview") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
+      const branch = await activeBranch();
+      if (!branch) return json({ error: "Check in at your assigned branch to view its inventory." }, 409);
       const [items, batches, alerts, movements] = await Promise.all([
         db.from("inventory_items").select("id,name,sku,category,tracking_type,base_unit,reorder_level,is_perishable,is_active,image_url,created_at").order("name").limit(500),
-        db.from("inventory_batches").select("id,inventory_item_id,batch_code,supplier_name,received_quantity,remaining_quantity,base_unit,unit_cost,currency,received_at,expires_at,status").order("received_at", { ascending: false }).limit(200),
+        db.from("inventory_batches").select("id,inventory_item_id,batch_code,supplier_name,received_quantity,remaining_quantity,base_unit,unit_cost,currency,received_at,expires_at,status,work_location_id").eq("work_location_id", branch.id).order("received_at", { ascending: false }).limit(200),
         db.from("inventory_alerts").select("id,inventory_item_id,alert_type,severity,status,title,created_at").neq("status", "resolved").neq("status", "dismissed").order("created_at", { ascending: false }).limit(100),
         db.from("inventory_movements").select("id,inventory_item_id,batch_id,movement_type,quantity,direction,base_unit,reason,occurred_at,actor_staff_id").order("occurred_at", { ascending: false }).limit(50)
       ]);
@@ -92,6 +94,10 @@ Deno.serve(async (req: Request) => {
     }
     if (action === "adjust_batch") {
       if (!has(actor, "inventory.receive")) return json({ error: "Forbidden" }, 403);
+      const branch = await activeBranch();
+      if (!branch) return json({ error: "Check in at your assigned branch before adjusting stock." }, 409);
+      const { data: targetBatch } = await db.from("inventory_batches").select("id,work_location_id").eq("id", body.batch_id).maybeSingle();
+      if (!targetBatch || targetBatch.work_location_id !== branch.id) return json({ error: "That batch does not belong to your assigned branch." }, 403);
       const { data, error } = await db.rpc("bigfoods_inventory_adjust_batch", {
         p_actor_staff_id: actor.id, p_batch_id: body.batch_id, p_quantity: body.quantity,
         p_direction: body.direction, p_reason: body.reason
@@ -101,9 +107,12 @@ Deno.serve(async (req: Request) => {
     }
     if (action === "receive") {
       if (!has(actor, "inventory.receive")) return json({ error: "Forbidden" }, 403);
+      const branch = await activeBranch();
+      if (!branch) return json({ error: "Check in at your assigned branch before receiving stock." }, 409);
       const { data: generatedCode, error: codeError } = await db.rpc("bigfoods_inventory_next_batch_code", { p_kind: "receipt" });
       if (codeError || !generatedCode) return json({ error: "Unable to generate a stock batch code. Please retry." }, 503);
-      const { data, error } = await db.rpc("bigfoods_inventory_receive", {
+      const { data, error } = await db.rpc("bigfoods_inventory_receive_for_branch", {
+        p_work_location_id: branch.id,
         p_actor_staff_id: actor.id, p_inventory_item_id: body.inventory_item_id, p_batch_code: generatedCode,
         p_quantity: body.quantity, p_unit: body.unit, p_supplier_name: body.supplier_name ?? null,
         p_supplier_reference: body.supplier_reference ?? null, p_unit_cost: body.unit_cost === "" || body.unit_cost == null ? null : body.unit_cost,
@@ -115,15 +124,20 @@ Deno.serve(async (req: Request) => {
     }
     if (action === "production_list") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
+      const branch = await activeBranch();
+      if (!branch) return json({ error: "Check in at your assigned branch to view production." }, 409);
       const { data, error } = await db.from("inventory_production_batches")
         .select("id,batch_code,input_inventory_item_id,input_batch_id,raw_input_quantity,raw_input_unit,output_inventory_item_id,output_quantity,output_unit,unprocessed_quantity,allowed_loss_quantity,actual_loss_quantity,variance_quantity,status,started_at,finished_at")
-        .order("started_at", { ascending: false }).limit(100);
+        .eq("work_location_id", branch.id).order("started_at", { ascending: false }).limit(100);
       if (error) return json({ error: "Unable to load production batches." }, 503);
       return json({ production: data ?? [] });
     }
     if (action === "waste") {
       if (!has(actor, "inventory.waste")) return json({ error: "Forbidden" }, 403);
-      const { data, error } = await db.rpc("bigfoods_inventory_log_waste", {
+      const branch = await activeBranch();
+      if (!branch) return json({ error: "Check in at your assigned branch before logging waste." }, 409);
+      const { data, error } = await db.rpc("bigfoods_inventory_log_waste_for_branch", {
+        p_work_location_id: branch.id,
         p_actor_staff_id: actor.id, p_batch_id: body.batch_id, p_quantity: body.quantity, p_reason: body.reason
       });
       if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
@@ -207,9 +221,11 @@ Deno.serve(async (req: Request) => {
     }
     if (action === "kitchen_overview") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
+      const branch = await activeBranch();
+      if (!branch) return json({ error: "Check in at your assigned branch to view kitchen stock." }, 409);
       const [items, batches, recipes] = await Promise.all([
         db.from("inventory_items").select("id,name,base_unit,reorder_level,is_active").eq("is_active", true).order("name").limit(500),
-        db.from("inventory_batches").select("inventory_item_id,remaining_quantity,status,expires_at").eq("status", "active").gt("remaining_quantity", 0).limit(2000),
+        db.from("inventory_batches").select("inventory_item_id,remaining_quantity,status,expires_at").eq("work_location_id", branch.id).eq("status", "active").gt("remaining_quantity", 0).limit(2000),
         db.from("inventory_recipes").select("id,bigfoods_pos_item_id,name,version,output_quantity,output_unit,bigfoods_pos_items(name),inventory_recipe_items(inventory_item_id,quantity,unit,inventory_items(id,name,base_unit))").eq("is_active", true).not("bigfoods_pos_item_id", "is", null).order("name").limit(500)
       ]);
       if (items.error || batches.error || recipes.error) return json({ error: "Unable to load kitchen planning data. Check that inventory recipes are configured." }, 503);
@@ -217,6 +233,8 @@ Deno.serve(async (req: Request) => {
     }
     if (action === "kitchen_queue") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
+      const branch = await activeBranch();
+      if (!branch) return json({ error: "Check in at your assigned branch to view kitchen preparations." }, 409);
       const { data, error } = await db.from("inventory_kitchen_preparations").select("id,prep_code,recipe_name,recipe_version,bigfoods_pos_item_id,requested_portions,status,ingredient_snapshot,requested_at,started_at,completed_at,notes,bigfoods_pos_items(name)").order("requested_at", { ascending: false }).limit(150);
       if (error) return json({ error: "Unable to load kitchen preparation queue." }, 503);
       return json({ preparations: data ?? [] });
@@ -258,12 +276,14 @@ Deno.serve(async (req: Request) => {
     }
     if (action === "production_start") {
       if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
+      const branch = await activeBranch();
+      if (!branch) return json({ error: "Check in at your assigned branch before starting production." }, 409);
       const rawQty = Number(body.raw_input_quantity), allowedLoss = Number(body.allowed_loss_quantity ?? 0);
       if (!body.input_inventory_item_id || !body.input_batch_id || !body.output_inventory_item_id ||
           !Number.isFinite(rawQty) || rawQty <= 0 || !Number.isFinite(allowedLoss) || allowedLoss < 0) {
         return json({ error: "Complete the production batch details with valid quantities." }, 400);
       }
-      const { data: source, error: sourceError } = await db.from("inventory_batches").select("id,inventory_item_id,remaining_quantity,base_unit,status").eq("id", body.input_batch_id).maybeSingle();
+      const { data: source, error: sourceError } = await db.from("inventory_batches").select("id,inventory_item_id,remaining_quantity,base_unit,status,work_location_id").eq("id", body.input_batch_id).eq("work_location_id", branch.id).maybeSingle();
       if (sourceError || !source || source.status !== "active" || source.inventory_item_id !== body.input_inventory_item_id || Number(source.remaining_quantity) < rawQty) {
         return json({ error: "The selected source batch is unavailable or has insufficient stock." }, 400);
       }
@@ -278,7 +298,7 @@ Deno.serve(async (req: Request) => {
         batch_code: generatedCode, input_inventory_item_id: body.input_inventory_item_id,
         input_batch_id: body.input_batch_id, raw_input_quantity: rawQty, raw_input_unit: source.base_unit,
         output_inventory_item_id: body.output_inventory_item_id, output_unit: output.base_unit,
-        unprocessed_quantity: 0, allowed_loss_quantity: allowedLoss, status: "in_progress", started_by_staff_id: actor.id
+        unprocessed_quantity: 0, allowed_loss_quantity: allowedLoss, status: "in_progress", started_by_staff_id: actor.id, work_location_id: branch.id
       }).select("id,batch_code,status,raw_input_quantity,raw_input_unit,allowed_loss_quantity").single();
       if (error) return json({ error: error.message.includes("duplicate key") ? "That production batch code already exists." : "Unable to start production batch." }, 400);
       await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "inventory.production_started", details: { production_batch_id: data.id, batch_code: data.batch_code, raw_input_quantity: rawQty } });
@@ -286,6 +306,10 @@ Deno.serve(async (req: Request) => {
     }
     if (action === "production_finish") {
       if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
+      const branch = await activeBranch();
+      if (!branch) return json({ error: "Check in at your assigned branch before finishing production." }, 409);
+      const { data: productionRow } = await db.from("inventory_production_batches").select("id,work_location_id").eq("id", body.production_batch_id).maybeSingle();
+      if (!productionRow || productionRow.work_location_id !== branch.id) return json({ error: "That production batch does not belong to your assigned branch." }, 403);
       const { data, error } = await db.rpc("bigfoods_inventory_finish_production", {
         p_actor_staff_id: actor.id, p_batch_id: body.production_batch_id,
         p_output_quantity: body.output_quantity, p_unprocessed_quantity: body.unprocessed_quantity,
