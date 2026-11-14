@@ -235,27 +235,24 @@ Deno.serve(async (req: Request) => {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
       const branch = await activeBranch();
       if (!branch) return json({ error: "Check in at your assigned branch to view kitchen preparations." }, 409);
-      const { data, error } = await db.from("inventory_kitchen_preparations").select("id,prep_code,recipe_name,recipe_version,bigfoods_pos_item_id,requested_portions,status,ingredient_snapshot,requested_at,started_at,completed_at,notes,bigfoods_pos_items(name)").order("requested_at", { ascending: false }).limit(150);
+      const { data, error } = await db.from("inventory_kitchen_preparations").select("id,prep_code,recipe_name,recipe_version,bigfoods_pos_item_id,requested_portions,status,ingredient_snapshot,requested_at,started_at,completed_at,notes,bigfoods_pos_items(name)").eq("work_location_id", branch.id).order("requested_at", { ascending: false }).limit(150);
       if (error) return json({ error: "Unable to load kitchen preparation queue." }, 503);
       return json({ preparations: data ?? [] });
     }
     if (action === "kitchen_create") {
       if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
-      return json({ error: "Branch-safe kitchen preparation is not enabled yet. No stock was changed. Please use the assigned branch workflow after the kitchen transaction migration is applied." }, 409);
       const { data, error } = await db.rpc("bigfoods_kitchen_create_preparation", { p_actor_staff_id: actor.id, p_recipe_id: body.recipe_id, p_portions: body.portions, p_notes: body.notes ?? null });
       if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
       return json({ preparation: data }, 201);
     }
     if (action === "kitchen_start") {
       if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
-      return json({ error: "Branch-safe kitchen consumption is not enabled yet. No stock was changed." }, 409);
       const { data, error } = await db.rpc("bigfoods_kitchen_start_preparation", { p_actor_staff_id: actor.id, p_preparation_id: body.preparation_id });
       if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
       return json({ preparation: data });
     }
     if (action === "kitchen_finish") {
       if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
-      return json({ error: "Branch-specific finished menu stock is not enabled yet. No stock was changed." }, 409);
       const { data, error } = await db.rpc("bigfoods_kitchen_finish_preparation", { p_actor_staff_id: actor.id, p_preparation_id: body.preparation_id, p_notes: body.notes ?? null });
       if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
       return json({ preparation: data });
