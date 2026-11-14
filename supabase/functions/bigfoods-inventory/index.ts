@@ -282,6 +282,52 @@ Deno.serve(async (req: Request) => {
       if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
       return json({ production: data }, 200);
     }
+    if (action === "branch_catalogue") {
+      if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
+      const [branches, items, branchItems, stock] = await Promise.all([
+        db.from("bigfoods_staff_work_locations").select("id,name,branch_code,is_active").eq("is_active", true).order("name"),
+        db.from("bigfoods_pos_items").select("id,name,sku,category,selling_price,is_available,track_stock,stock_quantity,low_stock_alert").order("category").order("name").limit(1000),
+        db.from("bigfoods_pos_branch_items").select("id,work_location_id,pos_item_id,is_available,selling_price,sort_order").limit(5000),
+        db.from("bigfoods_pos_branch_menu_stock").select("work_location_id,pos_item_id,track_stock,stock_quantity,low_stock_alert,updated_at").limit(5000)
+      ]);
+      if (branches.error || items.error || branchItems.error || stock.error) return json({ error: "Branch catalogue schema is unavailable. Apply the latest branch inventory migration." }, 503);
+      return json({ branches: branches.data ?? [], items: items.data ?? [], branch_items: branchItems.data ?? [], branch_stock: stock.data ?? [] });
+    }
+    if (action === "branch_item_save") {
+      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
+      const branchId = typeof body.work_location_id === "string" ? body.work_location_id : "";
+      const itemId = typeof body.pos_item_id === "string" ? body.pos_item_id : "";
+      const price = body.selling_price === "" || body.selling_price == null ? null : Number(body.selling_price);
+      const sortOrder = Number(body.sort_order ?? 0);
+      if (!branchId || !itemId || (price !== null && (!Number.isFinite(price) || price < 0)) || !Number.isInteger(sortOrder)) return json({ error: "Choose a branch and POS item, and provide a valid optional price." }, 400);
+      const [{ data: branchRow }, { data: itemRow }] = await Promise.all([
+        db.from("bigfoods_staff_work_locations").select("id,is_active").eq("id", branchId).maybeSingle(),
+        db.from("bigfoods_pos_items").select("id").eq("id", itemId).maybeSingle()
+      ]);
+      if (!branchRow?.is_active || !itemRow) return json({ error: "Choose an active branch and an existing POS item." }, 400);
+      const { data, error } = await db.from("bigfoods_pos_branch_items").upsert({
+        work_location_id: branchId, pos_item_id: itemId, is_available: body.is_available !== false,
+        selling_price: price, sort_order: sortOrder, updated_by_staff_id: actor.id, updated_at: new Date().toISOString()
+      }, { onConflict: "work_location_id,pos_item_id" }).select("*").single();
+      if (error) return json({ error: "Unable to save branch catalogue item." }, 400);
+      return json({ branch_item: data });
+    }
+    if (action === "branch_stock_save") {
+      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
+      const branchId = typeof body.work_location_id === "string" ? body.work_location_id : "";
+      const itemId = typeof body.pos_item_id === "string" ? body.pos_item_id : "";
+      const quantity = Number(body.stock_quantity), low = Number(body.low_stock_alert ?? 10);
+      if (!branchId || !itemId || !Number.isSafeInteger(quantity) || quantity < 0 || !Number.isSafeInteger(low) || low < 0) return json({ error: "Enter a branch, POS item and valid whole-number stock levels." }, 400);
+      const { data: branchItem } = await db.from("bigfoods_pos_branch_items").select("id").eq("work_location_id", branchId).eq("pos_item_id", itemId).maybeSingle();
+      if (!branchItem) return json({ error: "Add this item to the branch catalogue before setting its stock." }, 409);
+      const { data, error } = await db.from("bigfoods_pos_branch_menu_stock").upsert({
+        work_location_id: branchId, pos_item_id: itemId, track_stock: body.track_stock !== false,
+        stock_quantity: quantity, low_stock_alert: low, updated_by_staff_id: actor.id, updated_at: new Date().toISOString()
+      }, { onConflict: "work_location_id,pos_item_id" }).select("*").single();
+      if (error) return json({ error: "Unable to save branch menu stock." }, 400);
+      await db.from("bigfoods_staff_audit_events").insert({ actor_staff_id: actor.id, action: "inventory.branch_menu_stock_updated", details: { work_location_id: branchId, pos_item_id: itemId, stock_quantity: quantity, track_stock: body.track_stock !== false } });
+      return json({ stock: data });
+    }
     return json({ error: "Unknown inventory action" }, 400);
   } catch {
     return json({ error: "Inventory service unavailable" }, 503);
