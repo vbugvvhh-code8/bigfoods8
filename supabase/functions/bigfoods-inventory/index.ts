@@ -59,14 +59,25 @@ Deno.serve(async (req: Request) => {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
       const branch = await activeBranch();
       if (!branch) return json({ error: "Check in at your assigned branch to view its inventory." }, 409);
-      const [items, batches, alerts, movements] = await Promise.all([
+      const [{ data: items, error: itemsError }, { data: batches, error: batchesError }] = await Promise.all([
         db.from("inventory_items").select("id,name,sku,category,tracking_type,base_unit,reorder_level,is_perishable,is_active,image_url,created_at").order("name").limit(500),
-        db.from("inventory_batches").select("id,inventory_item_id,batch_code,supplier_name,received_quantity,remaining_quantity,base_unit,unit_cost,currency,received_at,expires_at,status,work_location_id").eq("work_location_id", branch.id).order("received_at", { ascending: false }).limit(200),
-        db.from("inventory_alerts").select("id,inventory_item_id,alert_type,severity,status,title,created_at").neq("status", "resolved").neq("status", "dismissed").order("created_at", { ascending: false }).limit(100),
-        db.from("inventory_movements").select("id,inventory_item_id,batch_id,movement_type,quantity,direction,base_unit,reason,occurred_at,actor_staff_id").order("occurred_at", { ascending: false }).limit(50)
+        db.from("inventory_batches").select("id,inventory_item_id,batch_code,supplier_name,received_quantity,remaining_quantity,base_unit,unit_cost,currency,received_at,expires_at,status,work_location_id").eq("work_location_id", branch.id).order("received_at", { ascending: false }).limit(200)
       ]);
-      if (items.error || batches.error || alerts.error || movements.error) return json({ error: "Inventory schema is not available yet. Apply the Task 10 migrations to the test database first." }, 503);
-      return json({ items: items.data ?? [], batches: batches.data ?? [], alerts: alerts.data ?? [], movements: movements.data ?? [] });
+      if (itemsError || batchesError) return json({ error: "Inventory schema is not available yet. Apply the Task 10 and branch inventory migrations first." }, 503);
+      const batchIds = (batches ?? []).map((row: any) => row.id);
+      const [movementsResult, productionResult] = await Promise.all([
+        batchIds.length
+          ? db.from("inventory_movements").select("id,inventory_item_id,batch_id,movement_type,quantity,direction,base_unit,reason,occurred_at,actor_staff_id").in("batch_id", batchIds).order("occurred_at", { ascending: false }).limit(50)
+          : Promise.resolve({ data: [], error: null }),
+        db.from("inventory_production_batches").select("id").eq("work_location_id", branch.id)
+      ]);
+      if (movementsResult.error || productionResult.error) return json({ error: "Unable to load branch inventory history." }, 503);
+      const productionIds = (productionResult.data ?? []).map((row: any) => row.id);
+      const alertsResult = productionIds.length
+        ? await db.from("inventory_alerts").select("id,inventory_item_id,production_batch_id,alert_type,severity,status,title,created_at").in("production_batch_id", productionIds).neq("status", "resolved").neq("status", "dismissed").order("created_at", { ascending: false }).limit(100)
+        : { data: [], error: null };
+      if (alertsResult.error) return json({ error: "Unable to load branch inventory alerts." }, 503);
+      return json({ items: items ?? [], batches: batches ?? [], alerts: alertsResult.data ?? [], movements: movementsResult.data ?? [] });
     }
     if (action === "item_create") {
       if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
@@ -259,7 +270,6 @@ Deno.serve(async (req: Request) => {
     }
     if (action === "kitchen_cancel") {
       if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
-      return json({ error: "Branch-safe kitchen cancellation is not enabled yet." }, 409);
       const { data, error } = await db.rpc("bigfoods_kitchen_cancel_preparation", {
         p_actor_staff_id: actor.id, p_preparation_id: body.preparation_id, p_reason: body.reason ?? null
       });
