@@ -201,3 +201,27 @@ begin
 end; $$;
 revoke all on function public.bigfoods_pos_checkout_priced(uuid,uuid,uuid,text,jsonb,numeric,text,numeric,text,text) from public,anon,authenticated;
 grant execute on function public.bigfoods_pos_checkout_priced(uuid,uuid,uuid,text,jsonb,numeric,text,numeric,text,text) to service_role;
+
+-- Only queued preparations can be cancelled without inventory reversal. Once
+-- started, ingredient consumption is immutable and requires a dedicated reversal.
+create or replace function public.bigfoods_kitchen_cancel_preparation(
+ p_actor_staff_id uuid,p_preparation_id uuid,p_reason text default null
+) returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_actor public.bigfoods_staff%rowtype; v_branch uuid; v_prep public.inventory_kitchen_preparations%rowtype;
+begin
+ select * into v_actor from public.bigfoods_staff where id=p_actor_staff_id and is_active for share;
+ if not found or v_actor.must_change_password or not (v_actor.role in ('owner','admin','inventory') or v_actor.permissions @> '["inventory.process"]'::jsonb) then raise exception 'Forbidden'; end if;
+ select work_location_id into v_branch from public.bigfoods_staff_attendance where staff_id=p_actor_staff_id and checked_out_at is null for share;
+ if v_branch is null then raise exception 'Check in at your assigned branch before cancelling preparation'; end if;
+ select * into v_prep from public.inventory_kitchen_preparations where id=p_preparation_id for update;
+ if not found or v_prep.work_location_id is distinct from v_branch then raise exception 'Preparation not found in your assigned branch'; end if;
+ if v_prep.status<>'queued' then raise exception 'Only queued preparations can be cancelled. Started preparations require an inventory reversal review.'; end if;
+ update public.inventory_kitchen_preparations set status='cancelled',
+   notes=concat_ws(E'\n',nullif(notes,''),nullif(trim(coalesce(p_reason,'')),''),'Cancelled by staff')
+ where id=v_prep.id;
+ insert into public.bigfoods_staff_audit_events(actor_staff_id,action,details)
+ values(p_actor_staff_id,'inventory.kitchen_preparation_cancelled',jsonb_build_object('preparation_id',v_prep.id,'prep_code',v_prep.prep_code,'reason',nullif(trim(coalesce(p_reason,'')),''),'work_location_id',v_branch));
+ return jsonb_build_object('id',v_prep.id,'prep_code',v_prep.prep_code,'status','cancelled');
+end; $$;
+revoke all on function public.bigfoods_kitchen_cancel_preparation(uuid,uuid,text) from public,anon,authenticated;
+grant execute on function public.bigfoods_kitchen_cancel_preparation(uuid,uuid,text) to service_role;
