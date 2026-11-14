@@ -177,7 +177,7 @@ Deno.serve(async (req: Request) => {
       if (rawItems.error || staff.error) return json({ error: "Unable to load branch waste history details." }, 503);
       const itemMap = new Map((rawItems.data ?? []).map((row: any) => [row.id, row.name]));
       const staffMap = new Map((staff.data ?? []).map((row: any) => [row.id, row.display_name]));
-      return json({ waste: rawRows.map((row: any) => ({ ...row, item_name: itemMap.get(row.inventory_item_id) ?? "Inventory item", staff_name: staffMap.get(row.actor_staff_id) ?? "Staff" })), menu_waste: [] });
+      return json({ raw: rawRows.map((row: any) => ({ ...row, item_name: itemMap.get(row.inventory_item_id) ?? "Inventory item", staff_name: staffMap.get(row.actor_staff_id) ?? "Staff" })), menu: [] });
     }
     if (action === "kitchen_overview") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
