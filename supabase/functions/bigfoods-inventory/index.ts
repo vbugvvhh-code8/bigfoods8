@@ -279,7 +279,7 @@ Deno.serve(async (req: Request) => {
       return json({ production: data }, 200);
     }
     if (action === "branch_catalogue") {
-      if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
+      if (!has(actor, "inventory.view") && !has(actor, "pos.manage_catalogue")) return json({ error: "Forbidden" }, 403);
       const branch = await activeBranch();
       if (!branch) return json({ error: "No active branch attendance was found. Check in to your assigned branch before managing its catalogue." }, 409);
       const [items, branchItems, stock] = await Promise.all([
@@ -291,7 +291,7 @@ Deno.serve(async (req: Request) => {
       return json({ branches: [branch], current_branch: branch, items: items.data ?? [], branch_items: branchItems.data ?? [], branch_stock: stock.data ?? [] });
     }
     if (action === "branch_item_save") {
-      if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
+      if (!has(actor, "inventory.process") && !has(actor, "pos.manage_catalogue")) return json({ error: "Forbidden" }, 403);
       const branch = await activeBranch();
       if (!branch) return json({ error: "Check in to your assigned branch before managing its catalogue." }, 409);
       const branchId = branch.id;
