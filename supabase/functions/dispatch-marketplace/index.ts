@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { sendBigFoodsOrderEmail } from "../_shared/bigfoods-order-email.ts";
 
 const URL = Deno.env.get("SUPABASE_URL")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -51,6 +52,7 @@ Deno.serve(async (req: Request) => {
       const { data, error } = await userClient.rpc("bigfoods_pos_rider_update", { p_order_id: body.order_id, p_status: body.status });
       if (error) return json({ error: "Could not update BigFoods delivery" }, 500);
       if (!data?.ok) return json({ error: data?.error ?? "Delivery update rejected" }, 409);
+      await sendBigFoodsOrderEmail(admin, body.order_id, body.status);
       return json({ ok: true, status: data.status });
     }
 
