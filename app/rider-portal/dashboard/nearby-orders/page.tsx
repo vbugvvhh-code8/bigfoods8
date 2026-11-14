@@ -30,7 +30,7 @@ export default function NearbyOrdersPage() {
       // An accepted offer is only current when its order is still active and
       // assigned to this rider. Ignore stale accepted offers for delivered or
       // cancelled orders so they cannot hide genuine pending offers.
-      const acceptedOffers = fetchedOffers.filter(offer => offer.status === 'accepted');
+      const acceptedOffers = fetchedOffers.filter(offer => offer.status === 'accepted' && offer.source !== 'bigfoods');
       let currentOffers = fetchedOffers;
       if (acceptedOffers.length && rider?.id) {
         const { data: activeAcceptedOrders } = await supabase.from('orders')
