@@ -137,10 +137,15 @@ begin
  if p_customer_email is not null and (length(trim(p_customer_email))>254 or trim(p_customer_email)!~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$') then raise exception 'Enter a valid customer email address'; end if;
  -- Lock and validate every branch stock row before any write; reject duplicate lines
  -- only after normalizing them into one quantity per product.
- for v_item in select value from jsonb_array_elements(p_items) loop
-   v_qty:=(v_item->>'quantity')::integer;
-   if v_qty<1 or v_qty>99 then raise exception 'Invalid item quantity'; end if;
-   select * into v_product from public.bigfoods_pos_items where id=(v_item->>'product_id')::uuid and is_available=true;
+ for v_item in
+   select jsonb_build_object('product_id',product_id,'quantity',sum(quantity)::integer) as value
+   from (select (value->>'product_id')::uuid as product_id,(value->>'quantity')::integer as quantity
+         from jsonb_array_elements(p_items)) q
+   group by product_id
+ loop
+   v_qty:=(v_item.value->>'quantity')::integer;
+   if v_qty<1 or v_qty>9900 then raise exception 'Invalid item quantity'; end if;
+   select * into v_product from public.bigfoods_pos_items where id=(v_item.value->>'product_id')::uuid and is_available=true;
    if not found then raise exception 'A basket product is unavailable'; end if;
    select * into v_branch_item from public.bigfoods_pos_branch_items
      where work_location_id=v_attendance.work_location_id and pos_item_id=v_product.id and is_available for share;
@@ -163,13 +168,18 @@ begin
  v_sale_id:=(v_result->>'sale_id')::uuid;
  if coalesce((v_result->>'replayed')::boolean,false) then return v_result; end if;
  -- Snapshot branch prices on the sale lines and consume prepared portions.
- for v_item in select value from jsonb_array_elements(p_items) loop
-   v_qty:=(v_item->>'quantity')::integer;
-   select * into v_product from public.bigfoods_pos_items where id=(v_item->>'product_id')::uuid;
+ for v_item in
+   select jsonb_build_object('product_id',product_id,'quantity',sum(quantity)::integer) as value
+   from (select (value->>'product_id')::uuid as product_id,(value->>'quantity')::integer as quantity
+         from jsonb_array_elements(p_items)) q
+   group by product_id
+ loop
+   v_qty:=(v_item.value->>'quantity')::integer;
+   select * into v_product from public.bigfoods_pos_items where id=(v_item.value->>'product_id')::uuid;
    select * into v_branch_item from public.bigfoods_pos_branch_items
      where work_location_id=v_attendance.work_location_id and pos_item_id=v_product.id;
    v_price:=coalesce(v_branch_item.selling_price,v_product.selling_price);
-   update public.bigfoods_pos_sale_items set unit_price=v_price,line_total=v_price*v_qty
+   update public.bigfoods_pos_sale_items set unit_price=v_price,line_total=v_price*quantity
      where sale_id=v_sale_id and product_id=v_product.id;
    update public.bigfoods_pos_branch_menu_stock set stock_quantity=stock_quantity-v_qty,
      updated_at=now() where work_location_id=v_attendance.work_location_id and pos_item_id=v_product.id
