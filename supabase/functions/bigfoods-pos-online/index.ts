@@ -43,7 +43,7 @@ Deno.serve(async(req:Request)=>{
    const {error:trackingError}=await db.from("bigfoods_pos_online_orders").update({tracking_token_hash:await sha256(trackingToken)}).eq("id",order.order_id);
    if(trackingError){await db.rpc("bigfoods_pos_online_payment_finalize",{p_reference:reference,p_success:false});return json({error:"Could not create secure order tracking link."},503);}
    const origin=typeof body.callback_origin==="string"&&/^https:\/\//.test(body.callback_origin)?body.callback_origin:"https://bigfoods.app";
-   const callback=new URL("/online-order/payment",origin);callback.searchParams.set("tracking_token",trackingToken);
+   const callback=new URL("/online_order/payment",origin);callback.searchParams.set("tracking_token",trackingToken);
    const response=await fetch("https://api.paystack.co/transaction/initialize",{method:"POST",headers:{Authorization:`Bearer ${PAYSTACK}`,"Content-Type":"application/json"},body:JSON.stringify({email,amount:Math.round(Number(order.total_amount)*100),currency:"NGN",reference,callback_url:callback.toString(),metadata:{type:"bigfoods_pos_online_order",order_id:order.order_id,order_number:order.order_number}})});
    const result=await response.json();
    if(!response.ok||result.status!==true){await db.rpc("bigfoods_pos_online_payment_finalize",{p_reference:reference,p_success:false});return json({error:result.message||"Could not initialize payment"},502)}
