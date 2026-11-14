@@ -87,7 +87,16 @@ Deno.serve(async(req:Request)=>{
    const {data:riders,error:riderError}=await db.from("riders").select("id,name,zone,status,approval_status,verification_fee_paid,waiver_completed,dispatch_disabled").eq("status","online").eq("approval_status","approved").eq("verification_fee_paid",true).eq("waiver_completed",true).eq("dispatch_disabled",false).order("name");
    if(riderError)return json({error:"Could not load eligible riders"},503);
    const zone=String(branch.dispatch_zone).trim().toLocaleLowerCase();
-   const eligible=(riders||[]).filter((r:any)=>String(r.zone||"").trim().toLocaleLowerCase()===zone).map((r:any)=>({id:r.id,name:r.name,zone:r.zone}));
+   const zoneRiders=(riders||[]).filter((r:any)=>String(r.zone||"").trim().toLocaleLowerCase()===zone);
+   const riderIds=zoneRiders.map((r:any)=>r.id);
+   if(!riderIds.length)return json({riders:[]});
+   const [{data:marketplaceActive,error:marketplaceError},{data:posActive,error:posActiveError}]=await Promise.all([
+    db.from("orders").select("rider_id").in("rider_id",riderIds).in("status",["placed","preparing","picked_up"]),
+    db.from("bigfoods_pos_online_orders").select("assigned_rider_id").in("assigned_rider_id",riderIds).in("status",["ready","out_for_delivery"])
+   ]);
+   if(marketplaceError||posActiveError)return json({error:"Could not verify rider availability. Refresh and try again."},503);
+   const busyRiders=new Set([...(marketplaceActive||[]).map((x:any)=>x.rider_id),...(posActive||[]).map((x:any)=>x.assigned_rider_id)]);
+   const eligible=zoneRiders.filter((r:any)=>!busyRiders.has(r.id)).map((r:any)=>({id:r.id,name:r.name,zone:r.zone}));
    return json({riders:eligible});
   }
   if(action==="staff_assign_rider"){
@@ -104,6 +113,12 @@ Deno.serve(async(req:Request)=>{
    if(branchError||riderError||!branch||!rider)return json({error:"Could not validate branch or rider"},503);
    const branchZone=String(branch.dispatch_zone||"").trim().toLocaleLowerCase(),riderZone=String(rider.zone||"").trim().toLocaleLowerCase();
    if(!branchZone||branchZone!==riderZone||rider.status!=="online"||rider.approval_status!=="approved"||!rider.verification_fee_paid||!rider.waiver_completed||rider.dispatch_disabled)return json({error:"Rider is not eligible for this branch delivery"},409);
+   const [{data:marketplaceActive,error:marketplaceError},{data:posActive,error:posActiveError}]=await Promise.all([
+    db.from("orders").select("id").eq("rider_id",rider.id).in("status",["placed","preparing","picked_up"]).limit(1),
+    db.from("bigfoods_pos_online_orders").select("id").eq("assigned_rider_id",rider.id).in("status",["ready","out_for_delivery"]).limit(1)
+   ]);
+   if(marketplaceError||posActiveError)return json({error:"Could not verify rider availability. Refresh and try again."},503);
+   if((marketplaceActive||[]).length||(posActive||[]).length)return json({error:"This rider already has an active delivery. Choose another available rider."},409);
    const {data:updated,error:updateError}=await db.from("bigfoods_pos_online_orders").update({assigned_rider_id:rider.id,updated_at:new Date().toISOString()}).eq("id",id).is("assigned_rider_id",null).eq("status","ready").eq("payment_status","paid").select("id").maybeSingle();
    if(updateError||!updated)return json({error:"Order was assigned by another dispatcher. Refresh and try again."},409);
    const {error:offerError}=await db.from("bigfoods_pos_online_rider_offers").upsert({order_id:id,rider_id:rider.id,status:"accepted",responded_at:new Date().toISOString()},{onConflict:"order_id,rider_id"});
