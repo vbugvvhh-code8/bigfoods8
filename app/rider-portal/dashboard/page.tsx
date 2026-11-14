@@ -233,7 +233,7 @@ export default function RiderDashboardPage() {
                 onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !offerActionId && online) void respondToOffer(offer.order_id, true, offer.source); }}
                 onPointerDown={e => { if (offerActionId || !online) return; swipeStart.current = e.clientX; e.currentTarget.setPointerCapture(e.pointerId); }}
                 onPointerMove={e => { if (swipeStart.current === null) return; const progress = Math.max(0, Math.min(100, ((e.clientX - swipeStart.current) / Math.max(1, e.currentTarget.clientWidth)) * 100)); setSwipeProgress(s => ({ ...s, [offer.order_id]: progress })); }}
-                onPointerUp={() => { const progress = swipeProgress[offer.order_id] ?? 0; swipeStart.current = null; setSwipeProgress(s => ({ ...s, [offer.order_id]: 0 })); if (progress >= 65 && !offerActionId && online) void respondToOffer(offer.order_id, true); }}
+                onPointerUp={() => { const progress = swipeProgress[offer.order_id] ?? 0; swipeStart.current = null; setSwipeProgress(s => ({ ...s, [offer.order_id]: 0 })); if (progress >= 65 && !offerActionId && online) void respondToOffer(offer.order_id, true, offer.source); }}
                 onPointerCancel={() => { swipeStart.current = null; setSwipeProgress(s => ({ ...s, [offer.order_id]: 0 })); }}
                 className="relative mt-3 flex h-14 touch-pan-y select-none items-center overflow-hidden rounded-full px-2 text-sm font-semibold text-white"
                 style={{ background: '#242424', opacity: offerActionId || !online ? 0.55 : 1 }}
