@@ -78,14 +78,14 @@ Deno.serve(async(req:Request)=>{
   if(action==="staff_update"){
    if(!admin&&!perms.includes("pos.sell")&&!perms.includes("orders.manage"))return json({error:"Forbidden"},403);
    const id=typeof body.order_id==="string"?body.order_id:"",status=String(body.status||"");
-   const allowed=["accepted","preparing","ready","picked_up"];
+   const allowed=["accepted","ready","picked_up"];
    if(!id||!allowed.includes(status))return json({error:"Invalid order update"},400);
    const {data:order,error:loadError}=await db.from("bigfoods_pos_online_orders").select("id,status,payment_status,work_location_id,fulfilment_type").eq("id",id).maybeSingle();
    if(loadError||!order)return json({error:"Order not found"},404);
    const {data:attendance}=await db.from("bigfoods_staff_attendance").select("work_location_id").eq("staff_id",actor.id).is("checked_out_at",null).maybeSingle();
    if(!admin&&(!attendance||attendance.work_location_id!==order.work_location_id))return json({error:"Check in at the order's branch to manage it."},403);
    if(order.payment_status!=="paid")return json({error:"Only paid online orders can be processed."},409);
-   const transitions:Record<string,string[]>={accepted:["confirmed"],preparing:["accepted","confirmed"],ready:["preparing"],picked_up:["ready"]};
+   const transitions:Record<string,string[]>={accepted:["confirmed"],ready:["accepted"],picked_up:["ready"]};
    if(status==="picked_up"&&order.fulfilment_type!=="pickup")return json({error:"Delivery orders must be completed through rider dispatch."},409);
    if(!transitions[status]?.includes(order.status))return json({error:"This status transition is not allowed. Paid orders cannot be rejected or cancelled until refund and stock-restoration handling is available."},409);
    const patch:any={status,updated_at:new Date().toISOString()};
