@@ -30,8 +30,6 @@ begin
   );
   v_batch_id := (v_result->>'batch_id')::uuid;
   update public.inventory_batches set work_location_id=p_work_location_id where id=v_batch_id;
-  update public.inventory_movements set metadata=coalesce(metadata,'{}'::jsonb)||jsonb_build_object('work_location_id',p_work_location_id)
-    where batch_id=v_batch_id and movement_type='receipt';
   return v_result || jsonb_build_object('work_location_id',p_work_location_id);
 end; $$;
 
