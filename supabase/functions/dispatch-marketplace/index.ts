@@ -28,6 +28,32 @@ Deno.serve(async (req: Request) => {
     const { data: adminFlag, error: adminError } = await userClient.rpc("is_admin");
     const isAdmin = !adminError && adminFlag === true;
 
+    if (action === "pos_rider_offers") {
+      const { data, error } = await userClient.rpc("bigfoods_pos_rider_offers");
+      if (error) return json({ error: "Could not load BigFoods delivery offers" }, 500);
+      return json({ offers: data ?? [] });
+    }
+    if (action === "pos_respond_offer") {
+      if (typeof body?.order_id !== "string" || typeof body?.accept !== "boolean") return json({ error: "Invalid offer response" }, 400);
+      const { data, error } = await userClient.rpc("bigfoods_pos_rider_respond", { p_order_id: body.order_id, p_accept: body.accept });
+      if (error) return json({ error: "Could not respond to BigFoods offer" }, 500);
+      if (!data?.ok) return json({ error: data?.error ?? "Offer unavailable" }, 409);
+      return json({ ok: true, status: data.status });
+    }
+    if (action === "pos_order_details") {
+      if (typeof body?.order_id !== "string") return json({ error: "Order id is required" }, 400);
+      const { data, error } = await userClient.rpc("bigfoods_pos_rider_order_details", { p_order_id: body.order_id });
+      if (error) return json({ error: "Could not load assigned BigFoods delivery" }, 404);
+      return json({ order: data });
+    }
+    if (action === "pos_update_delivery") {
+      if (typeof body?.order_id !== "string" || !["out_for_delivery", "delivered"].includes(body?.status)) return json({ error: "Invalid delivery update" }, 400);
+      const { data, error } = await userClient.rpc("bigfoods_pos_rider_update", { p_order_id: body.order_id, p_status: body.status });
+      if (error) return json({ error: "Could not update BigFoods delivery" }, 500);
+      if (!data?.ok) return json({ error: data?.error ?? "Delivery update rejected" }, 409);
+      return json({ ok: true, status: data.status });
+    }
+
     if (action === "list_admin") {
       if (!isAdmin) return json({ error: "Administrator access required" }, 403);
       const [orders, riders, settings] = await Promise.all([
