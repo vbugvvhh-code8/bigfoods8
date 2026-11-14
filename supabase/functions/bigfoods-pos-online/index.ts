@@ -62,9 +62,17 @@ Deno.serve(async(req:Request)=>{
   const admin=["owner","admin"].includes(actor.role);
   if(action==="staff_list"){
    if(!admin&&!perms.includes("pos.reports")&&!perms.includes("orders.view"))return json({error:"Forbidden"},403);
-   const {data,error}=await db.from("bigfoods_pos_online_orders").select("*,bigfoods_staff_work_locations(name,address),bigfoods_pos_online_order_items(*)").order("created_at",{ascending:false}).limit(150);
+   let query=db.from("bigfoods_pos_online_orders").select("*,bigfoods_staff_work_locations(name,address),bigfoods_pos_online_order_items(*)").order("created_at",{ascending:false}).limit(150);
+   let currentBranch=null;
+   if(!admin){
+    const {data:attendance}=await db.from("bigfoods_staff_attendance").select("work_location_id").eq("staff_id",actor.id).is("checked_out_at",null).maybeSingle();
+    if(!attendance?.work_location_id)return json({error:"Check in at your assigned branch to view online orders."},409);
+    currentBranch=attendance.work_location_id;
+    query=query.eq("work_location_id",currentBranch);
+   }
+   const {data,error}=await query;
    if(error)return json({error:"Unable to load online orders"},503);
-   return json({orders:data||[]});
+   return json({orders:data||[],current_branch_id:currentBranch});
   }
   if(action==="staff_update"){
    if(!admin&&!perms.includes("pos.sell")&&!perms.includes("orders.manage"))return json({error:"Forbidden"},403);
