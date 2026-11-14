@@ -84,7 +84,7 @@ export default function NearbyOrdersPage() {
             onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !busy && rider.status === 'online') void respond(offer.order_id, true, offer.source); }}
             onPointerDown={e => { if (busy || rider.status !== 'online') return; swipeStart.current = e.clientX; e.currentTarget.setPointerCapture(e.pointerId); }}
             onPointerMove={e => { if (swipeStart.current === null) return; const progress = Math.max(0, Math.min(100, ((e.clientX - swipeStart.current) / Math.max(1, e.currentTarget.clientWidth)) * 100)); setSwipeProgress(s => ({ ...s, [offer.order_id]: progress })); }}
-            onPointerUp={() => { const progress = swipeProgress[offer.order_id] ?? 0; swipeStart.current = null; setSwipeProgress(s => ({ ...s, [offer.order_id]: 0 })); if (progress >= 65 && !busy && rider.status === 'online') void respond(offer.order_id, true); }}
+            onPointerUp={() => { const progress = swipeProgress[offer.order_id] ?? 0; swipeStart.current = null; setSwipeProgress(s => ({ ...s, [offer.order_id]: 0 })); if (progress >= 65 && !busy && rider.status === 'online') void respond(offer.order_id, true, offer.source); }}
             onPointerCancel={() => { swipeStart.current = null; setSwipeProgress(s => ({ ...s, [offer.order_id]: 0 })); }}
             className="relative flex h-14 touch-pan-y select-none items-center overflow-hidden rounded-full px-2 text-sm font-semibold text-white"
             style={{ background: '#242424', opacity: busy || rider.status !== 'online' ? 0.55 : 1 }}
