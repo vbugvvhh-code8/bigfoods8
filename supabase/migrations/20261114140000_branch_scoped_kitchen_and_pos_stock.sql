@@ -231,3 +231,21 @@ begin
 end; $$;
 revoke all on function public.bigfoods_kitchen_cancel_preparation(uuid,uuid,text) from public,anon,authenticated;
 grant execute on function public.bigfoods_kitchen_cancel_preparation(uuid,uuid,text) to service_role;
+
+-- Branch-bound count adjustments use the same immutable inventory movement RPC,
+-- but validate attendance and batch ownership inside the database transaction.
+create or replace function public.bigfoods_inventory_adjust_batch_for_branch(
+ p_work_location_id uuid,p_actor_staff_id uuid,p_batch_id uuid,p_quantity numeric,p_direction text,p_reason text
+) returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+begin
+ if not exists(select 1 from public.bigfoods_staff_attendance
+   where staff_id=p_actor_staff_id and work_location_id=p_work_location_id and checked_out_at is null) then
+   raise exception 'Active assigned-branch attendance required';
+ end if;
+ if not exists(select 1 from public.inventory_batches where id=p_batch_id and work_location_id=p_work_location_id) then
+   raise exception 'Stock batch does not belong to the active branch';
+ end if;
+ return public.bigfoods_inventory_adjust_batch(p_actor_staff_id,p_batch_id,p_quantity,p_direction,p_reason);
+end; $$;
+revoke all on function public.bigfoods_inventory_adjust_batch_for_branch(uuid,uuid,uuid,numeric,text,text) from public,anon,authenticated;
+grant execute on function public.bigfoods_inventory_adjust_batch_for_branch(uuid,uuid,uuid,numeric,text,text) to service_role;
