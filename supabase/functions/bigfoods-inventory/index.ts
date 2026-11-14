@@ -43,6 +43,18 @@ Deno.serve(async (req: Request) => {
     if (!actor) return json({ error: "Unauthenticated" }, 401);
     if (actor.must_change_password) return json({ error: "Change your temporary password first" }, 403);
     const action = body.action;
+    const activeBranch = async () => {
+      const { data: attendance, error: attendanceError } = await db.from("bigfoods_staff_attendance")
+        .select("id,work_location_id,checked_in_at")
+        .eq("staff_id", actor.id).is("checked_out_at", null).maybeSingle();
+      if (attendanceError) throw new Error("Unable to verify your active branch attendance.");
+      if (!attendance?.work_location_id) return null;
+      const { data: branch, error: branchError } = await db.from("bigfoods_staff_work_locations")
+        .select("id,name,branch_code,is_active")
+        .eq("id", attendance.work_location_id).maybeSingle();
+      if (branchError) throw new Error("Unable to verify your assigned branch.");
+      return branch?.is_active ? { ...branch, attendance_id: attendance.id } : null;
+    };
     if (action === "overview") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
       const [items, batches, alerts, movements] = await Promise.all([
@@ -284,18 +296,21 @@ Deno.serve(async (req: Request) => {
     }
     if (action === "branch_catalogue") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
-      const [branches, items, branchItems, stock] = await Promise.all([
-        db.from("bigfoods_staff_work_locations").select("id,name,branch_code,is_active").eq("is_active", true).order("name"),
+      const branch = await activeBranch();
+      if (!branch) return json({ error: "No active branch attendance was found. Check in to your assigned branch before managing its catalogue." }, 409);
+      const [items, branchItems, stock] = await Promise.all([
         db.from("bigfoods_pos_items").select("id,name,sku,category,selling_price,is_available").order("category").order("name").limit(1000),
-        db.from("bigfoods_pos_branch_items").select("id,work_location_id,pos_item_id,is_available,selling_price,sort_order").limit(5000),
-        db.from("bigfoods_pos_branch_menu_stock").select("work_location_id,pos_item_id,track_stock,stock_quantity,low_stock_alert,updated_at").limit(5000)
+        db.from("bigfoods_pos_branch_items").select("id,work_location_id,pos_item_id,is_available,selling_price,sort_order").eq("work_location_id", branch.id).limit(5000),
+        db.from("bigfoods_pos_branch_menu_stock").select("work_location_id,pos_item_id,track_stock,stock_quantity,low_stock_alert,updated_at").eq("work_location_id", branch.id).limit(5000)
       ]);
-      if (branches.error || items.error || branchItems.error || stock.error) return json({ error: "Branch catalogue schema is unavailable. Apply the latest branch inventory migration." }, 503);
-      return json({ branches: branches.data ?? [], items: items.data ?? [], branch_items: branchItems.data ?? [], branch_stock: stock.data ?? [] });
+      if (items.error || branchItems.error || stock.error) return json({ error: "Branch catalogue schema is unavailable. Apply the latest branch inventory migration." }, 503);
+      return json({ branches: [branch], current_branch: branch, items: items.data ?? [], branch_items: branchItems.data ?? [], branch_stock: stock.data ?? [] });
     }
     if (action === "branch_item_save") {
       if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
-      const branchId = typeof body.work_location_id === "string" ? body.work_location_id : "";
+      const branch = await activeBranch();
+      if (!branch) return json({ error: "Check in to your assigned branch before managing its catalogue." }, 409);
+      const branchId = branch.id;
       const itemId = typeof body.pos_item_id === "string" ? body.pos_item_id : "";
       const price = body.selling_price === "" || body.selling_price == null ? null : Number(body.selling_price);
       const sortOrder = Number(body.sort_order ?? 0);
@@ -314,7 +329,9 @@ Deno.serve(async (req: Request) => {
     }
     if (action === "branch_stock_save") {
       if (!has(actor, "inventory.process")) return json({ error: "Forbidden" }, 403);
-      const branchId = typeof body.work_location_id === "string" ? body.work_location_id : "";
+      const branch = await activeBranch();
+      if (!branch) return json({ error: "Check in to your assigned branch before managing its catalogue." }, 409);
+      const branchId = branch.id;
       const itemId = typeof body.pos_item_id === "string" ? body.pos_item_id : "";
       const quantity = Number(body.stock_quantity), low = Number(body.low_stock_alert ?? 10);
       if (!branchId || !itemId || !Number.isSafeInteger(quantity) || quantity < 0 || !Number.isSafeInteger(low) || low < 0) return json({ error: "Enter a branch, POS item and valid whole-number stock levels." }, 400);
