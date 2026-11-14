@@ -56,7 +56,7 @@ export default function BranchCataloguePage(){
    try{
      if(row.enabled||row.configured){
        await call({action:"branch_item_save",work_location_id:branchId,pos_item_id:row.item.id,is_available:row.enabled,selling_price:row.price===""?null:Number(row.price),sort_order:Number(row.sort)||0});
-       await call({action:"branch_stock_save",work_location_id:branchId,pos_item_id:row.item.id,track_stock:row.track,stock_quantity:Number(row.quantity),low_stock_alert:Number(row.low)});
+       
        setNotice(row.item.name+" saved for this branch.");
        await load();
      }else{
@@ -65,7 +65,7 @@ export default function BranchCataloguePage(){
    }catch(e){setError(e instanceof Error?e.message:"Unable to save branch item");}
    finally{setBusy(null);}
  }
- return <StaffShell title="Branch catalogue & stock" subtitle="Control which BigFoods POS items each branch sells, branch-specific prices and prepared portions.">
+ return <StaffShell title="Branch catalogue & stock" subtitle="Choose which shared BigFoods POS items belong to this branch. Prepared stock is added automatically when kitchen production is completed.">
   <div className="space-y-4">
    {error&&<div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800"><AlertCircle className="h-4 w-4 shrink-0"/>{error}</div>}
    {notice&&<div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">{notice}</div>}
@@ -74,18 +74,16 @@ export default function BranchCataloguePage(){
      <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-[#E87524]"><Store className="h-5 w-5"/></span><div><p className="text-[10px] font-semibold uppercase tracking-wider text-[#9A8D82]">Your assigned branch · from attendance</p><p className="mt-0.5 text-sm font-semibold text-[#30261F]">{currentBranch?currentBranch.name:"No active branch"}</p><p className="text-[10px] text-[#94877B]">{currentBranch?.branch_code||"Branch code not set"}</p></div></div>
      <button className={secondary} onClick={()=>void load()} disabled={loading}><RefreshCw className={"h-4 w-4 "+(loading?"animate-spin":"")}/>Refresh</button>
     </div>
-    <div className="mt-3 flex items-center gap-2 rounded-lg border border-sky-100 bg-sky-50 p-3 text-[11px] text-sky-900"><Store className="h-4 w-4 shrink-0"/>The system automatically uses the branch recorded on your active staff attendance. You cannot switch branches here. The catalogue uses the same POS items as the cashier; a blank price uses the standard POS price.</div>
+    <div className="mt-3 flex items-center gap-2 rounded-lg border border-sky-100 bg-sky-50 p-3 text-[11px] text-sky-900"><Store className="h-4 w-4 shrink-0"/>The system automatically uses the branch recorded on your active staff attendance. You cannot switch branches here. Items are linked to this branch, not copied. Kitchen staff prepare only this branch’s enabled menu items. Completed production adds prepared portions automatically; POS and online orders share that stock. A blank price uses the standard POS price.</div>
    </section>
    <section className="overflow-hidden rounded-2xl border border-[#E9E0D6] bg-white shadow-sm">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F0E8E0] p-4"><div><h2 className="text-sm font-semibold text-[#30261F]">POS items</h2><p className="mt-1 text-[11px] text-[#817367]">{filtered.length} items · changes are saved per branch</p></div><div className="relative w-full sm:w-64"><Search className="absolute left-3 top-2.5 h-4 w-4 text-[#9A8D82]"/><input className={field+" pl-9"} placeholder="Search POS items" value={search} onChange={e=>setSearch(e.target.value)}/></div></div>
     {loading?<div className="p-10 text-center text-xs text-[#817367]">Loading branch catalogue…</div>:!branchId?<div className="p-10 text-center text-xs text-[#817367]">You need an active check-in at your assigned branch to view and manage its catalogue.</div>:<div className="divide-y divide-[#F0E8E0]">
-     {filtered.map(row=><div key={row.item.id} className="grid gap-3 p-4 lg:grid-cols-[minmax(180px,1.3fr)_100px_130px_110px_110px_100px_auto] lg:items-end">
+     {filtered.map(row=><div key={row.item.id} className="grid gap-3 p-4 lg:grid-cols-[minmax(180px,1.3fr)_110px_140px_140px_auto] lg:items-end">
       <div className="min-w-0"><div className="flex items-center gap-2"><Package className="h-4 w-4 shrink-0 text-[#A58B72]"/><p className="truncate text-xs font-semibold text-[#30261F]">{row.item.name}</p></div><p className="mt-1 pl-6 text-[10px] text-[#94877B]">{row.item.category||"Uncategorised"}{row.item.sku?" · "+row.item.sku:""} · Standard {Number(row.item.selling_price||0).toLocaleString("en-NG",{style:"currency",currency:"NGN",maximumFractionDigits:0})}</p></div>
       <label className="text-[10px] font-semibold text-[#817367]">Listed at branch<select className={field+" mt-1"} value={row.enabled?"yes":"no"} onChange={e=>patch(row.item.id,{enabled:e.target.value==="yes"})}><option value="no">No</option><option value="yes">Yes</option></select></label>
       <label className="text-[10px] font-semibold text-[#817367]">Price override (₦)<input className={field+" mt-1"} type="number" min="0" step="0.01" placeholder="Standard price" value={row.price} onChange={e=>patch(row.item.id,{price:e.target.value})}/></label>
-      <label className="text-[10px] font-semibold text-[#817367]">Prepared stock<input className={field+" mt-1"} type="number" min="0" step="1" value={row.quantity} onChange={e=>patch(row.item.id,{quantity:e.target.value})}/></label>
-      <label className="text-[10px] font-semibold text-[#817367]">Low stock alert<input className={field+" mt-1"} type="number" min="0" step="1" value={row.low} onChange={e=>patch(row.item.id,{low:e.target.value})}/></label>
-      <label className="text-[10px] font-semibold text-[#817367]">Stock tracking<select className={field+" mt-1"} value={row.track?"yes":"no"} onChange={e=>patch(row.item.id,{track:e.target.value==="yes"})}><option value="yes">On</option><option value="no">Off</option></select></label>
+      <div className="text-[10px] font-semibold text-[#817367]">Prepared stock<p className="mt-2 text-sm font-bold text-[#30261F]">{row.configured?Number(stock.find(s=>s.pos_item_id===row.item.id)?.stock_quantity||0).toLocaleString("en-NG"):"—"} portions</p><p className="text-[9px] font-normal text-[#94877B]">From completed kitchen batches</p></div>
       <button className={button} disabled={busy!==null||(!row.enabled&&!row.configured)||!branchId} onClick={()=>void save(row)}><Save className="h-3.5 w-3.5"/>{busy===row.item.id?"Saving…":"Save"}</button>
      </div>)}
      {!filtered.length&&<div className="p-10 text-center text-xs text-[#817367]">No matching POS items.</div>}
