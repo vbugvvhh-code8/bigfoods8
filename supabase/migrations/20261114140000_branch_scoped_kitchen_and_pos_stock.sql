@@ -17,9 +17,15 @@ begin
  if not exists(select 1 from public.bigfoods_pos_branch_items where work_location_id=v_branch and pos_item_id=v_recipe.bigfoods_pos_item_id and is_available) then
    raise exception 'This menu item is not enabled in your assigned branch catalogue';
  end if;
- select coalesce(jsonb_agg(jsonb_build_object('inventory_item_id',ri.inventory_item_id,'name',ii.name,'quantity',ri.quantity*(p_portions/v_recipe.output_quantity),'unit',ii.base_unit)), '[]'::jsonb)
- into v_lines from public.inventory_recipe_items ri join public.inventory_items ii on ii.id=ri.inventory_item_id
- where ri.recipe_id=v_recipe.id and ii.is_active;
+ select coalesce(jsonb_agg(jsonb_build_object('inventory_item_id',x.inventory_item_id,'name',x.name,'quantity',x.quantity,'unit',x.base_unit)), '[]'::jsonb)
+ into v_lines
+ from (
+   select ri.inventory_item_id,ii.name,ii.base_unit,
+     sum(ri.quantity)*(p_portions/v_recipe.output_quantity) as quantity
+   from public.inventory_recipe_items ri join public.inventory_items ii on ii.id=ri.inventory_item_id
+   where ri.recipe_id=v_recipe.id and ii.is_active
+   group by ri.inventory_item_id,ii.name,ii.base_unit
+ ) x;
  if jsonb_array_length(v_lines)=0 then raise exception 'Recipe has no active ingredients'; end if;
  for v_line in select * from jsonb_to_recordset(v_lines) as x(inventory_item_id uuid,name text,quantity numeric,unit text) loop
    select coalesce(sum(remaining_quantity),0) into v_available from public.inventory_batches
