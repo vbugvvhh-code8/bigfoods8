@@ -228,6 +228,9 @@ Deno.serve(async (req: Request) => {
 
     if (action === "checkout") {
       if (!allowed(actor, "pos.sell") || !allowed(actor, "pos.payments")) return json({ error: "Forbidden" }, 403);
+      const { data: activeAttendance, error: attendanceError } = await db.from("bigfoods_staff_attendance")
+        .select("id,work_location_id").eq("staff_id", actor.id).is("checked_out_at", null).maybeSingle();
+      if (attendanceError || !activeAttendance?.work_location_id) return json({ error: "Check in at your assigned branch before processing a POS sale." }, 409);
       if (typeof body.session_id !== "string" || !Array.isArray(body.items) || !body.items.length || body.items.length > 100) return json({ error: "Add items to the basket before checkout." }, 400);
       if (typeof body.idempotency_key !== "string" || !/^[0-9a-f-]{36}$/i.test(body.idempotency_key)) return json({ error: "Invalid checkout request. Refresh and try again." }, 400);
       const method = body.payment_method;
