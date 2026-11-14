@@ -2,7 +2,7 @@
 import {useCallback,useEffect,useState} from "react";
 import {useRouter} from "next/navigation";
 import StaffShell from "@/components/staff/StaffShell";
-import {RefreshCw,ShoppingBag,MapPin,Phone,Clock3,CheckCircle2,ChefHat,PackageCheck,Truck} from "lucide-react";
+import {RefreshCw,ShoppingBag,MapPin,Phone,Clock3,CheckCircle2,ChefHat,PackageCheck} from "lucide-react";
 type Order={id:string;order_number:string;work_location_id:string;fulfilment_type:string;customer_name:string;customer_email:string|null;customer_phone:string;delivery_address:string|null;delivery_note:string|null;status:string;payment_status:string;subtotal:number;delivery_fee:number;total_amount:number;created_at:string;bigfoods_staff_work_locations?:{name:string;address:string|null};bigfoods_pos_online_order_items:{id:string;product_name:string;quantity:number;unit_price:number;line_total:number}[]};
 const money=(n:number)=>new Intl.NumberFormat("en-NG",{style:"currency",currency:"NGN",maximumFractionDigits:0}).format(Number(n||0));
 const statusTone=(s:string)=>s==="delivered"||s==="picked_up"?"bg-emerald-50 text-emerald-700":s==="cancelled"||s==="rejected"?"bg-red-50 text-red-700":"bg-sky-50 text-sky-700";
