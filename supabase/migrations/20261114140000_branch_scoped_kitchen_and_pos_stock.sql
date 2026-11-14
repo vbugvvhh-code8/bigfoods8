@@ -67,7 +67,7 @@ begin
      insert into public.inventory_kitchen_preparation_consumptions(preparation_id,inventory_item_id,batch_id,quantity,base_unit)
      values(v_prep.id,v_line.inventory_item_id,v_batch.id,v_take,v_batch.base_unit);
      insert into public.inventory_movements(inventory_item_id,batch_id,movement_type,quantity,direction,base_unit,unit_cost,reason,source_type,source_id,actor_staff_id,metadata)
-     values(v_line.inventory_item_id,v_batch.id,'kitchen_consumption',v_take,'out',v_batch.base_unit,v_batch.unit_cost,'Kitchen preparation started','kitchen_preparation',v_prep.id::text,p_actor_staff_id,jsonb_build_object('prep_code',v_prep.prep_code,'work_location_id',v_branch));
+     values(v_line.inventory_item_id,v_batch.id,'sale_usage',v_take,'out',v_batch.base_unit,v_batch.unit_cost,'Kitchen preparation started','kitchen_preparation',v_prep.id::text,p_actor_staff_id,jsonb_build_object('prep_code',v_prep.prep_code,'work_location_id',v_branch));
      v_left:=v_left-v_take;
    end loop;
    if v_left>0 then raise exception 'Insufficient branch stock for %. Refresh the preparation plan.',v_line.name; end if;
