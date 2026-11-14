@@ -109,9 +109,9 @@ Deno.serve(async (req: Request) => {
       if (!branch) return json({ error: "Check in at your assigned branch before adjusting stock." }, 409);
       const { data: targetBatch } = await db.from("inventory_batches").select("id,work_location_id").eq("id", body.batch_id).maybeSingle();
       if (!targetBatch || targetBatch.work_location_id !== branch.id) return json({ error: "That batch does not belong to your assigned branch." }, 403);
-      const { data, error } = await db.rpc("bigfoods_inventory_adjust_batch", {
-        p_actor_staff_id: actor.id, p_batch_id: body.batch_id, p_quantity: body.quantity,
-        p_direction: body.direction, p_reason: body.reason
+      const { data, error } = await db.rpc("bigfoods_inventory_adjust_batch_for_branch", {
+        p_work_location_id: branch.id, p_actor_staff_id: actor.id, p_batch_id: body.batch_id,
+        p_quantity: body.quantity, p_direction: body.direction, p_reason: body.reason
       });
       if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
       return json({ adjustment: data }, 201);
@@ -156,79 +156,28 @@ Deno.serve(async (req: Request) => {
     }
     if (action === "waste_history") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
-      const [raw, menu] = await Promise.all([
-        db.from("inventory_movements").select("id,inventory_item_id,batch_id,quantity,base_unit,reason,occurred_at,actor_staff_id").eq("movement_type", "waste").order("occurred_at", { ascending: false }).limit(100),
-        db.from("bigfoods_pos_menu_waste").select("id,pos_item_id,quantity,stock_before,stock_after,reason,created_at,actor_staff_id").order("created_at", { ascending: false }).limit(100)
-      ]);
-      if (raw.error || menu.error) {
-        console.error("Waste history query failed", raw.error?.message, menu.error?.message);
-        return json({ error: "Unable to load waste history." }, 503);
-      }
-      const rawRows = raw.data ?? [], menuRows = menu.data ?? [];
+      const branch = await activeBranch();
+      if (!branch) return json({ error: "Check in at your assigned branch to view waste history." }, 409);
+      const { data: branchBatches, error: batchError } = await db.from("inventory_batches").select("id,batch_code")
+        .eq("work_location_id", branch.id);
+      if (batchError) return json({ error: "Unable to load branch waste history." }, 503);
+      const batchIds = (branchBatches ?? []).map((row: any) => row.id);
+      const raw = batchIds.length
+        ? await db.from("inventory_movements").select("id,inventory_item_id,batch_id,quantity,base_unit,reason,occurred_at,actor_staff_id")
+            .eq("movement_type", "waste").in("batch_id", batchIds).order("occurred_at", { ascending: false }).limit(100)
+        : { data: [], error: null };
+      if (raw.error) return json({ error: "Unable to load branch waste history." }, 503);
+      const rawRows = raw.data ?? [];
       const itemIds = [...new Set(rawRows.map((r: any) => r.inventory_item_id).filter(Boolean))];
-      const batchIds = [...new Set(rawRows.map((r: any) => r.batch_id).filter(Boolean))];
-      const posIds = [...new Set(menuRows.map((r: any) => r.pos_item_id).filter(Boolean))];
-      const staffIds = [...new Set([...rawRows, ...menuRows].map((r: any) => r.actor_staff_id).filter(Boolean))];
-      const [rawItems, batches, posItems, staff] = await Promise.all([
+      const staffIds = [...new Set(rawRows.map((r: any) => r.actor_staff_id).filter(Boolean))];
+      const [rawItems, staff] = await Promise.all([
         itemIds.length ? db.from("inventory_items").select("id,name").in("id", itemIds) : Promise.resolve({ data: [], error: null }),
-        batchIds.length ? db.from("inventory_batches").select("id,batch_code").in("id", batchIds) : Promise.resolve({ data: [], error: null }),
-        posIds.length ? db.from("bigfoods_pos_items").select("id,name").in("id", posIds) : Promise.resolve({ data: [], error: null }),
         staffIds.length ? db.from("bigfoods_staff").select("id,display_name").in("id", staffIds) : Promise.resolve({ data: [], error: null })
       ]);
-      if (rawItems.error || batches.error || posItems.error || staff.error) {
-        console.error("Waste history lookup failed", rawItems.error?.message, batches.error?.message, posItems.error?.message, staff.error?.message);
-        return json({ error: "Unable to load waste history details." }, 503);
-      }
-      const rawItemMap = new Map((rawItems.data ?? []).map((r: any) => [r.id, r.name]));
-      const batchMap = new Map((batches.data ?? []).map((r: any) => [r.id, r.batch_code]));
-      const posMap = new Map((posItems.data ?? []).map((r: any) => [r.id, r.name]));
-      const staffMap = new Map((staff.data ?? []).map((r: any) => [r.id, r.display_name]));
-      const records = [
-        ...rawRows.map((r: any) => ({ id: r.id, stock_type: "raw", item_name: rawItemMap.get(r.inventory_item_id) ?? "Inventory item", batch_code: batchMap.get(r.batch_id) ?? null, quantity: Number(r.quantity), unit: r.base_unit, reason: r.reason, occurred_at: r.occurred_at, staff_name: staffMap.get(r.actor_staff_id) ?? "Staff" })),
-        ...menuRows.map((r: any) => ({ id: r.id, stock_type: "menu", item_name: posMap.get(r.pos_item_id) ?? "Menu item", batch_code: null, quantity: Number(r.quantity), unit: "portion(s)", stock_before: r.stock_before, stock_after: r.stock_after, reason: r.reason, occurred_at: r.created_at, staff_name: staffMap.get(r.actor_staff_id) ?? "Staff" }))
-      ].sort((a: any, b: any) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime()).slice(0, 100);
-      return json({ records });
-    }
-    if (action === "menu_waste") {
-      if (!has(actor, "inventory.waste")) return json({ error: "Forbidden" }, 403);
-      const quantity = Number(body.quantity);
-      if (!body.pos_item_id || !Number.isSafeInteger(quantity) || quantity <= 0 || typeof body.reason !== "string" || body.reason.trim().length < 3) {
-        return json({ error: "Choose a menu item and enter a whole-number quantity and reason." }, 400);
-      }
-      const { data, error } = await db.rpc("bigfoods_inventory_log_menu_waste", {
-        p_actor_staff_id: actor.id, p_pos_item_id: body.pos_item_id, p_quantity: quantity, p_reason: body.reason.trim()
-      });
-      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
-      return json({ waste: data }, 201);
-    }
-    if (action === "recipe_overview") {
-      if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
-      const [items, recipes] = await Promise.all([
-        db.from("bigfoods_pos_items").select("id,name,category,is_available,stock_quantity,track_stock").order("name").limit(1000),
-        db.from("inventory_recipes").select("id,bigfoods_pos_item_id,name,version,output_quantity,output_unit,effective_from,is_active").eq("is_active", true).not("bigfoods_pos_item_id", "is", null).order("name").limit(300)
-      ]);
-      if (items.error || recipes.error) return json({ error: "Unable to load in-house recipe data. Confirm the POS catalogue migrations have been applied." }, 503);
-      return json({ pos_items: items.data ?? [], recipes: recipes.data ?? [] });
-    }
-    if (action === "recipe_history") {
-      if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
-      const { data, error } = await db.from("inventory_recipes")
-        .select("id,bigfoods_pos_item_id,name,version,output_quantity,output_unit,effective_from,effective_until,is_active,created_at,inventory_recipe_items(inventory_item_id,quantity,unit,notes,inventory_items(name,base_unit))")
-        .not("bigfoods_pos_item_id", "is", null).order("name").order("version", { ascending: false }).limit(1000);
-      if (error) return json({ error: "Unable to load recipe version history." }, 503);
-      return json({ recipes: data ?? [] });
-    }
-    if (action === "recipe_retire") {
-      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
-      const { data, error } = await db.rpc("bigfoods_inventory_retire_recipe", { p_actor_staff_id: actor.id, p_recipe_id: body.recipe_id });
-      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
-      return json({ recipe: data });
-    }
-    if (action === "recipe_delete") {
-      if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
-      const { data, error } = await db.rpc("bigfoods_inventory_delete_unused_recipe", { p_actor_staff_id: actor.id, p_recipe_id: body.recipe_id });
-      if (error) return json({ error: error.message.includes("Forbidden") ? "Forbidden" : error.message }, error.message.includes("Forbidden") ? 403 : 400);
-      return json({ recipe: data });
+      if (rawItems.error || staff.error) return json({ error: "Unable to load branch waste history details." }, 503);
+      const itemMap = new Map((rawItems.data ?? []).map((row: any) => [row.id, row.name]));
+      const staffMap = new Map((staff.data ?? []).map((row: any) => [row.id, row.display_name]));
+      return json({ waste: rawRows.map((row: any) => ({ ...row, item_name: itemMap.get(row.inventory_item_id) ?? "Inventory item", staff_name: staffMap.get(row.actor_staff_id) ?? "Staff" })), menu_waste: [] });
     }
     if (action === "kitchen_overview") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
