@@ -9,6 +9,7 @@ type RecipeLine = { inventory_item_id: string; quantity: number; unit: string; i
 type Recipe = { id: string; bigfoods_pos_item_id: string; name: string; version: number; output_quantity: number; output_unit: string; bigfoods_pos_items?: { name: string } | null; inventory_recipe_items?: RecipeLine[] };
 type Batch = { inventory_item_id: string; remaining_quantity: number; status: string; expires_at: string | null };
 type Requirement = { id: string; name: string; unit: string; required: number; available: number; shortage: number };
+type Branch = { id: string; name: string; branch_code: string | null };
 type Preparation = { id: string; prep_code: string; recipe_name: string; recipe_version: number; requested_portions: number; status: string; ingredient_snapshot: Requirement[]; requested_at: string; notes: string | null };
 
 const fmt = (n: number) => new Intl.NumberFormat("en-NG", { maximumFractionDigits: 3 }).format(n);
@@ -24,6 +25,7 @@ export default function StaffKitchenPage() {
   const [queue, setQueue] = useState<Preparation[]>([]);
   const [busyAction, setBusyAction] = useState("");
   const [notice, setNotice] = useState("");
+  const [currentBranch, setCurrentBranch] = useState<Branch | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -31,7 +33,7 @@ export default function StaffKitchenPage() {
       const response = await fetch("/api/bigfoods-staff/inventory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "kitchen_overview" }), cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to load kitchen data");
-      setItems(data.items || []); setBatches(data.batches || []); setRecipes(data.recipes || []);
+      setCurrentBranch(data.current_branch || null); setItems(data.items || []); setBatches(data.batches || []); setRecipes(data.recipes || []);
       setRecipeId((current: string) => current || data.recipes?.[0]?.id || "");
       const queueResponse = await fetch("/api/bigfoods-staff/inventory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "kitchen_queue" }), cache: "no-store" });
       const queueData = await queueResponse.json();
@@ -80,11 +82,12 @@ export default function StaffKitchenPage() {
   const inStockCount = items.filter(item => (stock.get(item.id) || 0) > Number(item.reorder_level)).length;
 
   return <StaffShell title="Kitchen" subtitle="Plan meal preparation against live inventory and recipe yields.">
-    <div className="space-y-5 pb-8">
+    <div className="mx-auto w-full max-w-[1200px] space-y-5 pb-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-2xl bg-orange-100 text-orange-700"><ChefHat className="h-6 w-6"/></div><div><h3 className="font-semibold text-[#30261F]">Kitchen preparation planner</h3><p className="text-xs text-[#817367]">Scale a standard recipe to the number of portions you need.</p></div></div>
         <button onClick={() => void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-[#E7DED4] bg-white px-3 py-2 text-xs font-semibold"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}/>Refresh stock</button>
       </div>
+      {currentBranch && <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-900"><span className="font-semibold">Assigned branch:</span> {currentBranch.name}{currentBranch.branch_code ? ` · ${currentBranch.branch_code}` : ""} <span className="text-sky-700">— resolved automatically from your active attendance</span></div>}
       {notice && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</div>}
       {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
       <div className="grid gap-3 sm:grid-cols-3">

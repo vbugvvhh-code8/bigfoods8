@@ -71,7 +71,7 @@ export default function StaffAnalyticsPage(){
  const title=tabs.find(x=>x.id===tab)?.label||"Reports";
  const topSearch=search.trim();
  return <StaffShell title="Reports" subtitle="Insights into BigFoods POS sales, menu performance, staff activity and stock." staffName={staff?.display_name} staffRole={staff?.role} staffPermissions={staff?.permissions}>
-  <div className="space-y-4 pb-8 text-[#172033]">
+  <div className="mx-auto w-full max-w-[1200px] space-y-4 pb-8 text-[#172033]">
    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#E8EDF3] bg-white p-3 shadow-sm">
     <div className="relative min-w-[220px] flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><input aria-label="Search reports" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search reports, menu items, inventory…" className="h-10 w-full rounded-xl border border-[#E2E8F0] pl-9 pr-3 text-xs outline-none focus:border-orange-400"/></div>
     <label className="flex h-10 items-center gap-2 rounded-xl border border-[#E2E8F0] px-3 text-xs"><CalendarDays className="h-4 w-4 text-slate-500"/><input aria-label="From date" type="date" value={from} max={to} onChange={e=>setFrom(e.target.value)} className="w-[118px] outline-none"/><span className="text-slate-400">–</span><input aria-label="To date" type="date" value={to} min={from} onChange={e=>setTo(e.target.value)} className="w-[118px] outline-none"/></label>
