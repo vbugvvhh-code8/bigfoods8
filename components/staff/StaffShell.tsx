@@ -35,6 +35,7 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
   const showPos = canAccessPos(accessProfile);
   const showOrders = ['owner', 'admin'].includes(effectiveStaffRole || '') || hasPosPermission(accessProfile, 'pos.reports');
   const showInventory = ['owner','admin','inventory'].includes(effectiveStaffRole || '') || (Array.isArray(effectiveStaffPermissions) && effectiveStaffPermissions.some((p:any)=>['inventory.view','inventory.manage','inventory.receive','inventory.process'].includes(p)));
+  const showBranchCatalogue = showInventory || hasPosPermission(accessProfile, 'pos.manage_catalogue');
 
   async function logout() {
     await fetch('/api/bigfoods-staff/session', { method: 'DELETE' });
@@ -48,7 +49,8 @@ export default function StaffShell({ children, title, subtitle, staffName, staff
     ...(showStaffManagement ? [{ href: '/staff/manage', label: 'Staff management', icon: <Users className="h-4 w-4" /> }] : []),
     ...(showPos ? [{ href: '/staff/pos', label: 'Point of sale', icon: <ShoppingCart className="h-4 w-4" /> }, { href: '/staff/menu', label: 'Menu', icon: <Utensils className="h-4 w-4" /> }] : []),
     ...(showOrders ? [{ href: '/staff/orders', label: 'Orders', icon: <ClipboardList className="h-4 w-4" /> }, { href: '/staff/online-orders', label: 'Online Orders', icon: <ShoppingCart className="h-4 w-4" /> }, { href: '/staff/analytics', label: 'Analytics', icon: <BarChart3 className="h-4 w-4" /> }, { href: '/staff/report', label: 'Reports', icon: <FileBarChart className="h-4 w-4" /> }] : []),
-    ...(showInventory ? [{ href: '/staff/inventory', label: 'Inventory', icon: <Boxes className="h-4 w-4" /> }, { href: '/staff/branch-catalogue', label: 'Branch catalogue', icon: <Store className="h-4 w-4" /> }, { href: '/staff/kitchen', label: 'Kitchen', icon: <ChefHat className="h-4 w-4" /> }] : []),
+    ...(showInventory ? [{ href: '/staff/inventory', label: 'Inventory', icon: <Boxes className="h-4 w-4" /> }, { href: '/staff/kitchen', label: 'Kitchen', icon: <ChefHat className="h-4 w-4" /> }] : []),
+    ...(showBranchCatalogue ? [{ href: '/staff/branch-catalogue', label: 'Branch menu', icon: <Store className="h-4 w-4" /> }] : []),
     ...(showStaffOperations ? [{ href: '/staff/operations', label: 'Staff operations', icon: <ClipboardList className="h-4 w-4" /> }] : []),
     { href: '/staff/leave', label: 'Request leave', icon: <CalendarPlus className="h-4 w-4" /> },
     { href: '/staff/shift-swaps', label: 'Shift swaps', icon: <Repeat2 className="h-4 w-4" /> },
