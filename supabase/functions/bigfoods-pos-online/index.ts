@@ -77,19 +77,18 @@ Deno.serve(async(req:Request)=>{
   if(action==="staff_update"){
    if(!admin&&!perms.includes("pos.sell")&&!perms.includes("orders.manage"))return json({error:"Forbidden"},403);
    const id=typeof body.order_id==="string"?body.order_id:"",status=String(body.status||"");
-   const allowed=["accepted","preparing","ready","cancelled","rejected","out_for_delivery","delivered","picked_up"];
+   const allowed=["accepted","preparing","ready","cancelled","rejected","picked_up"];
    if(!id||!allowed.includes(status))return json({error:"Invalid order update"},400);
    const {data:order,error:loadError}=await db.from("bigfoods_pos_online_orders").select("id,status,payment_status,work_location_id,fulfilment_type").eq("id",id).maybeSingle();
    if(loadError||!order)return json({error:"Order not found"},404);
    const {data:attendance}=await db.from("bigfoods_staff_attendance").select("work_location_id").eq("staff_id",actor.id).is("checked_out_at",null).maybeSingle();
    if(!admin&&(!attendance||attendance.work_location_id!==order.work_location_id))return json({error:"Check in at the order's branch to manage it."},403);
    if(order.payment_status!=="paid")return json({error:"Only paid online orders can be processed."},409);
-   const transitions:Record<string,string[]>={accepted:["confirmed"],preparing:["accepted","confirmed"],ready:["preparing"],picked_up:["ready"],out_for_delivery:["ready"],delivered:["out_for_delivery"],cancelled:["confirmed","accepted"],rejected:["confirmed","accepted"]};
+   const transitions:Record<string,string[]>={accepted:["confirmed"],preparing:["accepted","confirmed"],ready:["preparing"],picked_up:["ready"],cancelled:["confirmed","accepted"],rejected:["confirmed","accepted"]};
    if(!transitions[status]?.includes(order.status))return json({error:"This status transition is not allowed."},409);
    const patch:any={status,updated_at:new Date().toISOString()};
    if(status==="accepted"){patch.accepted_by_staff_id=actor.id;patch.accepted_at=new Date().toISOString()}
    if(status==="ready")patch.ready_at=new Date().toISOString();
-   if(status==="delivered")patch.delivered_at=new Date().toISOString();
    const {data:updated,error}=await db.from("bigfoods_pos_online_orders").update(patch).eq("id",id).eq("status",order.status).select("id,status").maybeSingle();
    if(error||!updated)return json({error:"Order changed; refresh and try again."},409);
    await db.from("bigfoods_staff_audit_events").insert({actor_staff_id:actor.id,action:"pos.online_order_status_updated",details:{order_id:id,status}});
