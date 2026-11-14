@@ -120,7 +120,7 @@ declare
  v_existing public.bigfoods_pos_sales%rowtype; v_result jsonb; v_sale_id uuid;
  v_item jsonb; v_product public.bigfoods_pos_items%rowtype; v_branch_item public.bigfoods_pos_branch_items%rowtype;
  v_stock public.bigfoods_pos_branch_menu_stock%rowtype; v_qty integer; v_price numeric(14,2);
- v_subtotal numeric(14,2):=0; v_discount numeric(14,2); v_tax numeric(14,2); v_total numeric(14,2); v_cash numeric(14,2);
+ v_subtotal numeric(14,2):=0; v_base_subtotal numeric(14,2):=0; v_discount numeric(14,2); v_tax numeric(14,2); v_total numeric(14,2); v_cash numeric(14,2);
 begin
  select * into v_existing from public.bigfoods_pos_sales where idempotency_key=p_idempotency_key;
  if found then return jsonb_build_object('sale_id',v_existing.id,'receipt_number',v_existing.receipt_number,'total_amount',v_existing.total_amount,'status',v_existing.status,'replayed',true); end if;
@@ -152,6 +152,7 @@ begin
    if not found then raise exception 'A basket item is not enabled at your assigned branch'; end if;
    v_price:=coalesce(v_branch_item.selling_price,v_product.selling_price);
    v_subtotal:=v_subtotal+v_price*v_qty;
+   v_base_subtotal:=v_base_subtotal+v_product.selling_price*v_qty;
    select * into v_stock from public.bigfoods_pos_branch_menu_stock
      where work_location_id=v_attendance.work_location_id and pos_item_id=v_product.id for update;
    if found and v_stock.track_stock and v_stock.stock_quantity<v_qty then raise exception 'Insufficient prepared stock for %',v_product.name; end if;
@@ -162,7 +163,7 @@ begin
  v_total:=v_subtotal-v_discount+v_tax;
  if p_payment_method='cash' then
    if p_cash_received is null or p_cash_received<v_total then raise exception 'Cash received must cover the final total'; end if;
-   v_cash:=greatest(p_cash_received,v_subtotal);
+   v_cash:=greatest(p_cash_received,v_base_subtotal);
  else v_cash:=null; end if;
  v_result:=public.bigfoods_pos_checkout(p_session_id,p_cashier_staff_id,p_idempotency_key,p_payment_method,p_items,v_cash,p_payment_reference);
  v_sale_id:=(v_result->>'sale_id')::uuid;
