@@ -115,8 +115,8 @@ begin
  for v_line in select (value->>'product_id')::uuid product_id,sum((value->>'quantity')::integer)::integer quantity from jsonb_array_elements(p_items) group by 1 loop
   select * into v_product from public.bigfoods_pos_items where id=v_line.product_id;
   select * into v_bi from public.bigfoods_pos_branch_items where work_location_id=v_branch_id and pos_item_id=v_product.id;
-  insert into public.bigfoods_pos_online_order_items(order_id,pos_item_id,product_name,image_url,quantity,unit_price,line_total)
-  values(v_order_id,v_product.id,v_product.name,v_product.image_url,v_line.quantity,coalesce(v_bi.selling_price,v_product.selling_price),coalesce(v_bi.selling_price,v_product.selling_price)*v_line.quantity);
+  insert into public.bigfoods_pos_online_order_items(order_id,pos_item_id,product_name,image_url,quantity,unit_price,line_total,stock_reserved)
+  values(v_order_id,v_product.id,v_product.name,v_product.image_url,v_line.quantity,coalesce(v_bi.selling_price,v_product.selling_price),coalesce(v_bi.selling_price,v_product.selling_price)*v_line.quantity,coalesce((select s.track_stock from public.bigfoods_pos_branch_menu_stock s where s.work_location_id=v_branch_id and s.pos_item_id=v_product.id),false));
  end loop;
  insert into public.bigfoods_staff_audit_events(action,details) values('pos.online_order_created',jsonb_build_object('order_id',v_order_id,'branch_id',v_branch_id,'total',v_subtotal+v_fee));
  return jsonb_build_object('order_id',v_order_id,'order_number',v_number,'total_amount',v_subtotal+v_fee,'branch_name',v_branch->>'name');
