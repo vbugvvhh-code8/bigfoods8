@@ -286,7 +286,7 @@ Deno.serve(async (req: Request) => {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
       const [branches, items, branchItems, stock] = await Promise.all([
         db.from("bigfoods_staff_work_locations").select("id,name,branch_code,is_active").eq("is_active", true).order("name"),
-        db.from("bigfoods_pos_items").select("id,name,sku,category,selling_price,is_available,track_stock,stock_quantity,low_stock_alert").order("category").order("name").limit(1000),
+        db.from("bigfoods_pos_items").select("id,name,sku,category,selling_price,is_available").order("category").order("name").limit(1000),
         db.from("bigfoods_pos_branch_items").select("id,work_location_id,pos_item_id,is_available,selling_price,sort_order").limit(5000),
         db.from("bigfoods_pos_branch_menu_stock").select("work_location_id,pos_item_id,track_stock,stock_quantity,low_stock_alert,updated_at").limit(5000)
       ]);
