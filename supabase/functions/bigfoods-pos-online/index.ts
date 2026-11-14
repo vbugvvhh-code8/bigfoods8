@@ -11,6 +11,14 @@ Deno.serve(async(req:Request)=>{
  const db=createClient(URL,SERVICE,{auth:{persistSession:false,autoRefreshToken:false}});
  const action=String(body.action||"");
  try{
+  if(action==="track_order"){
+   const trackingToken=typeof body.tracking_token==="string"?body.tracking_token:"";
+   if(!/^[0-9a-f-]{36}$/i.test(trackingToken))return json({error:"A valid tracking link is required."},400);
+   const tokenHash=await sha256(trackingToken);
+   const {data:order,error}=await db.from("bigfoods_pos_online_orders").select("id,order_number,fulfilment_type,status,payment_status,delivery_address,created_at,updated_at,ready_at,delivered_at,work_location_id,bigfoods_staff_work_locations(name,address),bigfoods_pos_online_order_items(product_name,quantity)").eq("tracking_token_hash",tokenHash).maybeSingle();
+   if(error||!order)return json({error:"Order tracking link is invalid or expired."},404);
+   return json({order:{order_number:order.order_number,fulfilment_type:order.fulfilment_type,status:order.status,payment_status:order.payment_status,delivery_address:order.delivery_address,created_at:order.created_at,updated_at:order.updated_at,ready_at:order.ready_at,delivered_at:order.delivered_at,branch:order.bigfoods_staff_work_locations,items:order.bigfoods_pos_online_order_items}});
+  }
   if(action==="catalogue"){
    const lat=body.latitude==null?null:Number(body.latitude),lng=body.longitude==null?null:Number(body.longitude);
    if((lat!==null&&!Number.isFinite(lat))||(lng!==null&&!Number.isFinite(lng)))return json({error:"Invalid location"},400);
@@ -25,14 +33,18 @@ Deno.serve(async(req:Request)=>{
    const phone=typeof body.customer_phone==="string"?body.customer_phone.trim():"";
    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return json({error:"A valid email address is required for Paystack checkout."},400);
    const reference=crypto.randomUUID();
+   const trackingToken=crypto.randomUUID();
    const {data:order,error}=await db.rpc("bigfoods_pos_create_online_order",{
     p_fulfilment:body.fulfilment,p_customer_name:name,p_customer_email:email,p_customer_phone:phone,
     p_delivery_address:body.delivery_address??null,p_delivery_lat:body.latitude??null,p_delivery_lng:body.longitude??null,
     p_delivery_note:body.delivery_note??null,p_items:body.items,p_payment_reference:reference
    });
    if(error)return json({error:error.message},400);
+   const {error:trackingError}=await db.from("bigfoods_pos_online_orders").update({tracking_token_hash:await sha256(trackingToken)}).eq("id",order.order_id);
+   if(trackingError){await db.rpc("bigfoods_pos_online_payment_finalize",{p_reference:reference,p_success:false});return json({error:"Could not create secure order tracking link."},503);}
    const origin=typeof body.callback_origin==="string"&&/^https:\/\//.test(body.callback_origin)?body.callback_origin:"https://bigfoods.app";
-   const response=await fetch("https://api.paystack.co/transaction/initialize",{method:"POST",headers:{Authorization:`Bearer ${PAYSTACK}`,"Content-Type":"application/json"},body:JSON.stringify({email,amount:Math.round(Number(order.total_amount)*100),currency:"NGN",reference,callback_url:origin+"/online-order/payment",metadata:{type:"bigfoods_pos_online_order",order_id:order.order_id,order_number:order.order_number}})});
+   const callback=new URL("/online-order/payment",origin);callback.searchParams.set("tracking_token",trackingToken);
+   const response=await fetch("https://api.paystack.co/transaction/initialize",{method:"POST",headers:{Authorization:`Bearer ${PAYSTACK}`,"Content-Type":"application/json"},body:JSON.stringify({email,amount:Math.round(Number(order.total_amount)*100),currency:"NGN",reference,callback_url:callback.toString(),metadata:{type:"bigfoods_pos_online_order",order_id:order.order_id,order_number:order.order_number}})});
    const result=await response.json();
    if(!response.ok||result.status!==true){await db.rpc("bigfoods_pos_online_payment_finalize",{p_reference:reference,p_success:false});return json({error:result.message||"Could not initialize payment"},502)}
    return json({success:true,order_number:order.order_number,reference,authorization_url:result.data.authorization_url,access_code:result.data.access_code,total_amount:order.total_amount,branch_name:order.branch_name},201);
