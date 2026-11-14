@@ -14,10 +14,9 @@ Deno.serve(async(req:Request)=>{
   if(action==="track_order"){
    const trackingToken=typeof body.tracking_token==="string"?body.tracking_token:"";
    if(!/^[0-9a-f-]{36}$/i.test(trackingToken))return json({error:"A valid tracking link is required."},400);
-   const tokenHash=await sha256(trackingToken);
-   const {data:order,error}=await db.from("bigfoods_pos_online_orders").select("id,order_number,fulfilment_type,status,payment_status,delivery_address,created_at,updated_at,ready_at,delivered_at,work_location_id,bigfoods_staff_work_locations(name,address),bigfoods_pos_online_order_items(product_name,quantity)").eq("tracking_token_hash",tokenHash).maybeSingle();
+   const {data:order,error}=await db.rpc("bigfoods_pos_customer_order_tracking",{p_tracking_token_hash:await sha256(trackingToken)});
    if(error||!order)return json({error:"Order tracking link is invalid or expired."},404);
-   return json({order:{order_number:order.order_number,fulfilment_type:order.fulfilment_type,status:order.status,payment_status:order.payment_status,delivery_address:order.delivery_address,created_at:order.created_at,updated_at:order.updated_at,ready_at:order.ready_at,delivered_at:order.delivered_at,branch:order.bigfoods_staff_work_locations,items:order.bigfoods_pos_online_order_items}});
+   return json({order});
   }
   if(action==="catalogue"){
    const lat=body.latitude==null?null:Number(body.latitude),lng=body.longitude==null?null:Number(body.longitude);
