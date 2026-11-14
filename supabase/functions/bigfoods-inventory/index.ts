@@ -77,7 +77,7 @@ Deno.serve(async (req: Request) => {
         ? await db.from("inventory_alerts").select("id,inventory_item_id,production_batch_id,alert_type,severity,status,title,created_at").in("production_batch_id", productionIds).neq("status", "resolved").neq("status", "dismissed").order("created_at", { ascending: false }).limit(100)
         : { data: [], error: null };
       if (alertsResult.error) return json({ error: "Unable to load branch inventory alerts." }, 503);
-      return json({ items: items ?? [], batches: batches ?? [], alerts: alertsResult.data ?? [], movements: movementsResult.data ?? [] });
+      return json({ current_branch: branch, items: items ?? [], batches: batches ?? [], alerts: alertsResult.data ?? [], movements: movementsResult.data ?? [] });
     }
     if (action === "item_create") {
       if (!has(actor, "inventory.manage")) return json({ error: "Forbidden" }, 403);
@@ -189,7 +189,7 @@ Deno.serve(async (req: Request) => {
         db.from("inventory_recipes").select("id,bigfoods_pos_item_id,name,version,output_quantity,output_unit,bigfoods_pos_items(name),inventory_recipe_items(inventory_item_id,quantity,unit,inventory_items(id,name,base_unit))").eq("is_active", true).not("bigfoods_pos_item_id", "is", null).order("name").limit(500)
       ]);
       if (items.error || batches.error || recipes.error) return json({ error: "Unable to load kitchen planning data. Check that inventory recipes are configured." }, 503);
-      return json({ items: items.data ?? [], batches: batches.data ?? [], recipes: recipes.data ?? [] });
+      return json({ current_branch: branch, items: items.data ?? [], batches: batches.data ?? [], recipes: recipes.data ?? [] });
     }
     if (action === "kitchen_queue") {
       if (!has(actor, "inventory.view")) return json({ error: "Forbidden" }, 403);
