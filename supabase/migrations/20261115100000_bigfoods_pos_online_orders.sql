@@ -135,7 +135,7 @@ begin
   update public.bigfoods_pos_online_orders set payment_status='failed',status='cancelled',cancellation_reason='Payment was not completed',updated_at=now() where id=v_order.id;
   update public.bigfoods_pos_branch_menu_stock s set stock_quantity=s.stock_quantity+oi.quantity,updated_at=now()
   from (select pos_item_id,sum(quantity)::integer quantity from public.bigfoods_pos_online_order_items where order_id=v_order.id and stock_reserved group by pos_item_id) oi
-  where s.work_location_id=v_order.work_location_id and s.pos_item_id=oi.pos_item_id and s.track_stock;
+  where s.work_location_id=v_order.work_location_id and s.pos_item_id=oi.pos_item_id;
  end if;
  return jsonb_build_object('success',p_success,'order_id',v_order.id,'order_number',v_order.order_number);
 end; $$;
