@@ -16,7 +16,8 @@ export default function CustomerSignupPage() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [emailVerified, setEmailVerified] = useState(false);\n  const [emailVerificationSkipped, setEmailVerificationSkipped] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailVerificationSkipped, setEmailVerificationSkipped] = useState(false);
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -122,7 +123,9 @@ export default function CustomerSignupPage() {
           fullName={fullName}
           phone={phone}
           verified={emailVerified}
-          onVerified={() => { setEmailVerified(true); setEmailVerificationSkipped(false); }}\n          skipped={emailVerificationSkipped}\n          onSkipped={() => { setEmailVerificationSkipped(true); setEmailVerified(false); }}
+          onVerified={() => { setEmailVerified(true); setEmailVerificationSkipped(false); }}
+          skipped={emailVerificationSkipped}
+          onSkipped={() => { setEmailVerificationSkipped(true); setEmailVerified(false); }}
           purpose="customer_signup"
         />
         <p className="text-[11px] mt-1.5" style={{color: 'var(--gray)'}}>
