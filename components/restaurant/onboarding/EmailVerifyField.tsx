@@ -10,11 +10,13 @@ interface EmailVerifyFieldProps {
   phone?: string;
   verified: boolean;
   onVerified: () => void;
+  skipped?: boolean;
+  onSkipped?: () => void;
   purpose?: 'customer_signup' | 'restaurant_signup' | 'rider_signup';
 }
 
 export default function EmailVerifyField({ email, fullName, phone, verified, onVerified, purpose }: EmailVerifyFieldProps) {
-  const { status, error, cooldown, sendCode, verifyCode } = useEmailVerification(email, fullName, phone, purpose);
+  const { status, error, cooldown, sendCode, verifyCode, skipVerification } = useEmailVerification(email, fullName, phone, purpose);
   const { otpState, updateOtpState } = useOnboardingSession();
   
   // FIX 5: Use persisted code from onboarding session instead of local state
@@ -42,6 +44,11 @@ export default function EmailVerifyField({ email, fullName, phone, verified, onV
     }
   }, [email, otpState, updateOtpState]);
 
+  async function handleSkip() {
+    const ok = await skipVerification();
+    if (ok) onSkipped?.();
+  }
+
   async function handleVerify() {
     const ok = await verifyCode(code);
     if (ok) {
@@ -63,7 +70,7 @@ export default function EmailVerifyField({ email, fullName, phone, verified, onV
     <div className="mt-1.5">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11.5px]" style={{ color: 'var(--gray)' }}>
-          Verify your email to continue
+          Verify your email now or continue without verification
         </p>
         <button
           type="button"
@@ -101,6 +108,16 @@ export default function EmailVerifyField({ email, fullName, phone, verified, onV
             Code expires in 10 minutes.
           </p>
         </div>
+      )}
+
+      {!verified && !skipped && (
+        <button type="button" onClick={handleSkip} disabled={!emailValid || !fullName?.trim() || !phone?.trim() || status === 'verifying'} className="mt-2 text-[11.5px] font-semibold underline disabled:opacity-40" style={{ color: 'var(--gray)' }}>
+          {status === 'verifying' ? 'Creating account…' : 'Skip for now — verify later'}
+        </button>
+      )}
+
+      {skipped && (
+        <p className="text-[11.5px] mt-1.5" style={{ color: 'var(--orange)' }}>Email verification skipped. You can verify it later from your account.</p>
       )}
 
       {error && (
