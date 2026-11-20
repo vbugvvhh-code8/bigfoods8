@@ -7,6 +7,7 @@ import BannerUpload from '@/components/restaurant/onboarding/BannerUpload';
 import BannerPreview from '@/components/restaurant/onboarding/BannerPreview';
 import useRestaurant from '@/hooks/useRestaurant';
 import type { Profile } from '@/types/database';
+import AccountEmailVerification from '@/components/auth/AccountEmailVerification';
 
 const CATEGORIES = ['Local & Native', 'Fast food', 'Drinks & snacks', 'Home kitchens'];
 
@@ -14,6 +15,7 @@ export default function ProfileForm() {
   const supabase = getBrowserSupabase();
   const { restaurant, save, error: restaurantError } = useRestaurant();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [accountEmail, setAccountEmail] = useState('');
   const [saving, setSaving] = useState(false);
   const [savedMessage, setSavedMessage] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -21,6 +23,7 @@ export default function ProfileForm() {
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) return;
+      setAccountEmail(data.user.email ?? '');
       const { data: profileRow } = await supabase.from('profiles').select('*').eq('id', data.user.id).maybeSingle();
       setProfile(profileRow as Profile);
     });
@@ -64,6 +67,7 @@ export default function ProfileForm() {
   return (
     <div>
       <p className="text-[11.5px] font-medium mb-3" style={{ color: 'var(--gray)' }}>Your details</p>
+      <AccountEmailVerification email={accountEmail} verified={profile.email_verified ?? false} purpose="restaurant_signup" />
       <div className="mb-3">
         <label className="block text-[12px] font-medium mb-1.5">Full name</label>
         <input
