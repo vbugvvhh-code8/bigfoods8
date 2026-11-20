@@ -1,3 +1,8 @@
+import { privateMetadata } from '@/lib/seo';
+
+// Placeholder page: keep it out of search results until it has content.
+export const metadata = privateMetadata('Restaurant');
+
 export default function RestaurantPage() {
   return (
     <div className="max-w-[380px] mx-auto px-4 py-8 text-center">

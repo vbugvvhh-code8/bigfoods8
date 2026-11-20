@@ -1,11 +1,10 @@
 import React from 'react';
 import Sidebar from '@/components/admin/layout/Sidebar';
+import { privateMetadata } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = {
-  title: 'Admin',
-};
+export const metadata = privateMetadata('Admin');
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (

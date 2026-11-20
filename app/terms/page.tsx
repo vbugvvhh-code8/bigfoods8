@@ -1,10 +1,12 @@
+import { pageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import Footer from '@/components/layout/Footer';
 
-export const metadata = {
-  title: 'Terms & Conditions — BigFoods',
+export const metadata = pageMetadata({
+  title: 'Terms & Conditions',
   description: 'The terms that govern use of the BigFoods platform.',
-};
+  path: '/terms',
+});
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (

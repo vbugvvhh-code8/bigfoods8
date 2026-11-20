@@ -1,3 +1,4 @@
+import { pageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
@@ -12,10 +13,13 @@ export function generateStaticParams() {
 export function generateMetadata({ params }: { params: { slug: string } }) {
   const post = getBlogPostBySlug(params.slug);
   if (!post) return {};
-  return {
-    title: `${post.title} — BigFoods Guides`,
+  return pageMetadata({
+    title: post.title,
     description: post.excerpt,
-  };
+    path: `/blogs/${post.slug}`,
+    card: post.illustration === 'rider' || post.illustration === 'earnings' ? 'rider' : 'restaurant',
+    type: 'article',
+  });
 }
 
 export default function BlogArticlePage({ params }: { params: { slug: string } }) {
