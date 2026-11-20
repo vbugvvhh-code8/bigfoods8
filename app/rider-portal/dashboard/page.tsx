@@ -15,7 +15,7 @@ const STATUS_LABEL: Record<string, string> = {
   picked_up: 'On the way to drop-off',
 };
 
-type NearbyOffer = { offer_id: string; order_id: string; zone: string | null; status: string; offered_at: string; delivery_address: string | null; delivery_fee: number | null };
+type NearbyOffer = { offer_id: string; order_id: string; order_number?: string; source?: 'marketplace' | 'bigfoods'; zone: string | null; status: string; offered_at: string; delivery_address: string | null; delivery_fee: number | null };
 
 export default function RiderDashboardPage() {
   const { rider, setOnline, error } = useRider();
@@ -51,24 +51,31 @@ export default function RiderDashboardPage() {
       return;
     }
     if (!quiet) setOffersLoading(true);
-    const { data, error: invokeError } = await supabase.functions.invoke('dispatch-marketplace', { body: { action: 'rider_offers' } });
+    const [marketplaceResult, posResult] = await Promise.all([
+      supabase.functions.invoke('dispatch-marketplace', { body: { action: 'rider_offers' } }),
+      supabase.functions.invoke('dispatch-marketplace', { body: { action: 'pos_rider_offers' } }),
+    ]);
+    const { data, error: invokeError } = marketplaceResult;
     if (invokeError || data?.error) {
       setOffersMessage(data?.error ?? 'Could not load nearby jobs. Please refresh.');
     } else {
-      const fetchedOffers = (data?.offers ?? []) as NearbyOffer[];
+      const fetchedOffers = [
+        ...((data?.offers ?? []) as NearbyOffer[]).map(offer => ({ ...offer, source: 'marketplace' as const })),
+        ...((posResult.error ? [] : posResult.data?.offers ?? []) as NearbyOffer[]).map(offer => ({ ...offer, source: 'bigfoods' as const })),
+      ];
       // Only prioritize accepted offers whose order is still active and
       // assigned to this rider. Stale accepted rows for completed orders must
       // not suppress pending offers that the rider can actually accept.
-      const acceptedOffers = fetchedOffers.filter(offer => offer.status === 'accepted');
+      const acceptedMarketplaceOffers = fetchedOffers.filter(offer => offer.status === 'accepted' && offer.source !== 'bigfoods');
       let currentOffers = fetchedOffers;
-      if (acceptedOffers.length && rider?.id) {
+      if (acceptedMarketplaceOffers.length && rider?.id) {
         const { data: activeAcceptedOrders } = await supabase.from('orders')
           .select('id,status,rider_id')
-          .in('id', acceptedOffers.map(offer => offer.order_id))
+          .in('id', acceptedMarketplaceOffers.map(offer => offer.order_id))
           .eq('rider_id', rider.id)
           .in('status', ['placed', 'preparing', 'picked_up']);
         const validAcceptedIds = new Set((activeAcceptedOrders ?? []).map(order => order.id));
-        currentOffers = fetchedOffers.filter(offer => offer.status !== 'accepted' || validAcceptedIds.has(offer.order_id));
+        currentOffers = fetchedOffers.filter(offer => offer.source === 'bigfoods' || offer.status !== 'accepted' || validAcceptedIds.has(offer.order_id));
       }
       const currentAcceptedOffers = currentOffers.filter(offer => offer.status === 'accepted');
       setNearbyOffers(currentAcceptedOffers.length ? currentAcceptedOffers.slice(0, 1) : currentOffers);
@@ -87,18 +94,18 @@ export default function RiderDashboardPage() {
     return () => window.clearInterval(timer);
   }, [rider?.id, rider?.status, order?.id, loadNearbyOffers]);
 
-  async function respondToOffer(orderId: string, accept: boolean) {
+  async function respondToOffer(orderId: string, accept: boolean, source: 'marketplace' | 'bigfoods' = 'marketplace') {
     if (offerActionId) return;
     setOfferActionId(orderId);
     setOffersMessage('');
     const { data, error: invokeError } = await supabase.functions.invoke('dispatch-marketplace', {
-      body: { action: 'respond_offer', order_id: orderId, accept },
+      body: { action: source === 'bigfoods' ? 'pos_respond_offer' : 'respond_offer', order_id: orderId, accept },
     });
     if (invokeError || data?.error) {
       setOffersMessage(data?.error ?? invokeError?.message ?? 'This offer is no longer available.');
       await loadNearbyOffers(true);
     } else if (accept) {
-      router.push('/rider-portal/dashboard/delivery/' + orderId);
+      router.push(source === 'bigfoods' ? '/rider-portal/dashboard/pos-delivery/' + orderId : '/rider-portal/dashboard/delivery/' + orderId);
     } else {
       setNearbyOffers(rows => rows.filter(row => row.order_id !== orderId));
       setOffersMessage('Offer declined.');
@@ -217,16 +224,16 @@ export default function RiderDashboardPage() {
           {offersMessage && <p role="alert" className="mt-3 rounded-lg p-3 text-sm" style={{ background: 'var(--peach)', color: 'var(--red)' }}>{offersMessage}</p>}
           {!online ? <p className="mt-4 rounded-xl p-3 text-sm" style={{ background: '#F7F4F0', color: 'var(--gray)' }}>Switch to online to receive eligible jobs.</p> : offersLoading && nearbyOffers.length === 0 ? <p className="mt-4 rounded-xl p-3 text-sm" style={{ background: '#F7F4F0', color: 'var(--gray)' }}>Checking available jobs…</p> : nearbyOffers.length === 0 ? <div className="mt-4 rounded-xl p-3 text-sm" style={{ background: '#F7F4F0', color: 'var(--gray)' }}>No eligible offers right now. This list refreshes automatically.</div> : <div className="mt-4 space-y-3">
             {nearbyOffers.map(offer => <article key={offer.offer_id} className="rounded-xl p-3" style={{ border: '1px solid var(--line)', background: '#FFFAF5' }}>
-              <div className="flex items-start justify-between gap-3"><div><p className="font-semibold" style={{ color: 'var(--ink)' }}>Order {offer.order_id.slice(0, 8)}</p><p className="mt-1 text-xs" style={{ color: 'var(--gray)' }}>{offer.zone ?? rider?.zone ?? 'Service area'} · {offer.status === 'accepted' ? 'Accepted' : 'Offer available'}</p></div><p className="font-semibold" style={{ color: 'var(--ink)' }}>₦{Number(offer.delivery_fee ?? 0).toLocaleString()}</p></div>
+              <div className="flex items-start justify-between gap-3"><div><p className="font-semibold" style={{ color: 'var(--ink)' }}>Order {offer.order_number ? `BigFoods ${offer.order_number}` : `Order ${offer.order_id.slice(0, 8)}`}</p><p className="mt-1 text-xs" style={{ color: 'var(--gray)' }}>{offer.zone ?? rider?.zone ?? 'Service area'} · {offer.status === 'accepted' ? 'Accepted' : 'Offer available'}</p></div><p className="font-semibold" style={{ color: 'var(--ink)' }}>₦{Number(offer.delivery_fee ?? 0).toLocaleString()}</p></div>
               <p className="mt-2 text-sm" style={{ color: 'var(--gray)' }}>{offer.status === 'accepted' ? offer.delivery_address ?? 'Open delivery to view destination.' : 'Delivery address is shown after acceptance.'}</p>
               {offer.status === 'offered' && <div
                 role="button"
                 tabIndex={0}
                 aria-label="Swipe to accept order and open delivery map"
-                onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !offerActionId && online) void respondToOffer(offer.order_id, true); }}
+                onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !offerActionId && online) void respondToOffer(offer.order_id, true, offer.source); }}
                 onPointerDown={e => { if (offerActionId || !online) return; swipeStart.current = e.clientX; e.currentTarget.setPointerCapture(e.pointerId); }}
                 onPointerMove={e => { if (swipeStart.current === null) return; const progress = Math.max(0, Math.min(100, ((e.clientX - swipeStart.current) / Math.max(1, e.currentTarget.clientWidth)) * 100)); setSwipeProgress(s => ({ ...s, [offer.order_id]: progress })); }}
-                onPointerUp={() => { const progress = swipeProgress[offer.order_id] ?? 0; swipeStart.current = null; setSwipeProgress(s => ({ ...s, [offer.order_id]: 0 })); if (progress >= 65 && !offerActionId && online) void respondToOffer(offer.order_id, true); }}
+                onPointerUp={() => { const progress = swipeProgress[offer.order_id] ?? 0; swipeStart.current = null; setSwipeProgress(s => ({ ...s, [offer.order_id]: 0 })); if (progress >= 65 && !offerActionId && online) void respondToOffer(offer.order_id, true, offer.source); }}
                 onPointerCancel={() => { swipeStart.current = null; setSwipeProgress(s => ({ ...s, [offer.order_id]: 0 })); }}
                 className="relative mt-3 flex h-14 touch-pan-y select-none items-center overflow-hidden rounded-full px-2 text-sm font-semibold text-white"
                 style={{ background: '#242424', opacity: offerActionId || !online ? 0.55 : 1 }}
@@ -235,7 +242,7 @@ export default function RiderDashboardPage() {
                 <span className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg text-white" style={{ background: 'var(--orange)', transform: `translateX(${Math.max(0, ((swipeProgress[offer.order_id] ?? 0) / 100) * 180)}px)`, transition: swipeStart.current === null ? 'transform 180ms ease' : 'none' }}>➜</span>
                 <span className="relative z-10 ml-3 flex-1 text-center pr-10">{offerActionId === offer.order_id ? 'Accepting…' : 'Swipe to Accept Order'}</span>
               </div>}
-              {offer.status === 'accepted' && <button onClick={() => router.push('/rider-portal/dashboard/delivery/' + offer.order_id)} className="mt-3 w-full rounded-xl px-4 py-3 text-sm font-semibold text-white" style={{ background: 'var(--orange)' }}>Open delivery map</button>}
+              {offer.status === 'accepted' && <button onClick={() => router.push(offer.source === 'bigfoods' ? '/rider-portal/dashboard/pos-delivery/' + offer.order_id : '/rider-portal/dashboard/delivery/' + offer.order_id)} className="mt-3 w-full rounded-xl px-4 py-3 text-sm font-semibold text-white" style={{ background: 'var(--orange)' }}>Open delivery map</button>}
             </article>)}
           </div>}
           <Link href="/rider-portal/dashboard/nearby-orders" className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold" style={{ borderColor: 'var(--line)', color: 'var(--ink)' }}>View all nearby orders <ArrowUpRight className="h-4 w-4" /></Link>

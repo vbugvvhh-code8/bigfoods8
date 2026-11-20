@@ -1,0 +1,166 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
+import { sendBigFoodsOrderEmail } from "../_shared/bigfoods-order-email.ts";
+const URL=Deno.env.get("SUPABASE_URL")!, SERVICE=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, PAYSTACK=Deno.env.get("PAYSTACK_SECRET_KEY");
+const cors={ "Access-Control-Allow-Origin":"*", "Access-Control-Allow-Methods":"POST, OPTIONS", "Access-Control-Allow-Headers":"authorization, apikey, content-type, x-client-info" };
+const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,"Content-Type":"application/json","Cache-Control":"no-store"}});
+const sha256=async(v:string)=>Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v))),b=>b.toString(16).padStart(2,"0")).join("");
+Deno.serve(async(req:Request)=>{
+ if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
+ if(req.method!=="POST")return json({error:"Method not allowed"},405);
+ let body:any;try{body=await req.json()}catch{return json({error:"Invalid request"},400)}
+ const db=createClient(URL,SERVICE,{auth:{persistSession:false,autoRefreshToken:false}});
+ const action=String(body.action||"");
+ try{
+  if(action==="track_order"){
+   const trackingToken=typeof body.tracking_token==="string"?body.tracking_token:"";
+   if(!/^[0-9a-f-]{36}$/i.test(trackingToken))return json({error:"A valid tracking link is required."},400);
+   const {data:order,error}=await db.rpc("bigfoods_pos_customer_order_tracking",{p_tracking_token_hash:await sha256(trackingToken)});
+   if(error||!order)return json({error:"Order tracking link is invalid or expired."},404);
+   return json({order});
+  }
+  if(action==="catalogue"){
+   const lat=body.latitude==null?null:Number(body.latitude),lng=body.longitude==null?null:Number(body.longitude);
+   if((lat!==null&&!Number.isFinite(lat))||(lng!==null&&!Number.isFinite(lng)))return json({error:"Invalid location"},400);
+   const {data,error}=await db.rpc("bigfoods_pos_online_catalogue",{p_lat:lat,p_lng:lng,p_fulfilment:body.fulfilment||"pickup"});
+   if(error)return json({error:error.message},400);
+   return json(data);
+  }
+  if(action==="create_order"){
+   if(!PAYSTACK)return json({error:"Online payments are not configured."},503);
+   const name=typeof body.customer_name==="string"?body.customer_name.trim():"";
+   const email=typeof body.customer_email==="string"?body.customer_email.trim():"";
+   const phone=typeof body.customer_phone==="string"?body.customer_phone.trim():"";
+   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return json({error:"A valid email address is required for Paystack checkout."},400);
+   const reference=crypto.randomUUID();
+   const trackingToken=crypto.randomUUID();
+   const {data:order,error}=await db.rpc("bigfoods_pos_create_online_order",{
+    p_fulfilment:body.fulfilment,p_customer_name:name,p_customer_email:email,p_customer_phone:phone,
+    p_delivery_address:body.delivery_address??null,p_delivery_lat:body.latitude??null,p_delivery_lng:body.longitude??null,
+    p_delivery_note:body.delivery_note??null,p_items:body.items,p_payment_reference:reference
+   });
+   if(error)return json({error:error.message},400);
+   const {error:trackingError}=await db.from("bigfoods_pos_online_orders").update({tracking_token_hash:await sha256(trackingToken)}).eq("id",order.order_id);
+   if(trackingError){await db.rpc("bigfoods_pos_online_payment_finalize",{p_reference:reference,p_success:false});return json({error:"Could not create secure order tracking link."},503);}
+   const origin=typeof body.callback_origin==="string"&&/^https:\/\//.test(body.callback_origin)?body.callback_origin:"https://bigfoods.app";
+   const callback=new URL("/online_order/payment",origin);callback.searchParams.set("tracking_token",trackingToken);
+   const response=await fetch("https://api.paystack.co/transaction/initialize",{method:"POST",headers:{Authorization:`Bearer ${PAYSTACK}`,"Content-Type":"application/json"},body:JSON.stringify({email,amount:Math.round(Number(order.total_amount)*100),currency:"NGN",reference,callback_url:callback.toString(),metadata:{type:"bigfoods_pos_online_order",order_id:order.order_id,order_number:order.order_number}})});
+   const result=await response.json();
+   if(!response.ok||result.status!==true){await db.rpc("bigfoods_pos_online_payment_finalize",{p_reference:reference,p_success:false});return json({error:result.message||"Could not initialize payment"},502)}
+   return json({success:true,order_number:order.order_number,reference,authorization_url:result.data.authorization_url,access_code:result.data.access_code,total_amount:order.total_amount,branch_name:order.branch_name},201);
+  }
+  if(action==="verify_payment"){
+   if(!PAYSTACK||typeof body.reference!=="string")return json({error:"Payment reference is required"},400);
+   const check=await fetch("https://api.paystack.co/transaction/verify/"+encodeURIComponent(body.reference),{headers:{Authorization:`Bearer ${PAYSTACK}`}});
+   const data=await check.json(),tx=data?.data;
+   const {data:order,error}=await db.from("bigfoods_pos_online_orders").select("id,order_number,total_amount,payment_status").eq("payment_reference",body.reference).maybeSingle();
+   if(error||!order)return json({error:"Order not found"},404);
+   const valid=check.ok&&data.status===true&&tx?.status==="success"&&tx?.reference===body.reference&&tx?.currency==="NGN"&&Number(tx?.amount)===Math.round(Number(order.total_amount)*100);
+   if(!valid){
+    if(check.ok&&data.status===true&&["failed","abandoned"].includes(String(tx?.status)))await db.rpc("bigfoods_pos_online_payment_finalize",{p_reference:body.reference,p_success:false});
+    return json({success:false,error:"Payment is not confirmed yet. If you were charged, contact BigFoods support with your order number."},409);
+   }
+   const {data:finalized,error:finalizeError}=await db.rpc("bigfoods_pos_online_payment_finalize",{p_reference:body.reference,p_success:true});
+   if(finalizeError)return json({error:"Payment was received but order finalization needs support review.",order_number:order.order_number},503);
+   if(finalized?.success!==true)return json({error:"This order was already cancelled after an unsuccessful payment attempt. Contact BigFoods support if Paystack charged you.",order_number:order.order_number},409);
+   if(finalized?.already_processed!==true)await sendBigFoodsOrderEmail(db,order.id,"confirmed");
+   return json({success:true,order_number:order.order_number,order_id:order.id,already_processed:finalized?.already_processed===true});
+  }
+  const token=typeof body.session_token==="string"?body.session_token:"";
+  if(!/^[0-9a-f]{64}$/i.test(token))return json({error:"Unauthenticated"},401);
+  const {data:session}=await db.from("bigfoods_staff_sessions").select("staff_id,expires_at,revoked_at").eq("token_hash",await sha256(token)).maybeSingle();
+  if(!session||session.revoked_at||new Date(session.expires_at).getTime()<=Date.now())return json({error:"Unauthenticated"},401);
+  const {data:actor}=await db.from("bigfoods_staff").select("id,role,permissions,is_active,must_change_password").eq("id",session.staff_id).maybeSingle();
+  if(!actor?.is_active||actor.must_change_password)return json({error:"Unauthenticated"},401);
+  const perms=Array.isArray(actor.permissions)?actor.permissions:[];
+  const admin=["owner","admin"].includes(actor.role);
+  if(action==="staff_list"){
+   if(!admin&&!perms.includes("pos.reports")&&!perms.includes("orders.view"))return json({error:"Forbidden"},403);
+   let query=db.from("bigfoods_pos_online_orders").select("*,bigfoods_staff_work_locations(name,address),bigfoods_pos_online_order_items(*)").order("created_at",{ascending:false}).limit(150);
+   let currentBranch=null;
+   if(!admin){
+    const {data:attendance}=await db.from("bigfoods_staff_attendance").select("work_location_id").eq("staff_id",actor.id).is("checked_out_at",null).maybeSingle();
+    if(!attendance?.work_location_id)return json({error:"Check in at your assigned branch to view online orders."},409);
+    currentBranch=attendance.work_location_id;
+    query=query.eq("work_location_id",currentBranch);
+   }
+   const {data,error}=await query;
+   if(error)return json({error:"Unable to load online orders"},503);
+   return json({orders:data||[],current_branch_id:currentBranch});
+  }
+  if(action==="staff_rider_options"){
+   if(!admin)return json({error:"Administrator access required"},403);
+   const id=typeof body.order_id==="string"?body.order_id:"";
+   if(!id)return json({error:"Order id is required"},400);
+   const {data:order,error:orderError}=await db.from("bigfoods_pos_online_orders").select("id,status,payment_status,fulfilment_type,assigned_rider_id,work_location_id").eq("id",id).maybeSingle();
+   if(orderError||!order)return json({error:"Order not found"},404);
+   if(order.status!=="ready"||order.payment_status!=="paid"||order.fulfilment_type!=="delivery"||order.assigned_rider_id)return json({error:"Only paid, ready, unassigned delivery orders can be assigned."},409);
+   const {data:branch,error:branchError}=await db.from("bigfoods_staff_work_locations").select("dispatch_zone").eq("id",order.work_location_id).maybeSingle();
+   if(branchError||!branch?.dispatch_zone)return json({riders:[]});
+   const {data:riders,error:riderError}=await db.from("riders").select("id,name,zone,status,approval_status,verification_fee_paid,waiver_completed,dispatch_disabled").eq("status","online").eq("approval_status","approved").eq("verification_fee_paid",true).eq("waiver_completed",true).eq("dispatch_disabled",false).order("name");
+   if(riderError)return json({error:"Could not load eligible riders"},503);
+   const zone=String(branch.dispatch_zone).trim().toLocaleLowerCase();
+   const zoneRiders=(riders||[]).filter((r:any)=>String(r.zone||"").trim().toLocaleLowerCase()===zone);
+   const riderIds=zoneRiders.map((r:any)=>r.id);
+   if(!riderIds.length)return json({riders:[]});
+   const [{data:marketplaceActive,error:marketplaceError},{data:posActive,error:posActiveError}]=await Promise.all([
+    db.from("orders").select("rider_id").in("rider_id",riderIds).in("status",["placed","preparing","picked_up"]),
+    db.from("bigfoods_pos_online_orders").select("assigned_rider_id").in("assigned_rider_id",riderIds).in("status",["ready","out_for_delivery"])
+   ]);
+   if(marketplaceError||posActiveError)return json({error:"Could not verify rider availability. Refresh and try again."},503);
+   const busyRiders=new Set([...(marketplaceActive||[]).map((x:any)=>x.rider_id),...(posActive||[]).map((x:any)=>x.assigned_rider_id)]);
+   const eligible=zoneRiders.filter((r:any)=>!busyRiders.has(r.id)).map((r:any)=>({id:r.id,name:r.name,zone:r.zone}));
+   return json({riders:eligible});
+  }
+  if(action==="staff_assign_rider"){
+   if(!admin)return json({error:"Administrator access required"},403);
+   const id=typeof body.order_id==="string"?body.order_id:"",riderId=typeof body.rider_id==="string"?body.rider_id:"";
+   if(!id||!riderId)return json({error:"Order and rider are required"},400);
+   const {data:order,error:orderError}=await db.from("bigfoods_pos_online_orders").select("id,status,payment_status,fulfilment_type,assigned_rider_id,work_location_id").eq("id",id).maybeSingle();
+   if(orderError||!order)return json({error:"Order not found"},404);
+   if(order.status!=="ready"||order.payment_status!=="paid"||order.fulfilment_type!=="delivery"||order.assigned_rider_id)return json({error:"Only paid, ready, unassigned delivery orders can be assigned."},409);
+   const [{data:branch,error:branchError},{data:rider,error:riderError}]=await Promise.all([
+    db.from("bigfoods_staff_work_locations").select("dispatch_zone").eq("id",order.work_location_id).maybeSingle(),
+    db.from("riders").select("id,zone,status,approval_status,verification_fee_paid,waiver_completed,dispatch_disabled").eq("id",riderId).maybeSingle()
+   ]);
+   if(branchError||riderError||!branch||!rider)return json({error:"Could not validate branch or rider"},503);
+   const branchZone=String(branch.dispatch_zone||"").trim().toLocaleLowerCase(),riderZone=String(rider.zone||"").trim().toLocaleLowerCase();
+   if(!branchZone||branchZone!==riderZone||rider.status!=="online"||rider.approval_status!=="approved"||!rider.verification_fee_paid||!rider.waiver_completed||rider.dispatch_disabled)return json({error:"Rider is not eligible for this branch delivery"},409);
+   const [{data:marketplaceActive,error:marketplaceError},{data:posActive,error:posActiveError}]=await Promise.all([
+    db.from("orders").select("id").eq("rider_id",rider.id).in("status",["placed","preparing","picked_up"]).limit(1),
+    db.from("bigfoods_pos_online_orders").select("id").eq("assigned_rider_id",rider.id).in("status",["ready","out_for_delivery"]).limit(1)
+   ]);
+   if(marketplaceError||posActiveError)return json({error:"Could not verify rider availability. Refresh and try again."},503);
+   if((marketplaceActive||[]).length||(posActive||[]).length)return json({error:"This rider already has an active delivery. Choose another available rider."},409);
+   const {data:updated,error:updateError}=await db.from("bigfoods_pos_online_orders").update({assigned_rider_id:rider.id,updated_at:new Date().toISOString()}).eq("id",id).is("assigned_rider_id",null).eq("status","ready").eq("payment_status","paid").select("id").maybeSingle();
+   if(updateError||!updated)return json({error:"Order was assigned by another dispatcher. Refresh and try again."},409);
+   const {error:offerError}=await db.from("bigfoods_pos_online_rider_offers").upsert({order_id:id,rider_id:rider.id,status:"accepted",responded_at:new Date().toISOString()},{onConflict:"order_id,rider_id"});
+   if(offerError){await db.from("bigfoods_pos_online_orders").update({assigned_rider_id:null,updated_at:new Date().toISOString()}).eq("id",id).eq("assigned_rider_id",rider.id);return json({error:"Could not create the rider's active delivery assignment"},503);}
+   await db.from("bigfoods_pos_online_rider_offers").update({status:"expired",responded_at:new Date().toISOString()}).eq("order_id",id).neq("rider_id",rider.id).eq("status","offered");
+   return json({ok:true,assigned_rider_id:rider.id});
+  }
+  if(action==="staff_update"){
+   if(!admin&&!perms.includes("pos.sell")&&!perms.includes("orders.manage"))return json({error:"Forbidden"},403);
+   const id=typeof body.order_id==="string"?body.order_id:"",status=String(body.status||"");
+   const allowed=["accepted","ready","picked_up"];
+   if(!id||!allowed.includes(status))return json({error:"Invalid order update"},400);
+   const {data:order,error:loadError}=await db.from("bigfoods_pos_online_orders").select("id,status,payment_status,work_location_id,fulfilment_type").eq("id",id).maybeSingle();
+   if(loadError||!order)return json({error:"Order not found"},404);
+   const {data:attendance}=await db.from("bigfoods_staff_attendance").select("work_location_id").eq("staff_id",actor.id).is("checked_out_at",null).maybeSingle();
+   if(!admin&&(!attendance||attendance.work_location_id!==order.work_location_id))return json({error:"Check in at the order's branch to manage it."},403);
+   if(order.payment_status!=="paid")return json({error:"Only paid online orders can be processed."},409);
+   const transitions:Record<string,string[]>={accepted:["confirmed"],ready:["accepted"],picked_up:["ready"]};
+   if(status==="picked_up"&&order.fulfilment_type!=="pickup")return json({error:"Delivery orders must be completed through rider dispatch."},409);
+   if(!transitions[status]?.includes(order.status))return json({error:"This status transition is not allowed. Paid orders cannot be rejected or cancelled until refund and stock-restoration handling is available."},409);
+   const patch:any={status,updated_at:new Date().toISOString()};
+   if(status==="accepted"){patch.accepted_by_staff_id=actor.id;patch.accepted_at=new Date().toISOString()}
+   if(status==="ready")patch.ready_at=new Date().toISOString();
+   const {data:updated,error}=await db.from("bigfoods_pos_online_orders").update(patch).eq("id",id).eq("status",order.status).select("id,status").maybeSingle();
+   if(error||!updated)return json({error:"Order changed; refresh and try again."},409);
+   await db.from("bigfoods_staff_audit_events").insert({actor_staff_id:actor.id,action:"pos.online_order_status_updated",details:{order_id:id,status}});
+   await sendBigFoodsOrderEmail(db,id,status);
+   return json({order:updated});
+  }
+  return json({error:"Unsupported action"},400);
+ }catch(e){console.error("BIGFOODS_POS_ONLINE_ORDER_ERROR",e instanceof Error?e.message:String(e));return json({error:"Online ordering service unavailable"},503)}
+});

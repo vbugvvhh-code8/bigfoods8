@@ -124,15 +124,34 @@ Deno.serve(async (req: Request) => {
         db.from("bigfoods_pos_dining_areas").select("id,name,sort_order,is_active").eq("is_active", true).order("sort_order").order("name"),
         db.from("bigfoods_pos_tables").select("id,dining_area_id,table_number,display_name,capacity,status,is_active").eq("is_active", true).order("sort_order").order("table_number"),
         db.from("bigfoods_pos_table_sessions").select("id,session_number,table_id,service_type,status,guest_count,customer_name,opened_at").in("status", ["open","awaiting_payment"]).order("opened_at", { ascending: false }).limit(100),
-        db.from("bigfoods_staff_attendance").select("id,shift_assignment_id,checked_in_at,bigfoods_staff_shift_assignments(id,shift_date,starts_at,ends_at,status,bigfoods_staff_shift_templates(name))").eq("staff_id", actor.id).is("checked_out_at", null).limit(1),
+        db.from("bigfoods_staff_attendance").select("id,work_location_id,shift_assignment_id,checked_in_at,bigfoods_staff_shift_assignments(id,shift_date,starts_at,ends_at,status,bigfoods_staff_shift_templates(name))").eq("staff_id", actor.id).is("checked_out_at", null).limit(1),
         db.from("bigfoods_pos_sales").select("id,receipt_number,total_amount,payment_method,status,created_at,cashier_staff_id").eq("cashier_staff_id", actor.id).order("created_at", { ascending: false }).limit(100),
         db.from("bigfoods_pos_payments").select("id,sale_id,payment_method,amount,status,reference,created_at,bigfoods_pos_sales(receipt_number,cashier_staff_id)").eq("status", "pending").order("created_at", { ascending: true }).limit(100),
         db.from("bigfoods_pos_settings").select("tax_enabled,tax_rate,discount_enabled,discount_allowed_roles,discount_max_percent").eq("id", true).single()
       ]);
       const errors = [catalogue,categories,areas,tables,sessions,shifts,sales,payments,pricing].filter(x => x.error);
       if (errors.length) return json({ error: "POS database is not ready. Apply the independent POS migrations first." }, 503);
-      const visibleCatalogue = (catalogue.data ?? []).filter((item: any) => item.track_stock !== true || Number(item.stock_quantity ?? 0) > 0);
-      return json({ catalogue: visibleCatalogue, categories: categories.data ?? [], dining_areas: areas.data ?? [], tables: tables.data ?? [], sessions: sessions.data ?? [], current_attendance: shifts.data?.[0] ?? null, today_sales: sales.data ?? [], pending_payments: (payments.data ?? []).filter((p: any) => p.bigfoods_pos_sales?.cashier_staff_id === actor.id || ["owner","admin"].includes(actor.role)), pricing_settings: pricing.data });
+      const activeAttendance = shifts.data?.[0] ?? null;
+      let visibleCatalogue: any[] = [];
+      if (activeAttendance?.work_location_id) {
+        const [branchLinks, branchStock] = await Promise.all([
+          db.from("bigfoods_pos_branch_items").select("pos_item_id,selling_price,sort_order").eq("work_location_id", activeAttendance.work_location_id).eq("is_available", true).order("sort_order"),
+          db.from("bigfoods_pos_branch_menu_stock").select("pos_item_id,track_stock,stock_quantity").eq("work_location_id", activeAttendance.work_location_id)
+        ]);
+        if (branchLinks.error || branchStock.error) return json({ error: "Unable to load this branch menu and prepared stock." }, 503);
+        const itemIds = (branchLinks.data ?? []).map((row: any) => row.pos_item_id);
+        if (itemIds.length) {
+          const { data: branchProducts, error: productError } = await db.from("bigfoods_pos_items").select("id,name,sku,description,category,subcategory,selling_price,is_available,image_url,item_type,is_featured,track_stock,stock_quantity,low_stock_alert").in("id", itemIds).eq("is_available", true);
+          if (productError) return json({ error: "Unable to load this branch POS menu." }, 503);
+          const stockByItem = new Map((branchStock.data ?? []).map((row: any) => [row.pos_item_id, row]));
+          const linksByItem = new Map((branchLinks.data ?? []).map((row: any) => [row.pos_item_id, row]));
+          visibleCatalogue = (branchProducts ?? []).filter((item: any) => { const stock: any = stockByItem.get(item.id); return stock && (stock.track_stock !== true || Number(stock.stock_quantity ?? 0) > 0); }).map((item: any) => {
+            const link: any = linksByItem.get(item.id), stock: any = stockByItem.get(item.id);
+            return { ...item, selling_price: link?.selling_price ?? item.selling_price, track_stock: stock?.track_stock ?? true, stock_quantity: stock?.stock_quantity ?? 0 };
+          }).sort((a: any,b: any) => { const left: any = linksByItem.get(a.id), right: any = linksByItem.get(b.id); return Number(left?.sort_order ?? 0)-Number(right?.sort_order ?? 0) || String(a.name).localeCompare(String(b.name)); });
+        }
+      }
+      return json({ catalogue: visibleCatalogue, categories: categories.data ?? [], dining_areas: areas.data ?? [], tables: tables.data ?? [], sessions: sessions.data ?? [], current_attendance: activeAttendance, today_sales: sales.data ?? [], pending_payments: (payments.data ?? []).filter((p: any) => p.bigfoods_pos_sales?.cashier_staff_id === actor.id || ["owner","admin"].includes(actor.role)), pricing_settings: pricing.data });
     }
 
     if (action === "catalogue_create" || action === "catalogue_update" || action === "catalogue_delete") {
@@ -228,6 +247,9 @@ Deno.serve(async (req: Request) => {
 
     if (action === "checkout") {
       if (!allowed(actor, "pos.sell") || !allowed(actor, "pos.payments")) return json({ error: "Forbidden" }, 403);
+      const { data: activeAttendance, error: attendanceError } = await db.from("bigfoods_staff_attendance")
+        .select("id,work_location_id").eq("staff_id", actor.id).is("checked_out_at", null).maybeSingle();
+      if (attendanceError || !activeAttendance?.work_location_id) return json({ error: "Check in at your assigned branch before processing a POS sale." }, 409);
       if (typeof body.session_id !== "string" || !Array.isArray(body.items) || !body.items.length || body.items.length > 100) return json({ error: "Add items to the basket before checkout." }, 400);
       if (typeof body.idempotency_key !== "string" || !/^[0-9a-f-]{36}$/i.test(body.idempotency_key)) return json({ error: "Invalid checkout request. Refresh and try again." }, 400);
       const method = body.payment_method;
