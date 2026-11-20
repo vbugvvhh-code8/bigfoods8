@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useRider from '@/hooks/useRider';
 import getBrowserSupabase from '@/lib/supabase/client';
+import AccountEmailVerification from '@/components/auth/AccountEmailVerification';
 
 const VEHICLE_TYPES = ['Okada', 'Keke', 'Car', 'Bicycle'];
 
@@ -13,8 +14,19 @@ export default function RiderProfilePage() {
   const { rider, save, error } = useRider();
   const [form, setForm] = useState({ name: '', vehicle_type: '', plate_number: '', zone: '' });
   const [zones, setZones] = useState<string[]>([]);
+  const [accountEmail, setAccountEmail] = useState('');
+  const [emailVerified, setEmailVerified] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (!data.user) return;
+      setAccountEmail(data.user.email ?? '');
+      const { data: profile } = await supabase.from('profiles').select('email_verified').eq('id', data.user.id).maybeSingle();
+      setEmailVerified(profile?.email_verified ?? false);
+    });
+  }, [supabase]);
 
   useEffect(() => {
     if (rider) {
@@ -52,6 +64,7 @@ export default function RiderProfilePage() {
   return (
     <>
       <h2 className="text-[18px] font-semibold mb-4" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Your profile</h2>
+      <AccountEmailVerification email={accountEmail} verified={emailVerified} purpose="rider_signup" />
       {rider && rider.strikes > 0 && (
         <p className="text-[11.5px] mb-4 -mt-2.5" style={{ color: 'var(--red)' }}>
           {rider.strikes} strike{rider.strikes === 1 ? '' : 's'} on your account from cancelled deliveries.

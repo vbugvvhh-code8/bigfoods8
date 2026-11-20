@@ -17,6 +17,7 @@ export interface RiderOnboardingDraft {
   phone?: string;
   email?: string;
   emailVerified?: boolean;
+  emailVerificationSkipped?: boolean;
   passwordSet?: boolean;
   vehicleType?: string;
   plateNumber?: string;
@@ -108,6 +109,12 @@ export default function useRiderOnboardingSession() {
           .eq('profile_id', user.id)
           .maybeSingle();
 
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('email_verified')
+          .eq('id', user.id)
+          .maybeSingle();
+
         if (row) {
           // Server row wins over stale local draft for anything it already has.
           setDraft((prev) => ({
@@ -115,7 +122,7 @@ export default function useRiderOnboardingSession() {
             fullName: row.name ?? prev.fullName,
             phone: row.phone ?? prev.phone,
             email: row.email ?? prev.email,
-            emailVerified: row.email ? true : prev.emailVerified,
+            emailVerified: profile?.email_verified === true, emailVerificationSkipped: prev.emailVerificationSkipped,
             vehicleType: row.vehicle_type ?? prev.vehicleType,
             plateNumber: row.plate_number ?? prev.plateNumber,
             zone: row.zone ?? prev.zone,

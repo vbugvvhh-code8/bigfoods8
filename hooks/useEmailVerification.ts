@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import getBrowserSupabase from '@/lib/supabase/client';
 import { extractEdgeFunctionError } from '@/lib/extractEdgeFunctionError';
 
-type Status = 'idle' | 'sending' | 'sent' | 'verifying' | 'verified' | 'error';
+type Status = 'idle' | 'sending' | 'sent' | 'verifying' | 'verified' | 'skipped' | 'error';
 
 const RESEND_COOLDOWN_SECONDS = 60;
 
@@ -92,6 +92,35 @@ export default function useEmailVerification(
     }
   }, [email, cooldown, purpose, supabase, startCooldown]);
 
+  const skipVerification = useCallback(async () => {
+    if (!email || !/^\S+@\S+\.\S+$/.test(email) || !fullName?.trim() || !phone?.trim()) {
+      setError('Enter your name, phone number, and a valid email before continuing.');
+      setStatus('error');
+      return false;
+    }
+    setStatus('verifying');
+    setError(null);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('start-email-registration', {
+        body: { email, full_name: fullName, phone, purpose },
+      });
+      if (fnError) throw new Error(await extractEdgeFunctionError(fnError, 'Could not create your account. Please try again.'));
+      if (data?.error) throw new Error(data.error);
+      if (!data?.token_hash) throw new Error('The account was created but no sign-in token was returned. Please try again.');
+      const { data: authData, error: authError } = await supabase.auth.verifyOtp({
+        token_hash: data.token_hash, type: 'magiclink',
+      });
+      if (authError) throw authError;
+      if (!authData.session) throw new Error('Could not establish your sign-in session. Please try again.');
+      setStatus('skipped');
+      return true;
+    } catch (e: any) {
+      setStatus('error');
+      setError(e?.message ?? 'Could not create your account. Please try again.');
+      return false;
+    }
+  }, [email, fullName, phone, purpose, supabase]);
+
   const verifyCode = useCallback(
     async (code: string) => {
       setStatus('verifying');
@@ -115,7 +144,7 @@ export default function useEmailVerification(
         // Use correct verifyOtp signature - token_hash only (not email + token)
         const { data: verifyData, error: sessionError } = await supabase.auth.verifyOtp({
           token_hash: data.token_hash,
-          type: 'email',
+          type: 'magiclink',
         });
         if (sessionError) throw sessionError;
 
@@ -142,5 +171,5 @@ export default function useEmailVerification(
     [email, fullName, phone, purpose, supabase]
   );
 
-  return { status, error, cooldown, sendCode, verifyCode };
+  return { status, error, cooldown, sendCode, verifyCode, skipVerification };
 }

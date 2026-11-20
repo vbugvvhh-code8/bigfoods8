@@ -44,7 +44,7 @@ export default function SellerInfoPage() {
   const canContinue = !!(
     draft.fullName &&
     draft.phone &&
-    draft.emailVerified &&
+    (draft.emailVerified || draft.emailVerificationSkipped) &&
     draft.passwordSet &&
     draft.state &&
     draft.lga &&
@@ -138,7 +138,7 @@ export default function SellerInfoPage() {
         </label>
         <input
           value={draft.email ?? ''}
-          onChange={(e) => updateDraft({ email: e.target.value, emailVerified: false, passwordSet: false })}
+          onChange={(e) => updateDraft({ email: e.target.value, emailVerified: false, emailVerificationSkipped: false, passwordSet: false })}
           placeholder="you@example.com"
           type="email"
           className="w-full px-3 py-2.5 rounded-[9px] text-[13px] outline-none"
@@ -149,11 +149,14 @@ export default function SellerInfoPage() {
           fullName={draft.fullName}
           phone={draft.phone}
           verified={!!draft.emailVerified}
-          onVerified={() => updateDraft({ emailVerified: true })}
+          verified={!!draft.emailVerified}
+          skipped={!!draft.emailVerificationSkipped}
+          onVerified={() => updateDraft({ emailVerified: true, emailVerificationSkipped: false })}
+          onSkipped={() => updateDraft({ emailVerificationSkipped: true, emailVerified: false })}
         />
       </div>
 
-      {draft.emailVerified && (
+      {(draft.emailVerified || draft.emailVerificationSkipped) && (
         <div className="mb-5">
           <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
             Set a password

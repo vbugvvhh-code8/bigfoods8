@@ -8,6 +8,7 @@ import {useCart} from '@/hooks/useCart';
 import {NIGERIA_STATES, lgaOptions, stateOfZone} from '@/lib/nigeriaLocations';
 import {AuthGate} from '@/components/customer/shell/AuthGate';
 import {SavedAddressesList} from '@/components/customer/orders/SavedAddressesList';
+import AccountEmailVerification from '@/components/auth/AccountEmailVerification';
 
 function ProfileContent() {
   const router = useRouter();
@@ -77,6 +78,7 @@ function ProfileContent() {
           <p className="text-[12px] break-all" style={{color: 'var(--gray)'}}>
             {email}
           </p>
+          <AccountEmailVerification email={email ?? ''} verified={profile?.email_verified ?? false} purpose="customer_signup" />
         </div>
       </div>
 
