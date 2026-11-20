@@ -149,7 +149,10 @@ export default function SellerInfoPage() {
           fullName={draft.fullName}
           phone={draft.phone}
           verified={!!draft.emailVerified}
-          verified={!!draft.emailVerified}\n          skipped={!!draft.emailVerificationSkipped}\n          onVerified={() => updateDraft({ emailVerified: true, emailVerificationSkipped: false })}\n          onSkipped={() => updateDraft({ emailVerificationSkipped: true, emailVerified: false })}
+          verified={!!draft.emailVerified}
+          skipped={!!draft.emailVerificationSkipped}
+          onVerified={() => updateDraft({ emailVerified: true, emailVerificationSkipped: false })}
+          onSkipped={() => updateDraft({ emailVerificationSkipped: true, emailVerified: false })}
         />
       </div>
 
