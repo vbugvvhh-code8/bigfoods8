@@ -125,6 +125,13 @@ export default function PaymentStep() {
         </p>
       </div>
 
+      <div className="p-3.5 rounded-[10px] mb-4" style={{ background: 'var(--peach)', border: '1px solid var(--line)' }} role="note">
+        <p className="text-[12px] font-semibold mb-1">100% Money-Back Guarantee</p>
+        <p className="text-[12px] leading-relaxed" style={{ color: 'var(--ink)' }}>
+          If BigFoods launches and you receive no sales during your first month after launch, your onboarding payment will be refunded in full. We want every seller to have a fair opportunity to succeed on BigFoods.
+        </p>
+      </div>
+
       <div role="radiogroup" aria-label="Plan" className="space-y-2.5 mb-5">
         {options.map((o) => {
           const active = plan === o.id;
