@@ -118,12 +118,6 @@ export default function PaymentStep() {
       <p className="text-[12.5px] mb-3" style={{ color: 'var(--gray)' }}>
         Pick a plan. It covers your onboarding and includes free ads, so customers see you first.
       </p>
-      <div className="p-3.5 rounded-[10px] mb-4" style={{ background: 'var(--peach)' }}>
-        <p className="text-[12px] font-semibold mb-1">Why we ask you to pay</p>
-        <p className="text-[12px] leading-relaxed" style={{ color: 'var(--ink)' }}>
-          This payment helps us welcome serious food businesses to BigFoods. We are building a network of <strong>1,000 restaurants and home kitchens in each state</strong>. Once all 1,000 places are filled, registration in that state will close.
-        </p>
-      </div>
 
       <div className="p-3.5 rounded-[10px] mb-4" style={{ background: 'var(--peach)', border: '1px solid var(--line)' }} role="note">
         <p className="text-[12px] font-semibold mb-1">100% Money-Back Guarantee</p>
