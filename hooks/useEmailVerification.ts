@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import getBrowserSupabase from '@/lib/supabase/client';
 import { extractEdgeFunctionError } from '@/lib/extractEdgeFunctionError';
 
-type Status = 'idle' | 'sending' | 'sent' | 'verifying' | 'verified' | 'error';
+type Status = 'idle' | 'sending' | 'sent' | 'verifying' | 'verified' | 'skipped' | 'error';
 
 const RESEND_COOLDOWN_SECONDS = 60;
 
@@ -92,7 +92,7 @@ export default function useEmailVerification(
     }
   }, [email, cooldown, purpose, supabase, startCooldown]);
 
-  const verifyCode = useCallback(
+  const skipVerification = useCallback(async () => {\n    if (!email || !/^\\S+@\\S+\\.\\S+$/.test(email) || !fullName?.trim() || !phone?.trim()) {\n      setError('Enter your name, phone number, and a valid email before continuing.');\n      setStatus('error');\n      return false;\n    }\n    setStatus('verifying');\n    setError(null);\n    try {\n      const { data, error: fnError } = await supabase.functions.invoke('start-email-registration', {\n        body: { email, full_name: fullName, phone, purpose },\n      });\n      if (fnError) throw new Error(await extractEdgeFunctionError(fnError, 'Could not create your account. Please try again.'));\n      if (data?.error) throw new Error(data.error);\n      if (!data?.token_hash) throw new Error('The account was created but no sign-in token was returned. Please try again.');\n      const { data: authData, error: authError } = await supabase.auth.verifyOtp({\n        token_hash: data.token_hash, type: 'magiclink',\n      });\n      if (authError) throw authError;\n      if (!authData.session) throw new Error('Could not establish your sign-in session. Please try again.');\n      setStatus('skipped');\n      return true;\n    } catch (e: any) {\n      setStatus('error');\n      setError(e?.message ?? 'Could not create your account. Please try again.');\n      return false;\n    }\n  }, [email, fullName, phone, purpose, supabase]);\n\n  const verifyCode = useCallback(
     async (code: string) => {
       setStatus('verifying');
       setError(null);
@@ -142,5 +142,5 @@ export default function useEmailVerification(
     [email, fullName, phone, purpose, supabase]
   );
 
-  return { status, error, cooldown, sendCode, verifyCode };
+  return { status, error, cooldown, sendCode, verifyCode, skipVerification };
 }
