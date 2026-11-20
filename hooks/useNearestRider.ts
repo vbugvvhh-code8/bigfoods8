@@ -3,16 +3,6 @@
 import { useEffect, useState } from 'react';
 import getBrowserSupabase from '@/lib/supabase/client';
 
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 // Assumed average moped speed in Nigerian urban traffic, for a rough ETA only.
 const ASSUMED_SPEED_KMH = 25;
 
@@ -28,24 +18,16 @@ export default function useNearestRider(latitude?: number, longitude?: number, z
     }
     let cancelled = false;
 
+    // nearest_online_rider_km() does the distance maths in the database so
+    // rider positions are never sent to the browser.
     supabase
-      .from('riders')
-      .select('lat, lng')
-      .eq('zone', zone.trim())
-      .eq('status', 'online')
-      .eq('approval_status', 'approved')
-      .eq('waiver_completed', true)
-      .eq('dispatch_disabled', false)
-      .not('lat', 'is', null)
-      .not('lng', 'is', null)
-      .then(({ data }) => {
+      .rpc('nearest_online_rider_km', { p_lat: latitude, p_lng: longitude, p_zone: zone.trim() })
+      .then(({ data, error }) => {
         if (cancelled) return;
-        if (!data || data.length === 0) {
+        const nearestKm = typeof data === 'number' ? data : data == null ? null : Number(data);
+        if (error || nearestKm == null || !Number.isFinite(nearestKm)) {
           setEtaMinutes(null);
         } else {
-          const nearestKm = Math.min(
-            ...data.map((r) => haversineKm(latitude, longitude, Number(r.lat), Number(r.lng)))
-          );
           setEtaMinutes(Math.max(1, Math.round((nearestKm / ASSUMED_SPEED_KMH) * 60)));
         }
         setLoading(false);

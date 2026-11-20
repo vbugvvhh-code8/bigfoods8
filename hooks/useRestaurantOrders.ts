@@ -47,7 +47,7 @@ export default function useRestaurantOrders(restaurantId?: string) {
     const { data } = await supabase
       .from('orders')
       .select(
-        'id, status, subtotal, delivery_fee, platform_fee, placed_at, delivered_at, delivery_address, delivery_code, rider_id, payment_status, zone, riders(name, plate_number, vehicle_type)'
+        'id, status, subtotal, delivery_fee, platform_fee, placed_at, delivered_at, delivery_address, delivery_code, rider_id, payment_status, zone'
       )
       .eq('restaurant_id', restaurantId)
       .order('placed_at', { ascending: false })
@@ -72,7 +72,17 @@ export default function useRestaurantOrders(restaurantId?: string) {
         });
       }
     }
-    setOrders(fetchedOrders.map((o) => ({ ...o, rider: o.riders ?? null, items: lineItemsByOrder[o.id] ?? [] })));
+    // Rider name/plate come from order_rider_public(), which only returns the
+    // rider assigned to this restaurant's own orders.
+    const riderByOrder: Record<string, { name: string | null; plate_number: string | null; vehicle_type: string | null }> = {};
+    const orderIdsWithRider = fetchedOrders.filter((o) => o.rider_id).map((o) => o.id);
+    if (orderIdsWithRider.length) {
+      const { data: riderRows } = await supabase.rpc('order_rider_public', { p_order_ids: orderIdsWithRider });
+      for (const row of (riderRows as any[]) ?? []) {
+        riderByOrder[row.order_id] = { name: row.name, plate_number: row.plate_number, vehicle_type: row.vehicle_type };
+      }
+    }
+    setOrders(fetchedOrders.map((o) => ({ ...o, rider: riderByOrder[o.id] ?? null, items: lineItemsByOrder[o.id] ?? [] })));
     setLoading(false);
   }, [restaurantId, supabase]);
 
