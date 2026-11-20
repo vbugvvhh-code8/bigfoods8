@@ -149,7 +149,6 @@ export default function SellerInfoPage() {
           fullName={draft.fullName}
           phone={draft.phone}
           verified={!!draft.emailVerified}
-          verified={!!draft.emailVerified}
           skipped={!!draft.emailVerificationSkipped}
           onVerified={() => updateDraft({ emailVerified: true, emailVerificationSkipped: false })}
           onSkipped={() => updateDraft({ emailVerificationSkipped: true, emailVerified: false })}
@@ -226,7 +225,6 @@ export default function SellerInfoPage() {
           )}
         </div>
       )}
-
 
       <div className="grid grid-cols-2 gap-3 mb-3.5">
         <div>
@@ -311,7 +309,6 @@ export default function SellerInfoPage() {
       <p className="text-[10.5px] mb-4" style={{ color: 'var(--gray)' }}>
         Gender and date of birth stay private. Customers never see them.
       </p>
-
 
       {continueError && (
         <p className="text-[11.5px] mb-3" style={{ color: 'var(--red)' }} role="alert">
