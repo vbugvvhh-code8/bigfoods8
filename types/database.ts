@@ -233,6 +233,7 @@ export interface Database {
           state: string | null;
           lga: string | null;
           created_at: string | null;
+          email_verified: boolean;
         };
         Insert: Partial<Database['public']['Tables']['profiles']['Row']> & { id: string; role: string };
         Update: Partial<Database['public']['Tables']['profiles']['Row']>;
