@@ -44,6 +44,7 @@ export interface OnboardingDraft {
   phone?: string;
   email?: string;
   emailVerified?: boolean;
+  emailVerificationSkipped?: boolean;
   passwordSet?: boolean;
   restaurantName?: string;
   category?: string;
