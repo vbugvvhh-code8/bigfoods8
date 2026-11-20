@@ -144,7 +144,7 @@ export default function useEmailVerification(
         // Use correct verifyOtp signature - token_hash only (not email + token)
         const { data: verifyData, error: sessionError } = await supabase.auth.verifyOtp({
           token_hash: data.token_hash,
-          type: 'email',
+          type: 'magiclink',
         });
         if (sessionError) throw sessionError;
 
