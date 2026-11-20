@@ -43,7 +43,7 @@ export default function DetailsForm({ draft, updateDraft, onContinue }: DetailsF
     !!draft.phone &&
     !!draft.vehicleType &&
     !!draft.plateNumber &&
-    !!draft.emailVerified &&
+    !!(draft.emailVerified || draft.emailVerificationSkipped) &&
     !!draft.passwordSet;
 
   // Same pattern as the restaurant portal's seller-info step: email OTP
@@ -108,7 +108,7 @@ export default function DetailsForm({ draft, updateDraft, onContinue }: DetailsF
         <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>Email</label>
         <input
           value={draft.email ?? ''}
-          onChange={(e) => updateDraft({ email: e.target.value, emailVerified: false, passwordSet: false })}
+          onChange={(e) => updateDraft({ email: e.target.value, emailVerified: false, emailVerificationSkipped: false, passwordSet: false })}
           placeholder="you@example.com"
           type="email"
           className="w-full px-3 py-2.5 rounded-[9px] text-[13px] outline-none"
@@ -119,12 +119,12 @@ export default function DetailsForm({ draft, updateDraft, onContinue }: DetailsF
           fullName={draft.fullName}
           phone={draft.phone}
           verified={!!draft.emailVerified}
-          onVerified={() => updateDraft({ emailVerified: true })}
+          onVerified={() => updateDraft({ emailVerified: true, emailVerificationSkipped: false })}\n          skipped={!!draft.emailVerificationSkipped}\n          onSkipped={() => updateDraft({ emailVerificationSkipped: true, emailVerified: false })}
           purpose="rider_signup"
         />
       </div>
 
-      {draft.emailVerified && (
+      {(draft.emailVerified || draft.emailVerificationSkipped) && (
         <div className="mb-3.5 mt-3.5">
           <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink)' }}>
             Set a password
