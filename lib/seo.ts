@@ -9,6 +9,19 @@ export const DEFAULT_DESCRIPTION =
 
 export const LOGO_PATH = '/brand/bigfoods-logo-512.png';
 
+// Google Search Console "HTML tag" verification. Paste only the content value
+// Google gives you (e.g. "abc123...") into NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION.
+// Not needed if you verify with a DNS record instead.
+export const GOOGLE_SITE_VERIFICATION = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined;
+
+// Last real content change for the sitemap's <lastmod>. Bump these when the
+// page text changes; Google ignores lastmod values that change on every build.
+export const CONTENT_UPDATED = {
+  marketing: '2026-11-20', // /restaurant, /rider-portal, /order, /subscriptions, /waitlist
+  guides: '2026-11-20', // /blogs and every guide
+  legal: '2026-11-20', // /privacy, /terms
+} as const;
+
 // 1200x630 share cards built from the BigFoods logo.
 export const SHARE_CARDS = {
   default: { url: '/brand/og-default.png', alt: 'BigFoods: order from local kitchens near you' },

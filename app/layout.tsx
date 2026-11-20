@@ -2,7 +2,7 @@ import './globals.css';
 import type {Metadata} from 'next';
 import {Inter, Space_Grotesk} from 'next/font/google';
 import {CartProvider} from '@/hooks/useCart';
-import {DEFAULT_DESCRIPTION, LOGO_PATH, SHARE_CARDS, SITE_NAME, SITE_URL} from '@/lib/seo';
+import {DEFAULT_DESCRIPTION, GOOGLE_SITE_VERIFICATION, LOGO_PATH, SHARE_CARDS, SITE_NAME, SITE_URL} from '@/lib/seo';
 
 const inter = Inter({subsets: ['latin'], variable: '--font-inter'});
 const spaceGrotesk = Space_Grotesk({
@@ -30,6 +30,7 @@ export const metadata: Metadata = {
   ],
   themeColor: '#FF6A00',
   formatDetection: {telephone: false},
+  ...(GOOGLE_SITE_VERIFICATION ? {verification: {google: GOOGLE_SITE_VERIFICATION}} : {}),
   openGraph: {
     type: 'website',
     siteName: SITE_NAME,
