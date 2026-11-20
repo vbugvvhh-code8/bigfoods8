@@ -1,10 +1,12 @@
+import { pageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import Footer from '@/components/layout/Footer';
 
-export const metadata = {
-  title: 'Privacy Policy — BigFoods',
+export const metadata = pageMetadata({
+  title: 'Privacy Policy',
   description: 'How BigFoods collects, uses, and protects your information.',
-};
+  path: '/privacy',
+});
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (

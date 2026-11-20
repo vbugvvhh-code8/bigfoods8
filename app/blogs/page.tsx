@@ -1,13 +1,15 @@
+import { pageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import Footer from '@/components/layout/Footer';
 import BlogHeroIllustration from '@/components/blog/BlogHeroIllustration';
 import { BLOG_POSTS } from '@/lib/blogPosts';
 
-export const metadata = {
-  title: 'BigFoods Guides — Riders, Restaurants & Food Businesses in Anambra',
+export const metadata = pageMetadata({
+  title: 'Guides for riders, restaurants & food businesses in Anambra',
   description:
     'Practical guides on becoming a delivery rider, selling food online, and running a food business in Anambra — from the team behind BigFoods.',
-};
+  path: '/blogs',
+});
 
 export default function BlogIndexPage() {
   return (

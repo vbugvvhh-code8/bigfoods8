@@ -1,23 +1,22 @@
 import type {Metadata} from 'next';
+import {pageMetadata} from '@/lib/seo';
 import {OrderShellClient} from '@/components/customer/shell/OrderShellClient';
-
-const ICON_URL = 'https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/0.4568313681357089.webp';
 
 // Scoped to app/order and its children only — the root splash, admin, and
 // restaurant-portal pages don't inherit this, so they're unaffected.
+// Icons come from the root app/icon.png and app/apple-icon.png (BigFoods logo).
 export const metadata: Metadata = {
-  title: 'BigFoods',
-  description: 'Order food from local restaurants — fast delivery, real-time tracking, pay by card.',
+  ...pageMetadata({
+    title: 'Order food near you',
+    description: 'Order from restaurants and home kitchens near you. Browse menus, pay securely and track your rider live.',
+    path: '/order',
+    card: 'order',
+  }),
   manifest: '/order-manifest.webmanifest',
-  themeColor: '#FF7A1A',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
     title: 'BigFoods',
-  },
-  icons: {
-    icon: ICON_URL,
-    apple: ICON_URL,
   },
 };
 
