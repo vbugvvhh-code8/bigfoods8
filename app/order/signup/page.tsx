@@ -16,7 +16,7 @@ export default function CustomerSignupPage() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);\n  const [emailVerificationSkipped, setEmailVerificationSkipped] = useState(false);
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -30,7 +30,7 @@ export default function CustomerSignupPage() {
 
   const passwordValid = password.length >= 8;
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
-  const canContinue = !!fullName && !!phone && emailVerified && passwordSet;
+  const canContinue = !!fullName && !!phone && (emailVerified || emailVerificationSkipped) && passwordSet;
 
   // Same pattern as restaurant/rider signup: EmailVerifyField's OTP flow
   // already creates the Supabase Auth session (and the profiles row, with
@@ -111,7 +111,7 @@ export default function CustomerSignupPage() {
         </label>
         <input
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => { setEmail(e.target.value); setEmailVerified(false); setEmailVerificationSkipped(false); setPasswordSet(false); }}
           placeholder="you@example.com"
           type="email"
           className="w-full px-3 py-2.5 rounded-[9px] text-[13px] outline-none"
@@ -122,7 +122,7 @@ export default function CustomerSignupPage() {
           fullName={fullName}
           phone={phone}
           verified={emailVerified}
-          onVerified={() => setEmailVerified(true)}
+          onVerified={() => { setEmailVerified(true); setEmailVerificationSkipped(false); }}\n          skipped={emailVerificationSkipped}\n          onSkipped={() => { setEmailVerificationSkipped(true); setEmailVerified(false); }}
           purpose="customer_signup"
         />
         <p className="text-[11px] mt-1.5" style={{color: 'var(--gray)'}}>
@@ -130,7 +130,7 @@ export default function CustomerSignupPage() {
         </p>
       </div>
 
-      {emailVerified && (
+      {(emailVerified || emailVerificationSkipped) && (
         <div className="mb-5 mt-3.5">
           <label className="block text-[12px] font-medium mb-1.5" style={{color: 'var(--ink)'}}>
             Set a password
