@@ -15,11 +15,21 @@ interface SearchResultsListProps {
 }
 
 export function SearchResultsList({results, query, isLoading, error}: SearchResultsListProps) {
+  if (!query.trim()) {
+    return (
+      <EmptyState
+        icon={<SearchX className="w-5 h-5" />}
+        title="What are you craving?"
+        message="Search for a dish, like jollof rice or suya, or a restaurant name."
+      />
+    );
+  }
+
   if (isLoading) return <CardListSkeleton />;
 
   if (error) return <ErrorState message="Couldn't run that search." />;
 
-  if (results.length === 0) {
+  if (!results?.length) {
     return (
       <EmptyState
         icon={<SearchX className="w-5 h-5" />}

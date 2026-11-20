@@ -161,6 +161,9 @@ export async function middleware(req: NextRequest) {
 
     return response;
   } catch {
+    // Customer pages work without a session check; never bounce shoppers to
+    // another portal's login just because Supabase was briefly unreachable.
+    if (isCustomerOrderRoute) return response;
     const isRiderRoute = pathname.startsWith('/rider-portal');
     return NextResponse.redirect(
       new URL(isAdminRoute ? ADMIN_LOGIN_PATH : isRiderRoute ? RIDER_LOGIN_PATH : RESTAURANT_LOGIN_PATH, req.url)

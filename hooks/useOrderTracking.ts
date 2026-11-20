@@ -171,12 +171,12 @@ export function useOrderTracking(orderId: string) {
     };
   }, [order?.delivery_batch_id, supabase]);
 
-  // Rider location: initial fetch + live subscription, re-run whenever a
-  // rider gets (re)assigned. Riders push a location update roughly every 5
-  // minutes; this fires the moment that row actually changes rather than
-  // polling on a fixed interval. order.rider_id is kept in sync with the
-  // batch's rider_id (see paystack-verify / dispatch-retry-cron), so this
-  // works unchanged for both plain and batched orders.
+  // Rider details and location come from order_rider_public(), which only
+  // returns the rider on the caller's own order and never their ID documents.
+  // Riders push a location update roughly every 5 minutes, so polling every
+  // 30 s while the order is active is plenty and needs no realtime access to
+  // the riders table.
+  const orderActive = !!order && !['delivered', 'cancelled'].includes(order.status);
   useEffect(() => {
     if (!order?.rider_id) {
       setRider(null);
@@ -184,31 +184,30 @@ export function useOrderTracking(orderId: string) {
     }
     let cancelled = false;
 
-    supabase
-      .from('riders')
-      .select('*')
-      .eq('id', order.rider_id)
-      .single()
-      .then(({data}) => {
-        if (!cancelled && data) setRider(data as Rider);
-      });
+    const load = async () => {
+      const {data} = await supabase.rpc('order_rider_public', {p_order_ids: [orderId]});
+      const row = Array.isArray(data) ? data[0] : null;
+      if (cancelled || !row) return;
+      setRider({
+        id: row.rider_id,
+        name: row.name,
+        phone: row.phone,
+        vehicle_type: row.vehicle_type,
+        plate_number: row.plate_number,
+        lat: row.lat,
+        lng: row.lng,
+        last_location_update: row.last_location_update,
+      } as unknown as Rider);
+    };
 
-    const riderChannel = supabase
-      .channel(`rider-${order.rider_id}`)
-      .on(
-        'postgres_changes',
-        {event: 'UPDATE', schema: 'public', table: 'riders', filter: `id=eq.${order.rider_id}`},
-        (payload) => {
-          if (!cancelled) setRider((prev) => (prev ? {...prev, ...(payload.new as Rider)} : (payload.new as Rider)));
-        }
-      )
-      .subscribe();
+    void load();
+    const timer = orderActive ? window.setInterval(load, 30000) : undefined;
 
     return () => {
       cancelled = true;
-      supabase.removeChannel(riderChannel);
+      if (timer) window.clearInterval(timer);
     };
-  }, [order?.rider_id, supabase]);
+  }, [order?.rider_id, orderActive, orderId, supabase]);
 
   // The rider's CURRENT leg destination -- the restaurant (or next
   // unvisited stop in a batch) while still collecting, the customer once
