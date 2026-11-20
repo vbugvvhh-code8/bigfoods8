@@ -15,7 +15,7 @@ interface EmailVerifyFieldProps {
   purpose?: 'customer_signup' | 'restaurant_signup' | 'rider_signup';
 }
 
-export default function EmailVerifyField({ email, fullName, phone, verified, onVerified, purpose }: EmailVerifyFieldProps) {
+export default function EmailVerifyField({ email, fullName, phone, verified, onVerified, skipped, onSkipped, purpose }: EmailVerifyFieldProps) {
   const { status, error, cooldown, sendCode, verifyCode, skipVerification } = useEmailVerification(email, fullName, phone, purpose);
   const { otpState, updateOtpState } = useOnboardingSession();
   
