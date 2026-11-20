@@ -119,7 +119,9 @@ export default function DetailsForm({ draft, updateDraft, onContinue }: DetailsF
           fullName={draft.fullName}
           phone={draft.phone}
           verified={!!draft.emailVerified}
-          onVerified={() => updateDraft({ emailVerified: true, emailVerificationSkipped: false })}\n          skipped={!!draft.emailVerificationSkipped}\n          onSkipped={() => updateDraft({ emailVerificationSkipped: true, emailVerified: false })}
+          onVerified={() => updateDraft({ emailVerified: true, emailVerificationSkipped: false })}
+          skipped={!!draft.emailVerificationSkipped}
+          onSkipped={() => updateDraft({ emailVerificationSkipped: true, emailVerified: false })}
           purpose="rider_signup"
         />
       </div>
