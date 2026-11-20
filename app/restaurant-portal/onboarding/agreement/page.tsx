@@ -142,11 +142,10 @@ export default function AgreementPage() {
         role="note"
       >
         <p className="text-[13px] font-semibold mb-1" style={{ color: 'var(--ink)' }}>
-          About {SEATS_PER_STATE.toLocaleString()} sellers per state
+          1,000 Sellers Per State
         </p>
         <p className="text-[12.5px]" style={{ color: 'var(--ink)' }}>
-          When your state reaches about {SEATS_PER_STATE.toLocaleString()} restaurants and cooks, we may close registration. After
-          that, the only way in is to buy an existing account from a seller.
+          BigFoods is building a network of 1,000 restaurants and home kitchens in each state. Once all 1,000 places are filled, registration in that state will close.
         </p>
       </div>
 
