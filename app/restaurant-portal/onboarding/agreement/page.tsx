@@ -17,10 +17,10 @@ const launchLabel = PUBLIC_LAUNCH_DATE.toLocaleDateString('en-NG', {
 
 const SECTIONS: { title: string; body: string[] }[] = [
   {
-    title: '1. A 1,000-seller limit in each state',
+    title: '1. About 1,000 sellers per state',
     body: [
-      `BigFoods is building a network of up to ${SEATS_PER_STATE.toLocaleString()} restaurants and home kitchens in each state. Your paid onboarding fee secures your place in your state.`,
-      'Once all 1,000 seller slots in a state have been filled, registration in that state will close. Anyone who wants to join afterward must acquire an existing seller account from a seller willing to transfer it. Every account transfer requires BigFoods’ approval. This makes your place on BigFoods a valuable asset, so protect it.',
+      `BigFoods aims to work with about ${SEATS_PER_STATE.toLocaleString()} restaurants and home cooks in each state. Your paid onboarding fee secures your place in your state.`,
+      'Once a state is full, BigFoods may close registration there, and nobody else can register. The only way in after that is to take over an existing account from a seller who is willing to sell it, and BigFoods must approve every transfer. This makes your place on BigFoods a valuable asset, so protect it.',
       'The fee is also how we keep out people who are not serious. We want sellers who will cook properly, deliver on time and stay.',
     ],
   },
@@ -142,10 +142,10 @@ export default function AgreementPage() {
         role="note"
       >
         <p className="text-[13px] font-semibold mb-1" style={{ color: 'var(--ink)' }}>
-          {SEATS_PER_STATE.toLocaleString()} Restaurant & Home Kitchen Slots Per State
+          1,000 Sellers Per State
         </p>
         <p className="text-[12.5px]" style={{ color: 'var(--ink)' }}>
-          BigFoods is building a network of up to {SEATS_PER_STATE.toLocaleString()} restaurants and home kitchens in each state. Once all 1,000 seller slots in your state are filled, registration in that state will close. After that, the only way to join is to acquire an existing seller account through a transfer approved by BigFoods.
+          BigFoods is building a network of 1,000 restaurants and home kitchens in each state. Once all 1,000 places are filled, registration in that state will close.
         </p>
       </div>
 
