@@ -31,8 +31,8 @@ const CALLBACK_PATH_BY_ACTOR: Record<string, string> = {
 // New restaurant onboarding: one payment that includes free ads for the plan
 // period. Price always comes from pricing_config, never from the browser.
 const ONBOARDING_PRICING_KEY_BY_PLAN: Record<string, string> = {
-  "1_month": "onboarding_plan_1_month",   // ₦3,980
-  "3_months": "onboarding_plan_3_months", // ₦7,850
+  "1_month": "onboarding_plan_1_month",   // ₦4,999
+  "3_months": "onboarding_plan_3_months", // ₦10,999
 };
 
 // One-time signup discount — only available before a restaurant's first-ever
